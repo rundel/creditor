@@ -6,6 +6,7 @@
 \alias{doc_export_updates}
 \alias{doc_export_shallow}
 \alias{doc_import}
+\alias{doc_import_status}
 \alias{doc_version}
 \alias{doc_is_shallow}
 \alias{blob_metadata}
@@ -20,6 +21,8 @@ doc_export_updates(doc, from = NULL)
 doc_export_shallow(doc, since = NULL)
 
 doc_import(doc, bytes)
+
+doc_import_status(doc)
 
 doc_version(doc)
 
@@ -53,8 +56,9 @@ for the latest.}
 \code{doc_export()}, \code{doc_export_updates()}, and
 \code{doc_export_shallow()} return a raw vector and \code{doc_version()} a
 version vector.
-\code{doc_import()} and \code{doc_import_json()} invisibly return an import
-status; see the Import status section. \code{doc_is_shallow()} returns a
+\code{doc_import()} and \code{doc_import_json()} return \code{doc} invisibly, and
+\code{doc_import_status()} returns an import status or \code{NULL}; see the
+Import status section. \code{doc_is_shallow()} returns a
 logical, \code{doc_export_json()} a string, and \code{blob_metadata()} a list
 with \code{mode}, \code{changes} (the number of changes), \code{start_timestamp}
 and \code{end_timestamp}, and the versions \code{start_frontiers},
@@ -95,7 +99,12 @@ containers created with \code{\link[=map_ensure_container]{map_ensure_container(
 }
 \section{Import status}{
 
-\code{doc_import()} and \code{doc_import_json()} invisibly return a list of two
+\code{doc_import()} and \code{doc_import_json()} return the document invisibly,
+so they can be used in a pipe. The outcome of the most recent import
+into a document is kept with it, and \code{doc_import_status()} returns
+it, or \code{NULL} if nothing has been imported. Like the document, it is
+shared by every reference to it, so it can be read from the original
+variable as well as from the result of a pipe. It is a list of two
 data frames, \code{success} and \code{pending}, each with columns \code{peer},
 \code{start}, and \code{end} giving a range of that peer's operation counters.
 \code{success} holds the operations that were applied. \code{pending} holds
@@ -119,6 +128,10 @@ doc_import(b, doc_export_updates(a, from = doc_version(b)))
 doc_import(a, doc_export_updates(b, from = doc_version(a)))
 text_get(a)
 text_get(b)
+doc_import_status(b)
+
+# Imports return the document, so they can be piped
+loro_doc() |> doc_import(doc_export(a)) |> text_get()
 
 small = doc_export_shallow(a)
 blob_metadata(small)$mode

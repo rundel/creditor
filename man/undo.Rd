@@ -34,15 +34,15 @@ undo_is_paused(manager)
 
 undo_clear(manager)
 
-undo(manager)
+undo(manager, strict = FALSE)
 
-redo(manager)
+redo(manager, strict = FALSE)
 
 can_undo(manager)
 
 can_redo(manager)
 
-undo_group(manager, code)
+undo_group(manager, code, strict = FALSE)
 }
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
@@ -59,15 +59,18 @@ not recorded as undo steps.}
 
 \item{manager}{An undo manager from \code{doc_undo_manager()}.}
 
+\item{strict}{Whether doing nothing is an error: for \code{undo()} and
+\code{redo()}, having no step to take, and for \code{undo_group()}, \code{code}
+making no edits.}
+
 \item{code}{Code that edits the document.}
 }
 \value{
 \code{doc_undo_manager()} returns an undo manager. \code{undo()},
-\code{redo()}, \code{can_undo()}, \code{can_redo()}, and \code{undo_is_paused()} return
-a logical, and \code{undo_count()} and \code{redo_count()} an integer.
-\code{undo_pause()}, \code{undo_resume()}, and \code{undo_clear()} return
-\code{manager} invisibly.
-\code{undo_group()} returns the value of \code{code}.
+\code{redo()}, \code{undo_group()}, \code{undo_pause()}, \code{undo_resume()}, and
+\code{undo_clear()} return \code{manager} invisibly. \code{can_undo()},
+\code{can_redo()}, and \code{undo_is_paused()} return a logical, and
+\code{undo_count()} and \code{redo_count()} an integer.
 }
 \description{
 An undo manager tracks the local changes made to a document after it
@@ -76,8 +79,9 @@ replicas are never undone: an undo reverses only this replica's own
 edits, adjusted for whatever others have done since.
 \itemize{
 \item \code{doc_undo_manager()} creates an undo manager for \code{doc}.
-\item \code{undo()} and \code{redo()} step backward and forward. They return \code{TRUE}
-if the document changed.
+\item \code{undo()} and \code{redo()} step backward and forward. If there is no
+step to take they do nothing, or with \code{strict = TRUE} raise an
+error.
 \item \code{can_undo()} and \code{can_redo()} report whether a step is available.
 \item \code{undo_count()} and \code{redo_count()} return the number of steps
 available.
@@ -87,7 +91,8 @@ group starts and when it ends, so the step contains exactly the
 edits made by \code{code}. Groups cannot be nested. If changes to the
 same container are imported from another replica while the group
 is open, Loro closes the step early and the group is recorded as
-more than one step.
+more than one step. With \code{strict = TRUE} it is an error for \code{code}
+to make no edits.
 \item \code{undo_pause()} stops recording local edits as undo steps until
 \code{undo_resume()}; \code{undo_is_paused()} reports the state. Edits made
 while paused cannot be undone.

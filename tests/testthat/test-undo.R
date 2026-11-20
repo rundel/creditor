@@ -11,19 +11,19 @@ test_that("commits are undone and redone one step at a time", {
   doc_commit(doc)
   expect_true(can_undo(manager))
 
-  expect_true(undo(manager))
+  expect_no_error(undo(manager, strict = TRUE))
   expect_identical(text_get(text), "Hello")
   expect_true(can_redo(manager))
 
-  expect_true(undo(manager))
+  expect_no_error(undo(manager, strict = TRUE))
   expect_identical(text_get(text), "")
   expect_false(can_undo(manager))
-  expect_false(undo(manager))
+  expect_error(undo(manager, strict = TRUE), "nothing to undo")
 
-  expect_true(redo(manager))
-  expect_true(redo(manager))
+  expect_no_error(redo(manager, strict = TRUE))
+  expect_no_error(redo(manager, strict = TRUE))
   expect_identical(text_get(text), "Hello world")
-  expect_false(redo(manager))
+  expect_error(redo(manager, strict = TRUE), "nothing to redo")
 })
 
 test_that("a new edit clears the redo stack", {
@@ -48,7 +48,7 @@ test_that("changes made before the manager existed are not undone", {
 
   manager = doc_undo_manager(doc)
   expect_false(can_undo(manager))
-  expect_false(undo(manager))
+  expect_error(undo(manager, strict = TRUE), "nothing to undo")
   expect_identical(text_get(text), "old")
 })
 
@@ -77,14 +77,12 @@ test_that("a group is undone as one step", {
   text_insert(text, 1, "base")
   doc_commit(doc)
 
-  value = undo_group(manager, {
+  undo_group(manager, {
     text_insert(text, 1, "1")
     doc_commit(doc)
     text_insert(text, 1, "2")
     doc_commit(doc)
-    "done"
   })
-  expect_identical(value, "done")
   expect_identical(text_get(text), "21base")
 
   undo(manager)
@@ -249,7 +247,7 @@ test_that("steps can be counted, paused, and cleared", {
 
   undo_clear(manager)
   expect_identical(c(undo_count(manager), redo_count(manager)), c(0L, 0L))
-  expect_false(undo(manager))
+  expect_error(undo(manager, strict = TRUE), "nothing to undo")
   expect_identical(text_get(text), "ab")
   expect_error(undo_clear("x"), "loro_undo_manager")
 })
@@ -292,7 +290,7 @@ test_that("groups cannot be nested", {
   )
   text_insert(text, 1, "b")
   doc_commit(doc)
-  expect_true(undo(manager))
+  expect_no_error(undo(manager, strict = TRUE))
 })
 
 test_that("undoing a container deletion restores it under a new id", {
@@ -359,7 +357,7 @@ test_that("the oldest steps are dropped beyond max_steps", {
     doc_commit(doc)
   }
   expect_identical(undo_count(manager), 3L)
-  while (undo(manager)) NULL
+  while (can_undo(manager)) undo(manager)
   expect_identical(text_get(text), "ab")
 })
 
@@ -380,4 +378,26 @@ test_that("undo can be called from a callback", {
   doc_commit(doc, origin = "bad")
   expect_identical(text_get(text), "keep")
   expect_identical(origins, c("", "bad", "undo"))
+})
+
+test_that("undo, redo, and groups return the manager and can be strict", {
+  doc = loro_doc()
+  manager = doc_undo_manager(doc)
+
+  out = withVisible(undo(manager))
+  expect_false(out$visible)
+  expect_identical(out$value, manager)
+  expect_identical(redo(manager), manager)
+
+  result = manager |>
+    undo_group(text_insert(doc, 1, "a")) |>
+    undo_group(text_push(doc, "b")) |>
+    undo()
+  expect_identical(result, manager)
+  expect_identical(text_get(doc), "a")
+
+  expect_identical(undo_group(manager, NULL), manager)
+  expect_error(undo_group(manager, NULL, strict = TRUE), "made no edits")
+  expect_no_error(undo_group(manager, text_push(doc, "c"), strict = TRUE))
+  expect_error(undo(manager, strict = NA), "strict")
 })

@@ -7,8 +7,9 @@
 #' edits, adjusted for whatever others have done since.
 #'
 #' * `doc_undo_manager()` creates an undo manager for `doc`.
-#' * `undo()` and `redo()` step backward and forward. They return `TRUE`
-#'   if the document changed.
+#' * `undo()` and `redo()` step backward and forward. If there is no
+#'   step to take they do nothing, or with `strict = TRUE` raise an
+#'   error.
 #' * `can_undo()` and `can_redo()` report whether a step is available.
 #' * `undo_count()` and `redo_count()` return the number of steps
 #'   available.
@@ -18,7 +19,8 @@
 #'   edits made by `code`. Groups cannot be nested. If changes to the
 #'   same container are imported from another replica while the group
 #'   is open, Loro closes the step early and the group is recorded as
-#'   more than one step.
+#'   more than one step. With `strict = TRUE` it is an error for `code`
+#'   to make no edits.
 #' * `undo_pause()` stops recording local edits as undo steps until
 #'   `undo_resume()`; `undo_is_paused()` reports the state. Edits made
 #'   while paused cannot be undone.
@@ -46,13 +48,15 @@
 #'   not recorded as undo steps.
 #' @param manager An undo manager from `doc_undo_manager()`.
 #' @param code Code that edits the document.
+#' @param strict Whether doing nothing is an error: for `undo()` and
+#'   `redo()`, having no step to take, and for `undo_group()`, `code`
+#'   making no edits.
 #'
 #' @return `doc_undo_manager()` returns an undo manager. `undo()`,
-#'   `redo()`, `can_undo()`, `can_redo()`, and `undo_is_paused()` return
-#'   a logical, and `undo_count()` and `redo_count()` an integer.
-#'   `undo_pause()`, `undo_resume()`, and `undo_clear()` return
-#'   `manager` invisibly.
-#'   `undo_group()` returns the value of `code`.
+#'   `redo()`, `undo_group()`, `undo_pause()`, `undo_resume()`, and
+#'   `undo_clear()` return `manager` invisibly. `can_undo()`,
+#'   `can_redo()`, and `undo_is_paused()` return a logical, and
+#'   `undo_count()` and `redo_count()` an integer.
 #'
 #' @examples
 #' doc = loro_doc()
@@ -160,18 +164,26 @@ undo_clear = function(manager) {
 
 #' @rdname undo
 #' @export
-undo = function(manager) {
+undo = function(manager, strict = FALSE) {
   check_manager(manager)
+  check_bool(strict, "strict")
   on.exit(deliver_events(), add = TRUE)
-  loro_undo_undo_impl(manager@ptr)
+  if (!loro_undo_undo_impl(manager@ptr) && strict) {
+    cli::cli_abort("There is nothing to undo.")
+  }
+  invisible(manager)
 }
 
 #' @rdname undo
 #' @export
-redo = function(manager) {
+redo = function(manager, strict = FALSE) {
   check_manager(manager)
+  check_bool(strict, "strict")
   on.exit(deliver_events(), add = TRUE)
-  loro_undo_redo_impl(manager@ptr)
+  if (!loro_undo_redo_impl(manager@ptr) && strict) {
+    cli::cli_abort("There is nothing to redo.")
+  }
+  invisible(manager)
 }
 
 #' @rdname undo
@@ -190,9 +202,11 @@ can_redo = function(manager) {
 
 #' @rdname undo
 #' @export
-undo_group = function(manager, code) {
+undo_group = function(manager, code, strict = FALSE) {
   check_manager(manager)
+  check_bool(strict, "strict")
   loro_doc_commit_impl(manager@doc, NULL, NULL, NULL)
+  before = loro_doc_frontiers_impl(manager@doc)
   tryCatch(
     loro_undo_group_impl(manager@ptr, TRUE),
     error = function(cnd) {
@@ -202,12 +216,22 @@ undo_group = function(manager, code) {
       cli::cli_abort("Undo groups cannot be nested.", call = NULL)
     }
   )
-  on.exit({
-    loro_doc_commit_impl(manager@doc, NULL, NULL, NULL)
-    loro_undo_group_impl(manager@ptr, FALSE)
-    deliver_events()
-  })
-  code
+  open = TRUE
+  close = function() {
+    if (open) {
+      open <<- FALSE
+      loro_doc_commit_impl(manager@doc, NULL, NULL, NULL)
+      loro_undo_group_impl(manager@ptr, FALSE)
+      deliver_events()
+    }
+  }
+  on.exit(close())
+  force(code)
+  close()
+  if (strict && identical(loro_doc_frontiers_impl(manager@doc), before)) {
+    cli::cli_abort("{.arg code} made no edits.")
+  }
+  invisible(manager)
 }
 
 S7::method(print, loro_undo_manager) = function(x, ...) {

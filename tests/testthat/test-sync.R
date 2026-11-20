@@ -16,7 +16,9 @@ test_that("import reports the operations it applied", {
   text_insert(doc_text(a), 1, "Hello")
   b = loro_doc()
 
-  status = doc_import(b, doc_export(a))
+  doc_import(b, doc_export(a))
+
+  status = doc_import_status(b)
   expect_identical(status$success, data.frame(peer = "1", start = 0L, end = 5L))
   expect_identical(status$pending, empty_range)
   expect_invisible(doc_import(b, doc_export(a)))
@@ -34,12 +36,15 @@ test_that("updates that arrive early are pending until their dependencies do", {
   second = doc_export_updates(a, from = version)
 
   b = loro_doc()
-  status = doc_import(b, second)
+  doc_import(b, second)
+  status = doc_import_status(b)
   expect_identical(status$success, empty_range)
   expect_identical(status$pending, data.frame(peer = "5", start = 1L, end = 2L))
   expect_identical(text_get(doc_text(b)), "")
 
-  status = doc_import(b, first)
+  doc_import(b, first)
+
+  status = doc_import_status(b)
   expect_identical(status$success, data.frame(peer = "5", start = 0L, end = 2L))
   expect_identical(status$pending, empty_range)
   expect_identical(text_get(doc_text(b)), "ab")
@@ -56,11 +61,12 @@ test_that("a list of updates is imported together in any order", {
   second = doc_export_updates(a, from = version)
 
   b = loro_doc()
-  status = doc_import(b, list(second, first))
+  doc_import(b, list(second, first))
+  status = doc_import_status(b)
   expect_identical(status$pending, empty_range)
   expect_identical(text_get(doc_text(b)), "ab")
 
-  expect_identical(doc_import(b, list())$success, empty_range)
+  expect_identical(doc_import_status(doc_import(b, list()))$success, empty_range)
   expect_error(doc_import(b, list(first, "x")), "raw")
 })
 
@@ -150,7 +156,8 @@ test_that("changes round trip through JSON", {
   expect_match(json, "Hello")
 
   b = loro_doc()
-  status = doc_import_json(b, json)
+  doc_import_json(b, json)
+  status = doc_import_status(b)
   expect_identical(status$success$peer, "5")
   expect_identical(doc_value(b), doc_value(a))
   expect_identical(doc_changes(b)$message, "first")
@@ -232,16 +239,20 @@ test_that("importing known changes again reports nothing new", {
   text_insert(doc_text(doc), 1, "abc")
   version = doc_version(doc)
 
-  status = doc_import(doc, doc_export(doc))
+  doc_import(doc, doc_export(doc))
+
+  status = doc_import_status(doc)
   expect_identical(nrow(status$success), 0L)
   expect_identical(nrow(status$pending), 0L)
   expect_identical(doc_version(doc), version)
 
   other = loro_doc()
   doc_import(other, doc_export(doc))
-  status = doc_import(other, doc_export(doc))
+  doc_import(other, doc_export(doc))
+  status = doc_import_status(other)
   expect_identical(nrow(status$success), 0L)
-  status = doc_import_json(other, doc_export_json(doc))
+  doc_import_json(other, doc_export_json(doc))
+  status = doc_import_status(other)
   expect_identical(nrow(status$success), 0L)
   expect_identical(text_get(doc_text(other)), "abc")
 })
@@ -256,7 +267,8 @@ test_that("JSON updates that arrive early are pending", {
   doc_commit(doc)
 
   other = loro_doc()
-  status = doc_import_json(other, doc_export_json(doc, from = version))
+  doc_import_json(other, doc_export_json(doc, from = version))
+  status = doc_import_status(other)
   expect_identical(status$pending, data.frame(peer = "5", start = 3L, end = 5L))
   expect_identical(text_get(doc_text(other)), "")
   doc_import(other, doc_export_updates(doc))
@@ -358,4 +370,26 @@ test_that("JSON export refuses containers it cannot carry", {
   copy = loro_doc()
   doc_import_json(copy, doc_export_json(regular))
   expect_identical(doc_value(copy), doc_value(regular))
+})
+
+test_that("imports return the document and keep their status with it", {
+  a = loro_doc(peer_id = 1)
+  text_insert(a, 1, "hi")
+  b = loro_doc(peer_id = 2)
+  expect_null(doc_import_status(b))
+
+  out = withVisible(doc_import(b, doc_export(a)))
+  expect_false(out$visible)
+  expect_identical(container_id(doc_text(out$value)), container_id(doc_text(b)))
+  expect_identical(loro_doc() |> doc_import(doc_export(a)) |> text_get(), "hi")
+
+  status = doc_import_status(b)
+  expect_named(status, c("success", "pending"))
+  expect_identical(status$success$peer, "1")
+  expect_identical(nrow(status$pending), 0L)
+
+  json = doc_export_json(a)
+  expect_identical(doc_import_json(b, json), b)
+  expect_identical(nrow(doc_import_status(b)$success), 0L)
+  expect_null(doc_import_status(doc_fork(b)))
 })

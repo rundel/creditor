@@ -442,7 +442,8 @@ test_that("an empty document has a usable empty version", {
 
   for (export in list(doc_export, doc_export_updates, doc_export_shallow)) {
     other = loro_doc()
-    status = doc_import(other, export(empty))
+    doc_import(other, export(empty))
+    status = doc_import_status(other)
     expect_identical(nrow(status$success), 0L)
     expect_identical(nrow(doc_changes(other)), 0L)
   }

@@ -26,13 +26,13 @@
 loro_doc = S7::new_class(
   "loro_doc",
   package = "creditor",
-  properties = list(ptr = S7::class_any),
+  properties = list(ptr = S7::class_any, state = S7::class_environment),
   constructor = function(peer_id = NULL) {
     ptr = loro_doc_new_impl()
     if (!is.null(peer_id)) {
       loro_doc_set_peer_id_impl(ptr, as_peer_id(peer_id))
     }
-    S7::new_object(S7::S7_object(), ptr = ptr)
+    S7::new_object(S7::S7_object(), ptr = ptr, state = new.env(parent = emptyenv()))
   }
 )
 
@@ -331,7 +331,12 @@ doc_jsonpath = function(doc, path) {
 #'   `doc_export_json()` refuses to export changes that create one.
 #'
 #' @section Import status:
-#' `doc_import()` and `doc_import_json()` invisibly return a list of two
+#' `doc_import()` and `doc_import_json()` return the document invisibly,
+#' so they can be used in a pipe. The outcome of the most recent import
+#' into a document is kept with it, and `doc_import_status()` returns
+#' it, or `NULL` if nothing has been imported. Like the document, it is
+#' shared by every reference to it, so it can be read from the original
+#' variable as well as from the result of a pipe. It is a list of two
 #' data frames, `success` and `pending`, each with columns `peer`,
 #' `start`, and `end` giving a range of that peer's operation counters.
 #' `success` holds the operations that were applied. `pending` holds
@@ -355,8 +360,9 @@ doc_jsonpath = function(doc, path) {
 #' @return `doc_export()`, `doc_export_updates()`, and
 #'   `doc_export_shallow()` return a raw vector and `doc_version()` a
 #'   version vector.
-#'   `doc_import()` and `doc_import_json()` invisibly return an import
-#'   status; see the Import status section. `doc_is_shallow()` returns a
+#'   `doc_import()` and `doc_import_json()` return `doc` invisibly, and
+#'   `doc_import_status()` returns an import status or `NULL`; see the
+#'   Import status section. `doc_is_shallow()` returns a
 #'   logical, `doc_export_json()` a string, and `blob_metadata()` a list
 #'   with `mode`, `changes` (the number of changes), `start_timestamp`
 #'   and `end_timestamp`, and the versions `start_frontiers`,
@@ -376,6 +382,10 @@ doc_jsonpath = function(doc, path) {
 #' doc_import(a, doc_export_updates(b, from = doc_version(a)))
 #' text_get(a)
 #' text_get(b)
+#' doc_import_status(b)
+#'
+#' # Imports return the document, so they can be piped
+#' loro_doc() |> doc_import(doc_export(a)) |> text_get()
 #'
 #' small = doc_export_shallow(a)
 #' blob_metadata(small)$mode
@@ -433,7 +443,15 @@ doc_import = function(doc, bytes) {
       "{.arg bytes} must be a raw vector from an export function, or a list of them."
     )
   }
-  invisible(import_status(status))
+  doc@state$import_status = import_status(status)
+  invisible(doc)
+}
+
+#' @rdname doc_sync
+#' @export
+doc_import_status = function(doc) {
+  check_doc(doc)
+  doc@state$import_status
 }
 
 #' @rdname doc_sync
@@ -506,7 +524,8 @@ doc_import_json = function(doc, json) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
   status = loro_doc_import_json_impl(doc@ptr, check_string(json, "json"))
-  invisible(import_status(status))
+  doc@state$import_status = import_status(status)
+  invisible(doc)
 }
 
 S7::method(print, loro_doc) = function(x, ...) {
