@@ -70,7 +70,7 @@ sync(a, b) |>
 text_get(b)
 ```
 
-When you have the new contents as a whole string, for example from an editor widget, `text_update()` works out the difference and applies only the changes needed. That matters for merging: replacing the whole string would discard a concurrent edit, while an update keeps it.
+Sometimes only the new text as a whole is known, not the individual edits, for example when an editor widget reports its full contents. `text_update()` compares the new string with the current text and applies just the insertions and deletions that turn one into the other. Deleting the old text and inserting the new string would look the same on this replica, but it makes the edit a rewrite of every character, which no longer lines up with what other replicas changed. Below, `a` changes the time and `b` the day, and the merge keeps both. Had `a` deleted and reinserted the whole text instead, the merge would give `"Meeting at 12:30 on TuesdayWedn"`.
 
 ```{r}
 a = loro_doc(peer_id = 1) |>
