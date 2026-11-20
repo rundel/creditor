@@ -205,11 +205,19 @@ map_assign = function(map, key, value) {
   map
 }
 
-S7::method(`[[<-`, loro_map) = function(x, i, ..., value) {
+# The replacement methods are registered by name in NAMESPACE rather than
+# through S7: R 4.4's check of replacement functions errors on S3 methods
+# registered as anonymous functions.
+
+#' @rawNamespace S3method("[[<-", "creditor::loro_map", map_subset_assign)
+#' @noRd
+map_subset_assign = function(x, i, ..., value) {
   map_assign(x, check_string(i, "i"), value)
 }
 
-S7::method(`$<-`, loro_map) = function(x, name, value) {
+#' @rawNamespace S3method("$<-", "creditor::loro_map", map_dollar_assign)
+#' @noRd
+map_dollar_assign = function(x, name, value) {
   map_assign(x, check_string(name, "name"), value)
 }
 

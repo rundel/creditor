@@ -209,7 +209,12 @@ list_clear = function(list) {
 
 S7::method(`[[`, loro_list) = function(x, i, ...) list_get(x, i)
 
-S7::method(`[[<-`, loro_list) = function(x, i, ..., value) {
+# Registered by name in NAMESPACE rather than through S7; see
+# map_subset_assign().
+
+#' @rawNamespace S3method("[[<-", "creditor::loro_list", list_subset_assign)
+#' @noRd
+list_subset_assign = function(x, i, ..., value) {
   if (is.null(value)) {
     return(list_delete(x, i))
   }
