@@ -8,7 +8,7 @@ two_versions = function() {
   text_insert(text, 6, " world")
   map = doc_map(doc, "m")
   map_set(map, k = 1L)
-  text_insert(map_set_container(map, "body", "text"), 1, "child")
+  map_set(map, body = loro_text("child"))
   doc_commit(doc)
   list(doc = doc, v1 = v1, v2 = doc_frontiers(doc))
 }

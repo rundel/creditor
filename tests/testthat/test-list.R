@@ -26,8 +26,10 @@ test_that("a vector is inserted as a single element", {
 test_that("child containers can be created and retrieved", {
   list = doc_list(loro_doc())
   list_push(list, "plain")
-  text = list_insert_container(list, 1, "text")
-  map = list_push_container(list, "map")
+  text = loro_text()
+  list_insert(list, 1, text)
+  map = loro_map()
+  list_push(list, map)
 
   text_insert(text, 1, "abc")
   map_set(map, k = TRUE)
@@ -45,7 +47,6 @@ test_that("out of range positions are errors", {
   expect_error(list_get(list, 0), "pos")
   expect_error(list_insert(list, 3, "x"))
   expect_error(list_delete(list, 1:5))
-  expect_error(list_insert_container(list, 1, "nope"), "type")
   expect_identical(list_length(list), 1L)
 })
 
@@ -69,7 +70,8 @@ test_that("elements can be popped and the list cleared", {
 
     list_push(items, 1L)
     list_push(items, "two")
-    child = list_push_container(items, "text")
+    child = loro_text()
+    list_push(items, child)
     text_insert(child, 1, "kid")
 
     expect_identical(list_pop(items), "kid")
@@ -91,7 +93,7 @@ test_that("out of range errors name the 1-based position given", {
     list_push(items, "b")
 
     expect_error(list_insert(items, 4, "c"), "at most 3.*not 4")
-    expect_error(list_insert_container(items, 4, "text"), "at most 3.*not 4")
+    expect_error(list_insert(items, 4, loro_text()), "at most 3.*not 4")
     expect_error(list_get(items, 3), "at most 2.*not 3")
     expect_error(list_delete(items, 2:3), "at most 2.*not 3")
     expect_error(list_delete(items, 0), "whole numbers >= 1")

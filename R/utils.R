@@ -149,19 +149,26 @@ check_positions = function(pos, size, what, call = rlang::caller_env()) {
   as.integer(pos)
 }
 
-check_range = function(start, end, size, what, call = rlang::caller_env()) {
-  start = check_count(start, "start", 1, call = call)
-  end = check_count(end, "end", 0, call = call)
+check_range = function(
+  start,
+  end,
+  size,
+  what,
+  args = c("start", "end"),
+  call = rlang::caller_env()
+) {
+  start = check_count(start, args[1], 1, call = call)
+  end = check_count(end, args[2], 0, call = call)
   if (end < start - 1L) {
     cli::cli_abort(
-      "{.arg end} must be at least {start - 1L} ({.arg start} - 1, an empty range), not {end}.",
+      "{.arg {args[2]}} must be at least {start - 1L} ({.arg {args[1]}} - 1, an empty range), not {end}.",
       call = call
     )
   }
   if (end > size) {
     cli::cli_abort(
       c(
-        "{.arg start} and {.arg end} must describe a range inside the {what}.",
+        "{.arg {args[1]}} and {.arg {args[2]}} must describe a range inside the {what}.",
         x = "The range is {start} to {end}, but the {what} has length {size}."
       ),
       call = call

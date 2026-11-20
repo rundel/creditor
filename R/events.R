@@ -151,6 +151,7 @@ doc_subscribe = function(doc, callback, container = NULL) {
     loro_doc_subscribe_impl(doc@ptr)
   } else {
     check_container(container, loro_container, "container")
+    loro_container_resolve_impl(container@ptr)
     loro_doc_subscribe_container_impl(doc@ptr, container@ptr)
   }
   register_subscription(ptr, callback)

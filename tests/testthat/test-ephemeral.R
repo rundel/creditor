@@ -182,3 +182,10 @@ test_that("ephemeral values and keys convert like document values", {
   ephemeral_delete(a, "never set")
   expect_identical(events, 0)
 })
+
+test_that("ephemeral_set() accepts keys that look like its own argument", {
+  store = ephemeral_store()
+  ephemeral_set(store, st = 1, store = 2)
+  expect_identical(ephemeral_values(store), list(st = 1, store = 2))
+  expect_error(ephemeral_set(1, a = 1), "`.store` must be")
+})

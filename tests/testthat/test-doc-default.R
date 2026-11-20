@@ -14,7 +14,8 @@ test_that("a document stands for its default root containers", {
   expect_identical(map_get(doc, "theme"), "dark")
   expect_identical(map_keys(doc), c("size", "theme"))
   map_delete(doc, "size")
-  body = map_set_container(doc, "body", "text")
+  body = loro_text()
+  map_set(doc, body = body)
   text_insert(body, 1, "nested")
 
   list_push(doc, "a", "b", "c")
@@ -43,7 +44,7 @@ test_that("a document is not a movable list", {
   list_push(doc, "a", "b")
   expect_error(list_move(doc, 1, 2), "doc_movable_list")
   expect_error(list_set(doc, 1, "z"), "doc_movable_list")
-  expect_error(list_set_container(doc, 1, "map"), "doc_movable_list")
+  expect_error(list_set(doc, 1, loro_map()), "doc_movable_list")
   expect_identical(names(doc_value(doc)), "list")
 })
 

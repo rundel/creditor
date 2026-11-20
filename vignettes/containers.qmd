@@ -359,24 +359,26 @@ show_outline(a)
 
 Maps, lists, movable lists, and tree metadata can hold child containers as well as plain values. This is what lets a real document be more than one flat structure, and it controls how finely concurrent edits merge.
 
-`map_set_container()`, `list_push_container()`, and `list_insert_container()` create an empty child and return its handle.
+`loro_text()`, `loro_map()`, `loro_list()`, `loro_movable_list()`, `loro_counter()`, and `loro_tree()` create a new container, optionally with initial contents, that can be stored anywhere a plain value can. New containers nest the way R lists do.
 
 ```{r}
 doc = loro_doc(peer_id = 1)
 note = doc_map(doc, "note")
-map_set(note, title = "Trip planning")
-
-body = map_set_container(note, "body", "text")
-text_insert(body, 1, "Flights are booked.")
-
-todo = map_set_container(note, "todo", "movable_list")
-item = list_push_container(todo, "map")
-map_set(item, label = "Book hotel", done = FALSE)
-
-likes = map_set_container(note, "likes", "counter")
-counter_increment(likes)
+note$title = "Trip planning"
+note$body = loro_text("Flights are booked.")
+note$todo = loro_movable_list(loro_map(label = "Book hotel", done = FALSE))
+note$likes = loro_counter(1)
 
 str(doc_value(doc))
+```
+
+Once stored, a handle refers to the container in the document, so it can keep being used for edits.
+
+```{r}
+body = loro_text("Flights")
+note$body = body
+text_push(body, " and trains are booked.")
+text_get(note$body)
 ```
 
 Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path.
@@ -393,8 +395,7 @@ The difference between a plain value and a child container is the unit of mergin
 a = loro_doc(peer_id = 1)
 root = doc_map(a)
 map_set(root, plain = list(label = "Book hotel", done = FALSE))
-child = map_set_container(root, "child", "map")
-map_set(child, label = "Book hotel", done = FALSE)
+root$child = loro_map(label = "Book hotel", done = FALSE)
 b = replica(a, 2)
 
 root_a = doc_map(a)
@@ -413,7 +414,7 @@ In the child map both changes survive: the item is relabeled and marked done. In
 
 ### Creating children on first use
 
-When replicas create a child container lazily, the first time it is needed, two of them may each create one under the same key before they have synced. With `map_set_container()` those are two different containers, and after a merge only one is visible. `map_ensure_container()` creates the child in a way that makes both replicas end up with the same container, so the edits from both are kept.
+When replicas create a child container lazily, the first time it is needed, two of them may each create one under the same key before they have synced. Storing a new container with `map_set()` makes those two different containers, and after a merge only one is visible. `map_ensure_container()` creates the child in a way that makes both replicas end up with the same container, so the edits from both are kept.
 
 ```{r}
 a = loro_doc(peer_id = 1)

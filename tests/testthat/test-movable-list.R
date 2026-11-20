@@ -35,7 +35,9 @@ test_that("elements can be set in place", {
   list_set(items, 2, list(x = 1L))
   expect_identical(container_value(items), list("a", list(x = 1L)))
 
-  text = list_set_container(items, 1, "text")
+  text = loro_text()
+
+  list_set(items, 1, text)
   text_insert(text, 1, "hi")
   expect_identical(text_get(list_get(items, 1)), "hi")
   expect_identical(list_length(items), 2L)
@@ -79,20 +81,20 @@ test_that("move and set need a movable list and valid positions", {
   list_push(plain, 1)
   expect_error(list_move(plain, 1, 1), "loro_movable_list")
   expect_error(list_set(plain, 1, 2), "loro_movable_list")
-  expect_error(list_set_container(plain, 1, "text"), "loro_movable_list")
+  expect_error(list_set(plain, 1, loro_text()), "loro_movable_list")
 
   items = doc_movable_list(doc, "items")
   list_push(items, 1)
   expect_error(list_move(items, 0, 1), "from")
   expect_error(list_move(items, 1, 5))
   expect_error(list_set(items, 3, 1))
-  expect_error(list_set_container(items, 1, "nope"), "type")
 })
 
 test_that("movable lists nest and appear in diffs as lists", {
   doc = loro_doc(peer_id = 1)
   map = doc_map(doc, "m")
-  items = map_set_container(map, "items", "movable_list")
+  items = loro_movable_list()
+  map_set(map, items = items)
   expect_s3_class(items, "creditor::loro_movable_list")
   list_push(items, "a")
   v1 = doc_frontiers(doc)
@@ -109,7 +111,7 @@ test_that("movable lists nest and appear in diffs as lists", {
 test_that("move and set positions are checked against the length", {
   items = doc_movable_list(loro_doc())
   expect_error(list_set(items, 1, "x"), "at most 0")
-  expect_error(list_set_container(items, 1, "text"), "at most 0")
+  expect_error(list_set(items, 1, loro_text()), "at most 0")
   expect_error(list_move(items, 1, 1), "`from`")
 
   list_push(items, "a")
@@ -123,7 +125,8 @@ test_that("a moved child container keeps its identity", {
   doc = loro_doc()
   items = doc_movable_list(doc)
   list_push(items, "a")
-  child = list_push_container(items, "map")
+  child = loro_map()
+  list_push(items, child)
   map_set(child, k = 1L)
 
   list_move(items, 2, 1)

@@ -150,6 +150,6 @@ text_convert_pos = function(
   loro_text_convert_pos_impl(ptr, pos - 1L, rlang::arg_match(from), rlang::arg_match(to)) + 1L
 }
 
-S7::method(length, loro_text) = function(x) loro_text_length_impl(x@ptr)
+S7::method(length, loro_text) = function(x) text_length(x)
 
-S7::method(as.character, loro_text) = function(x, ...) loro_container_value_impl(x@ptr, TRUE)
+S7::method(as.character, loro_text) = function(x, ...) container_value(x)

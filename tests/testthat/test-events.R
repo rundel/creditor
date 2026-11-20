@@ -67,7 +67,8 @@ test_that("an implicit commit also delivers events", {
 test_that("a container subscription only sees its own changes", {
   doc = loro_doc()
   map = doc_map(doc, "m")
-  child = map_set_container(map, "body", "text")
+  child = loro_text()
+  map_set(map, body = child)
   doc_commit(doc)
 
   seen = collector()

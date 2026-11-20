@@ -4,20 +4,21 @@
 #' A map holds values under string keys. When replicas set the same key
 #' concurrently, one write wins on every replica.
 #'
-#' * `map_set()` stores plain values, given as `key = value` arguments.
-#' * `map_set_container()` stores a new, empty child container under
-#'   `key` and returns its handle.
+#' * `map_set()` stores values, given as `key = value` arguments. A
+#'   value can be a plain R value or a new container from [`loro_text()`],
+#'   [`loro_map()`], [`loro_list()`], and the like.
 #' * `map_get()` returns the value under `key`, a handle if it is a
 #'   container, or `NULL` if the key is absent.
 #' * `map_has()` reports whether each of `keys` is present.
 #' * `map_ensure_container()` returns the child container under `key`,
-#'   creating it if the key is empty. Unlike `map_set_container()`,
-#'   which always makes a fresh container, the container it creates is
+#'   creating it if the key is empty. Unlike storing a new container
+#'   with `map_set()`, which always makes a fresh one, the container it
+#'   creates is
 #'   shared: replicas that each create it independently end up editing
 #'   the same one, with all their edits merged. Use it for containers
 #'   that are created lazily on first use. It is an error if `key`
 #'   already holds a plain value, a container of another type, or a
-#'   container made by `map_set_container()`.
+#'   container stored with `map_set()`.
 #' * `map_delete()` removes the keys named in `...`, as in
 #'   `map_delete(map, "a", "b")` or `map_delete(map, keys)`, and
 #'   `map_clear()` removes every key.
@@ -71,30 +72,32 @@
 #'   A [`loro_doc`] is also accepted and stands for its default root
 #'   container; see [`doc_text()`].
 #' @param ... Values to store, each named with its key, for example
-#'   `map_set(map, title = "Notes", done = FALSE)`; see the Values
-#'   section. These are [dynamic dots][rlang::dyn-dots], so a named list
+#'   `map_set(map, title = "Notes", done = FALSE)`: plain values (see the
+#'   Values section) or new containers such as `loro_list("a", "b")`. These are [dynamic dots][rlang::dyn-dots], so a named list
 #'   can be spliced in with `!!!` and a key held in a variable can be
 #'   used with `"{key}" := value`. Values are stored in order, so if one
 #'   is rejected the ones before it stay set. For `map_delete()`, the
 #'   keys to remove, as strings or character vectors.
+#' @param .map A map handle, as for `map`. For `map_set()` the argument
+#'   name starts with a dot so that it cannot clash with a key given in
+#'   `...`, such as `map_set(x, map = 1)`.
 #' @param key A string.
 #' @param keys A character vector of keys.
 #' @param type Type of the child container: `"text"`, `"map"`,
 #'   `"list"`, `"movable_list"`, `"counter"`, or `"tree"`.
 #'
-#' @return `map_set()`, `map_delete()`, and `map_clear()` return `map`
-#'   invisibly. `map_set_container()` and `map_ensure_container()`
-#'   return a container handle, and `map_last_editor()` a string. `map_get()`
-#'   returns a value or handle, `map_has()` a logical vector, `map_keys()`
-#'   a character vector, and `map_length()` an integer.
+#' @return `map_set()` returns `.map` invisibly, and `map_delete()` and
+#'   `map_clear()` return `map` invisibly. `map_ensure_container()`
+#'   returns a container handle, and `map_last_editor()` a string.
+#'   `map_get()` returns a value or handle, `map_has()` a logical vector,
+#'   `map_keys()` a character vector, and `map_length()` an integer.
 #'
 #' @examples
 #' doc = loro_doc()
 #' meta = doc_map(doc, "meta")
 #' map_set(meta, title = "Notes", tags = c("a", "b"))
 #'
-#' body = map_set_container(meta, "body", "text")
-#' text_insert(body, 1, "Hello")
+#' meta$body = loro_text("Hello")
 #'
 #' map_keys(meta)
 #' map_get(meta, "title")
@@ -110,21 +113,13 @@ NULL
 
 #' @rdname map
 #' @export
-map_set = function(map, ...) {
-  ptr = container_ptr(map, loro_map, "map")
+map_set = function(.map, ...) {
+  ptr = container_ptr(.map, loro_map, ".map")
   values = named_values(...)
   for (key in names(values)) {
-    loro_map_set_impl(ptr, key, values[[key]])
+    map_store(ptr, key, values[[key]])
   }
-  invisible(map)
-}
-
-#' @rdname map
-#' @export
-map_set_container = function(map, key, type) {
-  ptr = container_ptr(map, loro_map, "map")
-  key = check_string(key, "key")
-  container_from_ref(loro_map_set_container_impl(ptr, key, check_type(type)))
+  invisible(.map)
 }
 
 #' @rdname map
@@ -188,19 +183,16 @@ map_last_editor = function(map, key) {
   loro_map_last_editor_impl(ptr, check_string(key, "key"))
 }
 
-S7::method(`[[`, loro_map) = function(x, i, ...) {
-  container_from_ref(loro_map_get_impl(x@ptr, check_string(i, "i")))
-}
+S7::method(`[[`, loro_map) = function(x, i, ...) map_get(x, i)
 
-S7::method(`$`, loro_map) = function(x, name) {
-  container_from_ref(loro_map_get_impl(x@ptr, check_string(name, "name")))
-}
+S7::method(`$`, loro_map) = function(x, name) map_get(x, name)
 
-map_assign = function(map, key, value) {
+map_assign = function(map, key, value, call = rlang::caller_env()) {
+  ptr = container_ptr(map, loro_map, "map")
   if (is.null(value)) {
-    loro_map_delete_impl(map@ptr, key)
-  } else if (!is_same_child(value, loro_map_get_impl(map@ptr, key))) {
-    loro_map_set_impl(map@ptr, key, value)
+    loro_map_delete_impl(ptr, key)
+  } else if (!is_same_child(value, loro_map_get_impl(ptr, key))) {
+    map_store(ptr, key, value, call = call)
   }
   map
 }
@@ -221,8 +213,8 @@ map_dollar_assign = function(x, name, value) {
   map_assign(x, check_string(name, "name"), value)
 }
 
-S7::method(length, loro_map) = function(x) loro_map_length_impl(x@ptr)
+S7::method(length, loro_map) = function(x) map_length(x)
 
-S7::method(names, loro_map) = function(x) loro_map_keys_impl(x@ptr)
+S7::method(names, loro_map) = function(x) map_keys(x)
 
-S7::method(as.list, loro_map) = function(x, ...) loro_container_value_impl(x@ptr, TRUE)
+S7::method(as.list, loro_map) = function(x, ...) container_value(x)

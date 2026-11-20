@@ -42,18 +42,14 @@ text_get(b)
 #> [1] ">> Hello world"
 ```
 
-Containers nest: a map or list can hold plain values or child containers, each of which merges independently.
+Containers nest: a map or list can hold plain values or child containers, each of which merges independently. New containers are made with `loro_text()`, `loro_list()`, `loro_map()`, and friends, and stored like any other value.
 
 ```r
 doc = loro_doc()
 note = doc_map(doc, "note")
-map_set(note, title = "Groceries")
-
-items = map_set_container(note, "items", "list")
-list_push(items, "milk", "eggs")
-
-body = map_set_container(note, "body", "text")
-text_insert(body, 1, "Buy before Friday")
+note$title = "Groceries"
+note$items = loro_list("milk", "eggs")
+note$body = loro_text("Buy before Friday")
 
 str(doc_value(doc))
 #> List of 1

@@ -2,7 +2,8 @@ note_doc = function() {
   doc = loro_doc(peer_id = 1)
   note = doc_map(doc, "note")
   map_set(note, title = "Groceries")
-  items = map_set_container(note, "items", "list")
+  items = loro_list()
+  map_set(note, items = items)
   list_push(items, "milk")
   list_push(items, list(qty = 2L))
   text_insert(doc_text(doc, "body"), 1, "Hello")
@@ -65,7 +66,7 @@ test_that("path steps reach any map key", {
   map = doc_map(doc, "m")
   map_set(map, "a/b" = "slash", "0" = "zero", "é" = "accent")
   map[[""]] = "empty"
-  map_set(map_set_container(map, "a", "map"), b = "nested")
+  map_set(map, a = loro_map(b = "nested"))
 
   expect_identical(doc_get(doc, "m", "a", "b"), "nested")
   expect_identical(doc_get(doc, "m", "a/b"), "slash")

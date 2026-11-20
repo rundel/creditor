@@ -354,7 +354,7 @@ test_that("JSON export refuses containers it cannot carry", {
   expect_identical(doc_value(other), doc_value(doc))
 
   regular = loro_doc(peer_id = 1)
-  list_push(map_set_container(doc_map(regular, "m"), "items", "list"), "x")
+  map_set(doc_map(regular, "m"), items = loro_list("x"))
   copy = loro_doc()
   doc_import_json(copy, doc_export_json(regular))
   expect_identical(doc_value(copy), doc_value(regular))

@@ -3,7 +3,6 @@
 \name{map}
 \alias{map}
 \alias{map_set}
-\alias{map_set_container}
 \alias{map_ensure_container}
 \alias{map_get}
 \alias{map_has}
@@ -14,9 +13,7 @@
 \alias{map_last_editor}
 \title{Edit maps}
 \usage{
-map_set(map, ...)
-
-map_set_container(map, key, type)
+map_set(.map, ...)
 
 map_ensure_container(map, key, type)
 
@@ -35,17 +32,21 @@ map_length(map)
 map_last_editor(map, key)
 }
 \arguments{
-\item{map}{A map handle, from \code{\link[=doc_map]{doc_map()}} or a parent container.
-A \code{\link{loro_doc}} is also accepted and stands for its default root
-container; see \code{\link[=doc_text]{doc_text()}}.}
+\item{.map}{A map handle, as for \code{map}. For \code{map_set()} the argument
+name starts with a dot so that it cannot clash with a key given in
+\code{...}, such as \code{map_set(x, map = 1)}.}
 
 \item{...}{Values to store, each named with its key, for example
-\code{map_set(map, title = "Notes", done = FALSE)}; see the Values
-section. These are \link[rlang:dyn-dots]{dynamic dots}, so a named list
+\code{map_set(map, title = "Notes", done = FALSE)}: plain values (see the
+Values section) or new containers such as \code{loro_list("a", "b")}. These are \link[rlang:dyn-dots]{dynamic dots}, so a named list
 can be spliced in with \verb{!!!} and a key held in a variable can be
 used with \code{"{key}" := value}. Values are stored in order, so if one
 is rejected the ones before it stay set. For \code{map_delete()}, the
 keys to remove, as strings or character vectors.}
+
+\item{map}{A map handle, from \code{\link[=doc_map]{doc_map()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{key}{A string.}
 
@@ -55,30 +56,31 @@ keys to remove, as strings or character vectors.}
 \item{keys}{A character vector of keys.}
 }
 \value{
-\code{map_set()}, \code{map_delete()}, and \code{map_clear()} return \code{map}
-invisibly. \code{map_set_container()} and \code{map_ensure_container()}
-return a container handle, and \code{map_last_editor()} a string. \code{map_get()}
-returns a value or handle, \code{map_has()} a logical vector, \code{map_keys()}
-a character vector, and \code{map_length()} an integer.
+\code{map_set()} returns \code{.map} invisibly, and \code{map_delete()} and
+\code{map_clear()} return \code{map} invisibly. \code{map_ensure_container()}
+returns a container handle, and \code{map_last_editor()} a string.
+\code{map_get()} returns a value or handle, \code{map_has()} a logical vector,
+\code{map_keys()} a character vector, and \code{map_length()} an integer.
 }
 \description{
 A map holds values under string keys. When replicas set the same key
 concurrently, one write wins on every replica.
 \itemize{
-\item \code{map_set()} stores plain values, given as \code{key = value} arguments.
-\item \code{map_set_container()} stores a new, empty child container under
-\code{key} and returns its handle.
+\item \code{map_set()} stores values, given as \code{key = value} arguments. A
+value can be a plain R value or a new container from \code{\link[=loro_text]{loro_text()}},
+\code{\link[=loro_map]{loro_map()}}, \code{\link[=loro_list]{loro_list()}}, and the like.
 \item \code{map_get()} returns the value under \code{key}, a handle if it is a
 container, or \code{NULL} if the key is absent.
 \item \code{map_has()} reports whether each of \code{keys} is present.
 \item \code{map_ensure_container()} returns the child container under \code{key},
-creating it if the key is empty. Unlike \code{map_set_container()},
-which always makes a fresh container, the container it creates is
+creating it if the key is empty. Unlike storing a new container
+with \code{map_set()}, which always makes a fresh one, the container it
+creates is
 shared: replicas that each create it independently end up editing
 the same one, with all their edits merged. Use it for containers
 that are created lazily on first use. It is an error if \code{key}
 already holds a plain value, a container of another type, or a
-container made by \code{map_set_container()}.
+container stored with \code{map_set()}.
 \item \code{map_delete()} removes the keys named in \code{...}, as in
 \code{map_delete(map, "a", "b")} or \code{map_delete(map, keys)}, and
 \code{map_clear()} removes every key.
@@ -136,8 +138,7 @@ doc = loro_doc()
 meta = doc_map(doc, "meta")
 map_set(meta, title = "Notes", tags = c("a", "b"))
 
-body = map_set_container(meta, "body", "text")
-text_insert(body, 1, "Hello")
+meta$body = loro_text("Hello")
 
 map_keys(meta)
 map_get(meta, "title")

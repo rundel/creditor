@@ -53,7 +53,8 @@ test_that("nodes carry metadata maps", {
   meta = tree_meta(o$tree, o$a)
   expect_s3_class(meta, "creditor::loro_map")
   map_set(meta, title = "Intro")
-  body = map_set_container(meta, "body", "text")
+  body = loro_text()
+  map_set(meta, body = body)
   text_insert(body, 1, "Hello")
 
   expect_identical(map_get(tree_meta(o$tree, o$a), "title"), "Intro")
@@ -233,7 +234,8 @@ test_that("undoing a delete restores the subtree under new ids", {
 
 test_that("a tree can be nested and prints its nodes", {
   doc = loro_doc(peer_id = 1)
-  tree = map_set_container(doc_map(doc, "m"), "outline", "tree")
+  tree = loro_tree()
+  map_set(doc_map(doc, "m"), outline = tree)
   expect_s3_class(tree, "creditor::loro_tree")
   node = tree_create(tree)
   expect_s3_class(map_get(doc_map(doc, "m"), "outline"), "creditor::loro_tree")

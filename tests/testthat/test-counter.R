@@ -27,11 +27,14 @@ test_that("concurrent increments add up", {
 test_that("counters nest in maps and lists", {
   doc = loro_doc()
   map = doc_map(doc, "m")
-  votes = map_set_container(map, "votes", "counter")
+  votes = loro_counter()
+  map_set(map, votes = votes)
   counter_increment(votes, 5)
   expect_identical(counter_get(map_get(map, "votes")), 5)
 
-  in_list = list_push_container(doc_list(doc, "l"), "counter")
+  in_list = loro_counter()
+
+  list_push(doc_list(doc, "l"), in_list)
   counter_increment(in_list)
   expect_identical(doc_value(doc), list(l = list(1), m = list(votes = 5)))
 })

@@ -58,10 +58,10 @@ as_peer_id = function(peer_id) {
   )
 }
 
-check_doc = function(doc, call = rlang::caller_env()) {
+check_doc = function(doc, arg = "doc", call = rlang::caller_env()) {
   if (!S7::S7_inherits(doc, loro_doc)) {
     cli::cli_abort(
-      "{.arg doc} must be a {.cls loro_doc}, not {.obj_type_friendly {doc}}.",
+      "{.arg {arg}} must be a {.cls loro_doc}, not {.obj_type_friendly {doc}}.",
       call = call
     )
   }
@@ -131,7 +131,7 @@ check_doc = function(doc, call = rlang::caller_env()) {
 #' doc_value(doc)
 #'
 #' note = doc_map(doc, "note")
-#' list_push(map_set_container(note, "items", "list"), "milk", "eggs")
+#' note$items = loro_list("milk", "eggs")
 #' doc_get(doc, "note", "items", 2)
 #' doc_jsonpath(doc, "$.note.items[*]")
 #'

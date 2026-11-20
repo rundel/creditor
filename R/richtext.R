@@ -45,6 +45,9 @@
 #'   container; see [`doc_text()`].
 #' @param start,end 1-based positions of the first and last characters
 #'   of the range. For `text_delta()` they default to the whole text.
+#' @param .text,.start,.end The text handle and range for `text_mark()`,
+#'   as for `text`, `start`, and `end`. The argument names start with a
+#'   dot so that they cannot clash with a mark key given in `...`.
 #' @param ... For `text_mark()`, the marks to apply, each a plain value
 #'   (see the Values section of [`map_set()`]) named with its key, for
 #'   example `bold = TRUE` or `link = "https://loro.dev"`. A key must
@@ -54,13 +57,14 @@
 #'   `comment = "none"`. Both are [dynamic dots][rlang::dyn-dots].
 #' @param keys A character vector of mark names.
 #' @param delta A list of delta ops.
-#' @param doc A [`loro_doc`].
+#' @param .doc A [`loro_doc`]. The argument name starts with a dot so
+#'   that it cannot clash with a mark key given in `...`.
 #' @param .default Expand behavior for keys that are not configured, or
 #'   `NULL` to reject them.
 #'
-#' @return `text_mark()`, `text_unmark()`, and `text_apply_delta()`
-#'   return `text` invisibly; `text_delta()` returns a list; and
-#'   `doc_config_text_style()` returns `doc` invisibly.
+#' @return `text_mark()` returns `.text` invisibly, `text_unmark()` and
+#'   `text_apply_delta()` return `text` invisibly, `text_delta()` returns
+#'   a list, and `doc_config_text_style()` returns `.doc` invisibly.
 #'
 #' @examples
 #' doc = loro_doc()
@@ -93,10 +97,16 @@ check_mark_keys = function(keys, call = rlang::caller_env()) {
   keys
 }
 
-check_mark_range = function(start, end, size, call = rlang::caller_env()) {
-  range = check_range(start, end, size, "text", call = call)
+check_mark_range = function(
+  start,
+  end,
+  size,
+  args = c("start", "end"),
+  call = rlang::caller_env()
+) {
+  range = check_range(start, end, size, "text", args = args, call = call)
   if (range$len == 0L) {
-    cli::cli_abort("{.arg start} and {.arg end} must cover at least one character.", call = call)
+    cli::cli_abort("{.arg {args[1]}} and {.arg {args[2]}} must cover at least one character.", call = call)
   }
   range
 }
@@ -126,18 +136,18 @@ with_style_hint = function(expr, key = NULL, call = rlang::caller_env()) {
 
 #' @rdname richtext
 #' @export
-text_mark = function(text, start, end, ...) {
-  ptr = container_ptr(text, loro_text, "text")
+text_mark = function(.text, .start, .end, ...) {
+  ptr = container_ptr(.text, loro_text, ".text")
   marks = named_values(..., .what = "a mark key")
   check_mark_keys(names(marks))
-  range = check_mark_range(start, end, loro_text_length_impl(ptr))
+  range = check_mark_range(.start, .end, loro_text_length_impl(ptr), args = c(".start", ".end"))
   for (key in names(marks)) {
     with_style_hint(
       loro_text_mark_impl(ptr, range$start, range$end, key, marks[[key]]),
       key
     )
   }
-  invisible(text)
+  invisible(.text)
 }
 
 #' @rdname richtext
@@ -177,8 +187,8 @@ text_apply_delta = function(text, delta) {
 
 #' @rdname richtext
 #' @export
-doc_config_text_style = function(doc, ..., .default = NULL) {
-  check_doc(doc)
+doc_config_text_style = function(.doc, ..., .default = NULL) {
+  check_doc(.doc, ".doc")
   styles = named_values(..., .what = "a mark key")
   keys = check_mark_keys(names(styles))
   is_expand = function(x) is.character(x) && length(x) == 1 && x %in% expand_types
@@ -189,10 +199,10 @@ doc_config_text_style = function(doc, ..., .default = NULL) {
     cli::cli_abort("{.arg .default} must be {.code NULL} or one of {.or {.val {expand_types}}}.")
   }
   loro_doc_config_text_style_impl(
-    doc@ptr,
+    .doc@ptr,
     as.character(keys),
     as.character(unlist(styles)),
     .default
   )
-  invisible(doc)
+  invisible(.doc)
 }

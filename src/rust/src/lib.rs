@@ -151,38 +151,17 @@ macro_rules! with_list {
     };
 }
 
-/// Create an empty container of `$kind`, bind it to `$child`, attach it
-/// with `$insert`, and wrap the attached handle.
-macro_rules! new_child {
-    ($kind:expr, |$child:ident| $insert:expr) => {
-        match $kind {
-            "text" => {
-                let $child = LoroText::new();
-                Container::Text($insert.map_err(to_r_error)?)
-            }
-            "map" => {
-                let $child = LoroMap::new();
-                Container::Map($insert.map_err(to_r_error)?)
-            }
-            "list" => {
-                let $child = LoroList::new();
-                Container::List($insert.map_err(to_r_error)?)
-            }
-            "movable_list" => {
-                let $child = LoroMovableList::new();
-                Container::MovableList($insert.map_err(to_r_error)?)
-            }
-            "counter" => {
-                let $child = LoroCounter::new();
-                Container::Counter($insert.map_err(to_r_error)?)
-            }
-            "tree" => {
-                let $child = LoroTree::new();
-                Container::Tree($insert.map_err(to_r_error)?)
-            }
-            _ => return Err(Error::Other(format!("unknown container type: {}", $kind))),
-        }
-    };
+/// A new container of `kind` that belongs to no document.
+fn detached_container(kind: &str) -> Result<Container> {
+    Ok(match kind {
+        "text" => Container::Text(LoroText::new()),
+        "map" => Container::Map(LoroMap::new()),
+        "list" => Container::List(LoroList::new()),
+        "movable_list" => Container::MovableList(LoroMovableList::new()),
+        "counter" => Container::Counter(LoroCounter::new()),
+        "tree" => Container::Tree(LoroTree::new()),
+        _ => return Err(Error::Other(format!("unknown container type: {kind}"))),
+    })
 }
 
 /// A container handle crosses to R as `list(kind, ptr)` with class
@@ -540,6 +519,27 @@ fn loro_doc_container_impl(doc: DocPtr, name: &str, kind: &str) -> Result<Robj> 
     container_ref(container)
 }
 
+/// A handle to a new container of `kind` that belongs to no document.
+/// @noRd
+#[extendr]
+fn loro_container_new_impl(kind: &str) -> Result<Robj> {
+    container_ref(detached_container(kind)?)
+}
+
+/// Whether the container belongs to a document. A detached container that
+/// has since been stored in one is first swapped for the attached copy, so
+/// every R handle to it follows the container into the document.
+/// @noRd
+#[extendr]
+fn loro_container_resolve_impl(mut container: ContainerPtr) -> bool {
+    if !container.is_attached() {
+        if let Some(attached) = container.get_attached() {
+            *container = attached;
+        }
+    }
+    container.is_attached()
+}
+
 /// Container id as a string.
 /// @noRd
 #[extendr]
@@ -597,13 +597,14 @@ fn loro_map_set_impl(map: ContainerPtr, key: &str, value: Robj) -> Result<()> {
     as_map(&map)?.insert(key, value).map_err(to_r_error)
 }
 
-/// Set `key` to a new child container of the given `kind`.
+/// Set `key` to a detached container, which Loro copies into the map.
 /// @noRd
 #[extendr]
-fn loro_map_set_container_impl(map: ContainerPtr, key: &str, kind: &str) -> Result<Robj> {
+fn loro_map_attach_impl(map: ContainerPtr, key: &str, child: ContainerPtr) -> Result<()> {
     let map = as_map(&map)?;
-    let child = new_child!(kind, |c| map.insert_container(key, c));
-    container_ref(child)
+    map.insert_container(key, (*child).clone())
+        .map_err(to_r_error)?;
+    Ok(())
 }
 
 /// Value or child container at `key`; `NULL` when absent.
@@ -648,13 +649,14 @@ fn loro_list_insert_impl(list: ContainerPtr, pos: i32, value: Robj) -> Result<()
     with_list!(list, |l| l.insert(pos, value).map_err(to_r_error))
 }
 
-/// Insert a new child container of the given `kind` at a 0-based position.
+/// Insert a detached container at a 0-based position.
 /// @noRd
 #[extendr]
-fn loro_list_insert_container_impl(list: ContainerPtr, pos: i32, kind: &str) -> Result<Robj> {
+fn loro_list_attach_impl(list: ContainerPtr, pos: i32, child: ContainerPtr) -> Result<()> {
     let pos = to_index(pos, "pos")?;
-    let child = with_list!(list, |l| new_child!(kind, |c| l.insert_container(pos, c)));
-    container_ref(child)
+    let child = (*child).clone();
+    with_list!(list, |l| l.insert_container(pos, child).map_err(to_r_error))?;
+    Ok(())
 }
 
 /// Value or child container at a 0-based position.
@@ -693,14 +695,15 @@ fn loro_list_set_impl(list: ContainerPtr, pos: i32, value: Robj) -> Result<()> {
     as_movable_list(&list)?.set(pos, value).map_err(to_r_error)
 }
 
-/// Replace the element of a movable list with a new child container.
+/// Replace the element of a movable list with a detached container.
 /// @noRd
 #[extendr]
-fn loro_list_set_container_impl(list: ContainerPtr, pos: i32, kind: &str) -> Result<Robj> {
+fn loro_list_set_attach_impl(list: ContainerPtr, pos: i32, child: ContainerPtr) -> Result<()> {
     let pos = to_index(pos, "pos")?;
-    let list = as_movable_list(&list)?;
-    let child = new_child!(kind, |c| list.set_container(pos, c));
-    container_ref(child)
+    as_movable_list(&list)?
+        .set_container(pos, (*child).clone())
+        .map_err(to_r_error)?;
+    Ok(())
 }
 
 /// Move an element of a movable list between 0-based positions.
@@ -1564,6 +1567,8 @@ extendr_module! {
     fn loro_list_clear_impl;
     fn loro_doc_value_impl;
     fn loro_doc_container_impl;
+    fn loro_container_new_impl;
+    fn loro_container_resolve_impl;
     fn loro_container_id_impl;
     fn loro_container_value_impl;
     fn loro_container_is_deleted_impl;
@@ -1618,18 +1623,18 @@ extendr_module! {
     fn loro_ephemeral_subscribe_impl;
     fn loro_ephemeral_subscribe_local_updates_impl;
     fn loro_map_set_impl;
-    fn loro_map_set_container_impl;
+    fn loro_map_attach_impl;
     fn loro_map_get_impl;
     fn loro_map_delete_impl;
     fn loro_map_keys_impl;
     fn loro_map_length_impl;
     fn loro_list_insert_impl;
-    fn loro_list_insert_container_impl;
+    fn loro_list_attach_impl;
     fn loro_list_get_impl;
     fn loro_list_delete_impl;
     fn loro_list_length_impl;
     fn loro_list_set_impl;
-    fn loro_list_set_container_impl;
+    fn loro_list_set_attach_impl;
     fn loro_list_move_impl;
     fn loro_counter_increment_impl;
     fn loro_tree_create_impl;

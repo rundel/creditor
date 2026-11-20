@@ -560,7 +560,8 @@ test_that("changed containers rejects missing ids", {
 test_that("a container's deleted status follows checkout", {
   doc = loro_doc()
   items = doc_movable_list(doc, "l")
-  child = list_push_container(items, "text")
+  child = loro_text()
+  list_push(items, child)
   doc_commit(doc)
   version = doc_frontiers(doc)
   list_set(items, 1, 1L)

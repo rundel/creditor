@@ -140,6 +140,16 @@ loro_doc_value_impl <- function(doc) .Call(wrap__loro_doc_value_impl, doc)
 #' @noRd
 loro_doc_container_impl <- function(doc, name, kind) .Call(wrap__loro_doc_container_impl, doc, name, kind)
 
+#' A handle to a new container of `kind` that belongs to no document.
+#' @noRd
+loro_container_new_impl <- function(kind) .Call(wrap__loro_container_new_impl, kind)
+
+#' Whether the container belongs to a document. A detached container that
+#' has since been stored in one is first swapped for the attached copy, so
+#' every R handle to it follows the container into the document.
+#' @noRd
+loro_container_resolve_impl <- function(container) .Call(wrap__loro_container_resolve_impl, container)
+
 #' Container id as a string.
 #' @noRd
 loro_container_id_impl <- function(container) .Call(wrap__loro_container_id_impl, container)
@@ -362,9 +372,9 @@ loro_ephemeral_subscribe_local_updates_impl <- function(store) .Call(wrap__loro_
 #' @noRd
 loro_map_set_impl <- function(map, key, value) .Call(wrap__loro_map_set_impl, map, key, value)
 
-#' Set `key` to a new child container of the given `kind`.
+#' Set `key` to a detached container, which Loro copies into the map.
 #' @noRd
-loro_map_set_container_impl <- function(map, key, kind) .Call(wrap__loro_map_set_container_impl, map, key, kind)
+loro_map_attach_impl <- function(map, key, child) .Call(wrap__loro_map_attach_impl, map, key, child)
 
 #' Value or child container at `key`; `NULL` when absent.
 #' @noRd
@@ -386,9 +396,9 @@ loro_map_length_impl <- function(map) .Call(wrap__loro_map_length_impl, map)
 #' @noRd
 loro_list_insert_impl <- function(list, pos, value) .Call(wrap__loro_list_insert_impl, list, pos, value)
 
-#' Insert a new child container of the given `kind` at a 0-based position.
+#' Insert a detached container at a 0-based position.
 #' @noRd
-loro_list_insert_container_impl <- function(list, pos, kind) .Call(wrap__loro_list_insert_container_impl, list, pos, kind)
+loro_list_attach_impl <- function(list, pos, child) .Call(wrap__loro_list_attach_impl, list, pos, child)
 
 #' Value or child container at a 0-based position.
 #' @noRd
@@ -406,9 +416,9 @@ loro_list_length_impl <- function(list) .Call(wrap__loro_list_length_impl, list)
 #' @noRd
 loro_list_set_impl <- function(list, pos, value) .Call(wrap__loro_list_set_impl, list, pos, value)
 
-#' Replace the element of a movable list with a new child container.
+#' Replace the element of a movable list with a detached container.
 #' @noRd
-loro_list_set_container_impl <- function(list, pos, kind) .Call(wrap__loro_list_set_container_impl, list, pos, kind)
+loro_list_set_attach_impl <- function(list, pos, child) .Call(wrap__loro_list_set_attach_impl, list, pos, child)
 
 #' Move an element of a movable list between 0-based positions.
 #' @noRd

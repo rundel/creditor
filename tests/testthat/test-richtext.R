@@ -315,3 +315,18 @@ test_that("several marks are applied and removed at once", {
   text_mark(text, 1, 5)
   expect_identical(text_delta(text), list(list(insert = "Hello world")))
 })
+
+test_that("mark keys can look like the marking functions' own arguments", {
+  doc = loro_doc()
+  keys = c("do", "e", "end", "start", "text")
+  doc_config_text_style(doc, !!!rlang::set_names(as.list(rep("none", 5)), keys))
+  text = doc_text(doc)
+  text_insert(text, 1, "hello")
+  text_mark(text, 1, 3, do = TRUE, e = TRUE, end = "b", start = "a", text = 1)
+  expect_identical(
+    text_delta(text)[[1]]$attributes,
+    list(do = TRUE, e = TRUE, end = "b", start = "a", text = 1)
+  )
+  expect_error(text_mark(text, 3, 2, bold = TRUE), "`.start` and `.end`")
+  expect_error(doc_config_text_style(1, a = "none"), "`.doc` must be")
+})

@@ -17,7 +17,7 @@
 \usage{
 ephemeral_store(timeout = 30)
 
-ephemeral_set(store, ...)
+ephemeral_set(.store, ...)
 
 ephemeral_get(store, key)
 
@@ -41,11 +41,14 @@ ephemeral_subscribe_local_updates(store, callback)
 \item{timeout}{Seconds after which an entry that has not been
 updated expires.}
 
-\item{store}{An ephemeral store.}
+\item{.store}{An ephemeral store. The argument name starts with a dot
+so that it cannot clash with a key given in \code{...}.}
 
 \item{...}{Plain values to store, each named with its key; see
 \code{\link[=map_set]{map_set()}}. For \code{ephemeral_delete()}, the keys to remove, as
 strings or character vectors.}
+
+\item{store}{An ephemeral store.}
 
 \item{key}{A string.}
 
@@ -58,8 +61,9 @@ updates subscription.}
 \code{ephemeral_store()} returns a store. \code{ephemeral_get()} returns
 a value or \code{NULL}, \code{ephemeral_keys()} a character vector,
 \code{ephemeral_values()} a named list, and \code{ephemeral_encode()} a raw
-vector. The subscribe functions return a subscription object. The
-others return \code{store} invisibly.
+vector. The subscribe functions return a subscription object.
+\code{ephemeral_set()} returns \code{.store} invisibly and the others return
+\code{store} invisibly.
 }
 \description{
 An ephemeral store shares short-lived state between replicas, such as

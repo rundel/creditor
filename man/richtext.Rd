@@ -9,7 +9,7 @@
 \alias{doc_config_text_style}
 \title{Rich text}
 \usage{
-text_mark(text, start, end, ...)
+text_mark(.text, .start, .end, ...)
 
 text_unmark(text, start, end, keys)
 
@@ -17,15 +17,12 @@ text_delta(text, start = 1, end = text_length(text))
 
 text_apply_delta(text, delta)
 
-doc_config_text_style(doc, ..., .default = NULL)
+doc_config_text_style(.doc, ..., .default = NULL)
 }
 \arguments{
-\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.
-A \code{\link{loro_doc}} is also accepted and stands for its default root
-container; see \code{\link[=doc_text]{doc_text()}}.}
-
-\item{start, end}{1-based positions of the first and last characters
-of the range. For \code{text_delta()} they default to the whole text.}
+\item{.text, .start, .end}{The text handle and range for \code{text_mark()},
+as for \code{text}, \code{start}, and \code{end}. The argument names start with a
+dot so that they cannot clash with a mark key given in \code{...}.}
 
 \item{...}{For \code{text_mark()}, the marks to apply, each a plain value
 (see the Values section of \code{\link[=map_set]{map_set()}}) named with its key, for
@@ -35,19 +32,27 @@ as \code{text_unmark()} does. For \code{doc_config_text_style()}, strings
 giving the expand behavior of each key, for example
 \code{comment = "none"}. Both are \link[rlang:dyn-dots]{dynamic dots}.}
 
+\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
+
+\item{start, end}{1-based positions of the first and last characters
+of the range. For \code{text_delta()} they default to the whole text.}
+
 \item{keys}{A character vector of mark names.}
 
 \item{delta}{A list of delta ops.}
 
-\item{doc}{A \code{\link{loro_doc}}.}
+\item{.doc}{A \code{\link{loro_doc}}. The argument name starts with a dot so
+that it cannot clash with a mark key given in \code{...}.}
 
 \item{.default}{Expand behavior for keys that are not configured, or
 \code{NULL} to reject them.}
 }
 \value{
-\code{text_mark()}, \code{text_unmark()}, and \code{text_apply_delta()}
-return \code{text} invisibly; \code{text_delta()} returns a list; and
-\code{doc_config_text_style()} returns \code{doc} invisibly.
+\code{text_mark()} returns \code{.text} invisibly, \code{text_unmark()} and
+\code{text_apply_delta()} return \code{text} invisibly, \code{text_delta()} returns
+a list, and \code{doc_config_text_style()} returns \code{.doc} invisibly.
 }
 \description{
 Marks attach a key and value (a style such as \code{bold = TRUE}, or

@@ -96,7 +96,7 @@ doc_peer_id(doc)
 doc_value(doc)
 
 note = doc_map(doc, "note")
-list_push(map_set_container(note, "items", "list"), "milk", "eggs")
+note$items = loro_list("milk", "eggs")
 doc_get(doc, "note", "items", 2)
 doc_jsonpath(doc, "$.note.items[*]")
 

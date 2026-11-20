@@ -41,6 +41,8 @@
 #' @param timeout Seconds after which an entry that has not been
 #'   updated expires.
 #' @param store An ephemeral store.
+#' @param .store An ephemeral store. The argument name starts with a dot
+#'   so that it cannot clash with a key given in `...`.
 #' @param ... Plain values to store, each named with its key; see
 #'   [`map_set()`]. For `ephemeral_delete()`, the keys to remove, as
 #'   strings or character vectors.
@@ -52,8 +54,9 @@
 #' @return `ephemeral_store()` returns a store. `ephemeral_get()` returns
 #'   a value or `NULL`, `ephemeral_keys()` a character vector,
 #'   `ephemeral_values()` a named list, and `ephemeral_encode()` a raw
-#'   vector. The subscribe functions return a subscription object. The
-#'   others return `store` invisibly.
+#'   vector. The subscribe functions return a subscription object.
+#'   `ephemeral_set()` returns `.store` invisibly and the others return
+#'   `store` invisibly.
 #'
 #' @examples
 #' a = ephemeral_store()
@@ -76,10 +79,10 @@ loro_ephemeral_store = S7::new_class(
   properties = list(ptr = S7::class_any)
 )
 
-check_store = function(store, call = rlang::caller_env()) {
+check_store = function(store, arg = "store", call = rlang::caller_env()) {
   if (!S7::S7_inherits(store, loro_ephemeral_store)) {
     cli::cli_abort(
-      "{.arg store} must be a {.cls loro_ephemeral_store}, not {.obj_type_friendly {store}}.",
+      "{.arg {arg}} must be a {.cls loro_ephemeral_store}, not {.obj_type_friendly {store}}.",
       call = call
     )
   }
@@ -95,14 +98,14 @@ ephemeral_store = function(timeout = 30) {
 
 #' @rdname ephemeral
 #' @export
-ephemeral_set = function(store, ...) {
-  check_store(store)
+ephemeral_set = function(.store, ...) {
+  check_store(.store, ".store")
   on.exit(deliver_events(), add = TRUE)
   values = named_values(...)
   for (key in names(values)) {
-    loro_ephemeral_set_impl(store@ptr, key, values[[key]])
+    loro_ephemeral_set_impl(.store@ptr, key, values[[key]])
   }
-  invisible(store)
+  invisible(.store)
 }
 
 #' @rdname ephemeral

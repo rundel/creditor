@@ -32,8 +32,10 @@ test_that("a handle keeps its document alive", {
 test_that("container_value expands nested containers", {
   doc = loro_doc()
   root = doc_map(doc, "root")
-  items = map_set_container(root, "items", "list")
-  body = list_push_container(items, "text")
+  items = loro_list()
+  map_set(root, items = items)
+  body = loro_text()
+  list_push(items, body)
   text_insert(body, 1, "nested")
   list_push(items, 2L)
 
@@ -45,7 +47,8 @@ test_that("container_value expands nested containers", {
 
 test_that("nested containers sync and merge", {
   a = loro_doc(peer_id = 1)
-  body = map_set_container(doc_map(a, "root"), "body", "text")
+  body = loro_text()
+  map_set(doc_map(a, "root"), body = body)
   text_insert(body, 1, "Hello")
 
   b = loro_doc(peer_id = 2)
@@ -91,7 +94,8 @@ test_that("containers print their id and contents", {
 test_that("a handle reports when its container has been deleted", {
   doc = loro_doc()
   map = doc_map(doc, "m")
-  child = map_set_container(map, "c", "text")
+  child = loro_text()
+  map_set(map, c = child)
   text_insert(child, 1, "x")
   expect_false(container_is_deleted(child))
   expect_false(container_is_deleted(map))
@@ -102,7 +106,8 @@ test_that("a handle reports when its container has been deleted", {
   expect_error(text_insert(child, 1, "y"), "deleted")
 
   items = doc_list(doc, "l")
-  nested = list_push_container(items, "map")
+  nested = loro_map()
+  list_push(items, nested)
   list_clear(items)
   expect_true(container_is_deleted(nested))
   expect_error(container_is_deleted(doc), "loro_container")
@@ -112,11 +117,13 @@ test_that("a shallow value shows child containers by id", {
   doc = loro_doc(peer_id = 1)
   map = doc_map(doc, "m")
   map_set(map, v = 1L)
-  text = map_set_container(map, "t", "text")
+  text = loro_text()
+  map_set(map, t = text)
   text_insert(text, 1, "hi")
   items = doc_list(doc, "l")
   list_push(items, "a")
-  counter = list_push_container(items, "counter")
+  counter = loro_counter()
+  list_push(items, counter)
 
   expect_identical(container_value(map, deep = FALSE), list(t = container_id(text), v = 1L))
   expect_identical(container_value(map), list(t = "hi", v = 1L))
@@ -134,10 +141,14 @@ test_that("every child type can be created under every parent type", {
 
   for (type in types) {
     class = paste0("creditor::loro_", type)
-    in_map = map_set_container(map, type, type)
-    in_list = list_push_container(plain, type)
+    new = get(paste0("loro_", type))
+    in_map = new()
+    map[[type]] = in_map
+    in_list = new()
+    list_push(plain, in_list)
     list_push(movable, "placeholder")
-    in_movable = list_set_container(movable, list_length(movable), type)
+    in_movable = new()
+    list_set(movable, list_length(movable), in_movable)
 
     expect_s3_class(in_map, class)
     expect_s3_class(in_list, class)
@@ -158,12 +169,18 @@ test_that("every child type can be created under every parent type", {
 test_that("edits through any handle to a deleted container are errors", {
   doc = loro_doc()
   root = doc_map(doc, "root")
-  parent = map_set_container(root, "parent", "map")
-  child_map = map_set_container(parent, "map", "map")
-  child_list = map_set_container(parent, "list", "list")
-  child_movable = map_set_container(parent, "movable", "movable_list")
-  child_counter = map_set_container(parent, "counter", "counter")
-  child_tree = map_set_container(parent, "tree", "tree")
+  parent = loro_map()
+  map_set(root, parent = parent)
+  child_map = loro_map()
+  map_set(parent, map = child_map)
+  child_list = loro_list()
+  map_set(parent, list = child_list)
+  child_movable = loro_movable_list()
+  map_set(parent, movable = child_movable)
+  child_counter = loro_counter()
+  map_set(parent, counter = child_counter)
+  child_tree = loro_tree()
+  map_set(parent, tree = child_tree)
   list_push(child_list, "x")
   list_push(child_movable, "x")
   map_set(child_map, k = 1L)
@@ -174,7 +191,7 @@ test_that("edits through any handle to a deleted container are errors", {
   }
 
   expect_error(map_set(child_map, k = 2L), "deleted")
-  expect_error(map_set_container(child_map, "c", "text"), "deleted")
+  expect_error(map_set(child_map, c = loro_text()), "deleted")
   expect_error(map_delete(child_map, "k"), "deleted")
   expect_error(map_clear(child_map), "deleted")
   expect_error(list_push(child_list, "y"), "deleted")
@@ -192,16 +209,19 @@ test_that("edits through any handle to a deleted container are errors", {
 test_that("replacing or clearing a parent marks its children deleted", {
   doc = loro_doc()
   map = doc_map(doc, "m")
-  in_map = map_set_container(map, "a", "text")
+  in_map = loro_text()
+  map_set(map, a = in_map)
   map_clear(map)
   expect_true(container_is_deleted(in_map))
 
   movable = doc_movable_list(doc, "ml")
-  first = list_push_container(movable, "text")
+  first = loro_text()
+  list_push(movable, first)
   list_set(movable, 1, "plain")
   expect_true(container_is_deleted(first))
-  second = list_set_container(movable, 1, "map")
-  list_set_container(movable, 1, "text")
+  second = loro_map()
+  list_set(movable, 1, second)
+  list_set(movable, 1, loro_text())
   expect_true(container_is_deleted(second))
 })
 

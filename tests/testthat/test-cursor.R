@@ -148,7 +148,8 @@ test_that("a cursor follows checkout", {
 test_that("a cursor outlives the removal of its container", {
   doc = loro_doc()
   map = doc_map(doc, "m")
-  text = map_set_container(map, "t", "text")
+  text = loro_text()
+  map_set(map, t = text)
   text_insert(text, 1, "abc")
   cursor = text_cursor(text, 2)
   map_delete(map, "t")

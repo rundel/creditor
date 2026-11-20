@@ -4,14 +4,11 @@
 \alias{list}
 \alias{list_insert}
 \alias{list_push}
-\alias{list_insert_container}
-\alias{list_push_container}
 \alias{list_get}
 \alias{list_delete}
 \alias{list_length}
 \alias{list_move}
 \alias{list_set}
-\alias{list_set_container}
 \alias{list_pop}
 \alias{list_clear}
 \title{Edit lists}
@@ -19,10 +16,6 @@
 list_insert(list, pos, ...)
 
 list_push(list, ...)
-
-list_insert_container(list, pos, type)
-
-list_push_container(list, type)
 
 list_get(list, pos)
 
@@ -34,16 +27,14 @@ list_move(list, from, to)
 
 list_set(list, pos, value)
 
-list_set_container(list, pos, type)
-
 list_pop(list)
 
 list_clear(list)
 }
 \arguments{
 \item{list}{A list handle, from \code{\link[=doc_list]{doc_list()}}, \code{\link[=doc_movable_list]{doc_movable_list()}},
-or a parent container. \code{list_move()}, \code{list_set()}, and
-\code{list_set_container()} need a movable list.
+or a parent container. \code{list_move()} and \code{list_set()} need a
+movable list.
 A \code{\link{loro_doc}} is also accepted and stands for its default root
 list, which is a plain list, so it cannot be used with the
 functions that need a movable list; see \code{\link[=doc_text]{doc_text()}}.}
@@ -51,24 +42,20 @@ functions that need a movable list; see \code{\link[=doc_text]{doc_text()}}.}
 \item{pos}{A 1-based position. For \code{list_delete()}, a vector of
 positions such as \code{2:4}.}
 
-\item{...}{Plain values to add, one element each. They must not be
-named; to store a map as one element, pass a named list. These are
+\item{...}{Values to add, one element each: plain values or new
+containers. They must not be named; to store a map as one element,
+pass a named list or a \code{\link[=loro_map]{loro_map()}}. These are
 \link[rlang:dyn-dots]{dynamic dots}, so a list of elements can be
 spliced in with \verb{!!!}.}
 
-\item{type}{Type of the child container: \code{"text"}, \code{"map"},
-\code{"list"}, \code{"movable_list"}, \code{"counter"}, or \code{"tree"}.}
-
 \item{from, to}{1-based positions.}
 
-\item{value}{A plain value.}
+\item{value}{A plain value or a new container.}
 }
 \value{
 \code{list_insert()}, \code{list_push()}, \code{list_delete()},
 \code{list_clear()}, \code{list_move()}, and \code{list_set()} return \code{list}
 invisibly. \code{list_pop()} returns the removed element.
-\code{list_insert_container()}, \code{list_push_container()}, and
-\code{list_set_container()} return the new container handle.
 \code{list_get()} returns a value or handle, and \code{list_length()} an
 integer.
 }
@@ -77,11 +64,10 @@ A list is an ordered sequence of values. Positions are 1-based.
 Concurrent insertions at the same position are all kept, in the same
 order on every replica.
 \itemize{
-\item \code{list_insert()} inserts plain values before the element currently
-at \code{pos}, and \code{list_push()} appends them. Each argument in \code{...}
-becomes one element.
-\item \code{list_insert_container()} and \code{list_push_container()} do the same
-with a new, empty child container and return its handle.
+\item \code{list_insert()} inserts values before the element currently at
+\code{pos}, and \code{list_push()} appends them. Each argument in \code{...}
+becomes one element, and can be a plain value or a new container
+from \code{\link[=loro_text]{loro_text()}}, \code{\link[=loro_map]{loro_map()}}, \code{\link[=loro_list]{loro_list()}}, and the like.
 \item \code{list_get()} returns the element at \code{pos}, as a handle if it is a
 container.
 \item \code{list_delete()} removes the elements at the positions \code{pos}, and
@@ -106,9 +92,8 @@ at once.
 \itemize{
 \item \code{list_move()} moves the element at \code{from} so that it ends up at
 position \code{to}. Concurrent moves of one element leave a single copy.
-\item \code{list_set()} replaces the element at \code{pos} in place, and
-\code{list_set_container()} replaces it with a new, empty child
-container. Concurrent sets resolve to one winner.
+\item \code{list_set()} replaces the element at \code{pos} in place. Concurrent
+sets resolve to one winner.
 }
 
 Plain values are converted as described in the Values section of
@@ -120,8 +105,7 @@ items = doc_list(doc, "items")
 list_push(items, "b", "c")
 list_insert(items, 1, "a")
 
-item = list_push_container(items, "map")
-map_set(item, done = FALSE)
+list_push(items, loro_map(task = "d", done = FALSE))
 
 list_get(items, 1)
 items[[2]]

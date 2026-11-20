@@ -84,9 +84,12 @@ test_that("unsupported values are errors", {
 
 test_that("child containers can be created and retrieved", {
   map = doc_map(loro_doc())
-  text = map_set_container(map, "text", "text")
-  inner = map_set_container(map, "map", "map")
-  list = map_set_container(map, "list", "list")
+  text = loro_text()
+  map_set(map, text = text)
+  inner = loro_map()
+  map_set(map, map = inner)
+  list = loro_list()
+  map_set(map, list = list)
 
   text_insert(text, 1, "abc")
   map_set(inner, k = 1L)
@@ -95,7 +98,6 @@ test_that("child containers can be created and retrieved", {
   expect_identical(text_get(map_get(map, "text")), "abc")
   expect_identical(map_get(map_get(map, "map"), "k"), 1L)
   expect_identical(list_get(map_get(map, "list"), 1), "x")
-  expect_error(map_set_container(map, "bad", "nope"), "type")
 })
 
 test_that("concurrent writes to one key converge", {
@@ -116,7 +118,7 @@ test_that("concurrent writes to one key converge", {
 test_that("a map can be cleared", {
   map = doc_map(loro_doc())
   map_set(map, a = 1L)
-  map_set_container(map, "b", "text")
+  map_set(map, b = loro_text())
   map_clear(map)
   expect_identical(map_keys(map), character())
   expect_identical(map_length(map), 0L)
@@ -169,8 +171,8 @@ test_that("ensured containers created concurrently merge into one", {
 test_that("containers set concurrently do not merge", {
   a = loro_doc(peer_id = 1)
   b = loro_doc(peer_id = 2)
-  text_insert(map_set_container(doc_map(a, "m"), "body", "text"), 1, "from a ")
-  text_insert(map_set_container(doc_map(b, "m"), "body", "text"), 1, "from b ")
+  map_set(doc_map(a, "m"), body = loro_text("from a "))
+  map_set(doc_map(b, "m"), body = loro_text("from b "))
 
   doc_import(a, doc_export_updates(b))
   doc_import(b, doc_export_updates(a))
@@ -182,7 +184,7 @@ test_that("ensuring a container over a conflicting entry is an error", {
   map = doc_map(loro_doc(), "m")
   map_set(map, plain = 1L)
   map_ensure_container(map, "body", "text")
-  map_set_container(map, "regular", "text")
+  map_set(map, regular = loro_text())
 
   expect_error(map_ensure_container(map, "plain", "text"), "non-mergeable")
   expect_error(map_ensure_container(map, "body", "list"), "text container")
@@ -240,7 +242,9 @@ test_that("a map handle works with base accessors", {
   expect_identical(length(map), 3L)
   expect_identical(as.list(map), container_value(map))
 
-  body = map_set_container(map, "body", "text")
+  body = loro_text()
+
+  map_set(map, body = body)
   text_insert(body, 1, "Hello")
   expect_s3_class(map$body, "creditor::loro_text")
   expect_identical(text_get(map[["body"]]), "Hello")
@@ -259,8 +263,10 @@ test_that("a map handle works with base accessors", {
 test_that("assignment reaches through child containers", {
   doc = loro_doc()
   root = doc_map(doc, "root")
-  child = map_set_container(root, "child", "map")
-  items = map_set_container(child, "items", "movable_list")
+  child = loro_map()
+  map_set(root, child = child)
+  items = loro_movable_list()
+  map_set(child, items = items)
   list_push(items, "a")
   id = container_id(child)
 
@@ -274,5 +280,5 @@ test_that("assignment reaches through child containers", {
   expect_error(root$child <- other, "cannot be stored")
   expect_error(root$new <- other, "cannot be stored")
   expect_error(items[[1]] <- other, "cannot be stored")
-  expect_error(map_set(root, k = other), "class")
+  expect_error(map_set(root, k = other), "cannot be stored")
 })

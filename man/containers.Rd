@@ -51,9 +51,9 @@ list; \code{container_id()} returns a string; and
 A document's data lives in containers. \code{doc_text()}, \code{doc_map()},
 \code{doc_list()}, \code{doc_movable_list()}, \code{doc_counter()}, and \code{doc_tree()}
 return a handle to the root container with the given name, creating it on
-first use. Handles to nested containers come
-from \code{\link[=map_set_container]{map_set_container()}}, \code{\link[=list_insert_container]{list_insert_container()}},
-\code{\link[=map_get]{map_get()}}, and \code{\link[=list_get]{list_get()}}.
+first use. Handles to nested containers come from \code{\link[=map_get]{map_get()}} and
+\code{\link[=list_get]{list_get()}} (or \code{$} and \code{[[}), and new containers to nest are made
+with \code{\link[=loro_text]{loro_text()}}, \code{\link[=loro_map]{loro_map()}}, \code{\link[=loro_list]{loro_list()}}, and the like.
 
 A handle is a \code{loro_text}, \code{loro_map}, \code{loro_list},
 \code{loro_movable_list}, \code{loro_counter}, or \code{loro_tree} object. Like a
