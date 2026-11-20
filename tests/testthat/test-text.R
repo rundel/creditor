@@ -42,7 +42,7 @@ test_that("invalid edits are errors", {
   expect_error(text_insert(text, 1, NA_character_), "value")
   expect_error(text_insert(text, 10, "x"))
   expect_error(text_delete(text, 2, 11))
-  expect_error(text_get(doc), "loro_text")
+  expect_error(text_get(doc_map(doc)), "loro_text")
   expect_error(text_get(doc_map(doc, "m")), "loro_text")
   expect_identical(text_get(text), "abc")
 })

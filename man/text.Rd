@@ -37,7 +37,9 @@ text_convert_pos(
 )
 }
 \arguments{
-\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.}
+\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{pos}{A 1-based character position.}
 

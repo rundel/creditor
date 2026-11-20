@@ -50,6 +50,30 @@ is_same_child = function(value, current) {
   TRUE
 }
 
+# The pointer for a container argument. A document may be given in place of
+# a handle and stands for its root container of that type under the default
+# name, so `text_insert(doc, 1, "a")` is `text_insert(doc_text(doc), 1, "a")`.
+# Both list types default to the name "list"; a document stands for the
+# plain list, so the functions that need a movable list reject it rather
+# than quietly working on a second container.
+container_ptr = function(x, class, arg, call = rlang::caller_env()) {
+  if (!S7::S7_inherits(x, loro_doc)) {
+    check_container(x, class, arg, call = call)
+    return(x@ptr)
+  }
+  type = sub("^loro_", "", class@name)
+  if (type == "movable_list") {
+    cli::cli_abort(
+      c(
+        "{.arg {arg}} must be a movable list, not a {.cls loro_doc}.",
+        i = "A document stands for its plain list. Get a movable list with {.fn doc_movable_list}."
+      ),
+      call = call
+    )
+  }
+  loro_doc_container_impl(x@ptr, type, type)$ptr
+}
+
 check_container = function(x, class, arg, call = rlang::caller_env()) {
   if (!S7::S7_inherits(x, class)) {
     cli::cli_abort(
@@ -93,6 +117,14 @@ check_container = function(x, class, arg, call = rlang::caller_env()) {
 #' for text, maps, and lists, `names()`, `$`, and `[[` for maps, `[[`
 #' for lists, `as.character()` for text, and `as.list()` for maps and
 #' lists.
+#'
+#' A document can be passed wherever a text, map, list, counter, or tree
+#' handle is expected. It stands for its root container of that type
+#' under the default name, so `text_insert(doc, 1, "Hello")` is
+#' `text_insert(doc_text(doc), 1, "Hello")` and `map_set(doc, a = 1)` is
+#' `map_set(doc_map(doc), a = 1)`. This is convenient for a document
+#' that holds one container of a kind; use handles for named or nested
+#' containers and for movable lists.
 #'
 #' Root container names are shared across types within a document's
 #' value, so use distinct names for different root containers: if two

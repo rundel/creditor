@@ -12,7 +12,9 @@ counter_get(counter)
 }
 \arguments{
 \item{counter}{A counter handle, from \code{\link[=doc_counter]{doc_counter()}} or a parent
-container.}
+container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{by}{A number to add.}
 }

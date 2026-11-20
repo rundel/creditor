@@ -91,7 +91,7 @@ an error.
 }
 \examples{
 doc = loro_doc(peer_id = 1)
-text_insert(doc_text(doc), 1, "Hello")
+text_insert(doc, 1, "Hello")
 doc_peer_id(doc)
 doc_value(doc)
 

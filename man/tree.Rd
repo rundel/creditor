@@ -26,7 +26,9 @@ tree_nodes(tree)
 tree_contains(tree, node)
 }
 \arguments{
-\item{tree}{A tree handle, from \code{\link[=doc_tree]{doc_tree()}} or a parent container.}
+\item{tree}{A tree handle, from \code{\link[=doc_tree]{doc_tree()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{parent}{The id of the parent node, or \code{NULL} for the top level.}
 

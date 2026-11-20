@@ -14,7 +14,9 @@ list_cursor(list, pos, side = c("middle", "left", "right"))
 cursor_pos(doc, cursor)
 }
 \arguments{
-\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.}
+\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{pos}{A 1-based character or element position.}
 
@@ -23,7 +25,9 @@ anchor character is deleted: \code{"middle"} (the default), \code{"left"},
 or \code{"right"}.}
 
 \item{list}{A list handle, from \code{\link[=doc_list]{doc_list()}}, \code{\link[=doc_movable_list]{doc_movable_list()}},
-or a parent container.}
+or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{doc}{A \code{\link{loro_doc}} holding the container the cursor refers to.}
 

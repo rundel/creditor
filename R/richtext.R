@@ -41,6 +41,8 @@
 #' synchronized, so every replica should configure a key the same way.
 #'
 #' @param text A text handle, from [`doc_text()`] or a parent container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param start,end 1-based positions of the first and last characters
 #'   of the range. For `text_delta()` they default to the whole text.
 #' @param ... For `text_mark()`, the marks to apply, each a plain value
@@ -125,13 +127,13 @@ with_style_hint = function(expr, key = NULL, call = rlang::caller_env()) {
 #' @rdname richtext
 #' @export
 text_mark = function(text, start, end, ...) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   marks = named_values(..., .what = "a mark key")
   check_mark_keys(names(marks))
-  range = check_mark_range(start, end, loro_text_length_impl(text@ptr))
+  range = check_mark_range(start, end, loro_text_length_impl(ptr))
   for (key in names(marks)) {
     with_style_hint(
-      loro_text_mark_impl(text@ptr, range$start, range$end, key, marks[[key]]),
+      loro_text_mark_impl(ptr, range$start, range$end, key, marks[[key]]),
       key
     )
   }
@@ -141,11 +143,11 @@ text_mark = function(text, start, end, ...) {
 #' @rdname richtext
 #' @export
 text_unmark = function(text, start, end, keys) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   keys = check_mark_keys(check_strings(keys, "keys"))
-  range = check_mark_range(start, end, loro_text_length_impl(text@ptr))
+  range = check_mark_range(start, end, loro_text_length_impl(ptr))
   for (key in keys) {
-    with_style_hint(loro_text_unmark_impl(text@ptr, range$start, range$end, key), key)
+    with_style_hint(loro_text_unmark_impl(ptr, range$start, range$end, key), key)
   }
   invisible(text)
 }
@@ -153,23 +155,23 @@ text_unmark = function(text, start, end, keys) {
 #' @rdname richtext
 #' @export
 text_delta = function(text, start = 1, end = text_length(text)) {
-  check_container(text, loro_text, "text")
-  size = loro_text_length_impl(text@ptr)
+  ptr = container_ptr(text, loro_text, "text")
+  size = loro_text_length_impl(ptr)
   range = check_range(start, end, size, "text")
   if (range$len == size) {
-    return(loro_text_delta_impl(text@ptr, NULL, NULL))
+    return(loro_text_delta_impl(ptr, NULL, NULL))
   }
-  loro_text_delta_impl(text@ptr, range$start, range$end)
+  loro_text_delta_impl(ptr, range$start, range$end)
 }
 
 #' @rdname richtext
 #' @export
 text_apply_delta = function(text, delta) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   if (!is.list(delta) || is.object(delta)) {
     cli::cli_abort("{.arg delta} must be a list of delta ops.")
   }
-  with_style_hint(loro_text_apply_delta_impl(text@ptr, delta))
+  with_style_hint(loro_text_apply_delta_impl(ptr, delta))
   invisible(text)
 }
 

@@ -20,7 +20,9 @@ text_apply_delta(text, delta)
 doc_config_text_style(doc, ..., .default = NULL)
 }
 \arguments{
-\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.}
+\item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{start, end}{1-based positions of the first and last characters
 of the range. For \code{text_delta()} they default to the whole text.}

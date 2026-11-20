@@ -33,6 +33,8 @@
 #'   result is `NA` if `pos` is out of range.
 #'
 #' @param text A text handle, from [`doc_text()`] or a parent container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param pos A 1-based character position.
 #' @param value A string: the text to insert, or the new contents for
 #'   `text_update()`.
@@ -68,71 +70,71 @@ NULL
 #' @rdname text
 #' @export
 text_insert = function(text, pos, value) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
   value = check_string(value, "value")
-  check_insert_pos(pos, loro_text_length_impl(text@ptr), "text")
-  loro_text_insert_impl(text@ptr, pos - 1L, value)
+  check_insert_pos(pos, loro_text_length_impl(ptr), "text")
+  loro_text_insert_impl(ptr, pos - 1L, value)
   invisible(text)
 }
 
 #' @rdname text
 #' @export
 text_push = function(text, value) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   value = check_string(value, "value")
-  loro_text_insert_impl(text@ptr, loro_text_length_impl(text@ptr), value)
+  loro_text_insert_impl(ptr, loro_text_length_impl(ptr), value)
   invisible(text)
 }
 
 #' @rdname text
 #' @export
 text_delete = function(text, start, end) {
-  check_container(text, loro_text, "text")
-  range = check_range(start, end, loro_text_length_impl(text@ptr), "text")
-  loro_text_delete_impl(text@ptr, range$start, range$len)
+  ptr = container_ptr(text, loro_text, "text")
+  range = check_range(start, end, loro_text_length_impl(ptr), "text")
+  loro_text_delete_impl(ptr, range$start, range$len)
   invisible(text)
 }
 
 #' @rdname text
 #' @export
 text_update = function(text, value, by = c("char", "line")) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   by = rlang::arg_match(by)
-  loro_text_update_impl(text@ptr, check_string(value, "value"), by == "line")
+  loro_text_update_impl(ptr, check_string(value, "value"), by == "line")
   invisible(text)
 }
 
 #' @rdname text
 #' @export
 text_replace = function(text, start, end, value) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   value = check_string(value, "value")
-  range = check_range(start, end, loro_text_length_impl(text@ptr), "text")
-  loro_text_splice_impl(text@ptr, range$start, range$len, value)
+  range = check_range(start, end, loro_text_length_impl(ptr), "text")
+  loro_text_splice_impl(ptr, range$start, range$len, value)
   invisible(text)
 }
 
 #' @rdname text
 #' @export
 text_sub = function(text, start = 1, end = text_length(text)) {
-  check_container(text, loro_text, "text")
-  range = check_range(start, end, loro_text_length_impl(text@ptr), "text")
-  loro_text_slice_impl(text@ptr, range$start, range$end)
+  ptr = container_ptr(text, loro_text, "text")
+  range = check_range(start, end, loro_text_length_impl(ptr), "text")
+  loro_text_slice_impl(ptr, range$start, range$end)
 }
 
 #' @rdname text
 #' @export
 text_get = function(text) {
-  check_container(text, loro_text, "text")
-  loro_container_value_impl(text@ptr, TRUE)
+  ptr = container_ptr(text, loro_text, "text")
+  loro_container_value_impl(ptr, TRUE)
 }
 
 #' @rdname text
 #' @export
 text_length = function(text, unit = c("unicode", "utf16", "utf8")) {
-  check_container(text, loro_text, "text")
-  loro_text_length_unit_impl(text@ptr, rlang::arg_match(unit))
+  ptr = container_ptr(text, loro_text, "text")
+  loro_text_length_unit_impl(ptr, rlang::arg_match(unit))
 }
 
 #' @rdname text
@@ -143,9 +145,9 @@ text_convert_pos = function(
   from = c("unicode", "utf16", "utf8"),
   to = c("utf16", "unicode", "utf8")
 ) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
-  loro_text_convert_pos_impl(text@ptr, pos - 1L, rlang::arg_match(from), rlang::arg_match(to)) + 1L
+  loro_text_convert_pos_impl(ptr, pos - 1L, rlang::arg_match(from), rlang::arg_match(to)) + 1L
 }
 
 S7::method(length, loro_text) = function(x) loro_text_length_impl(x@ptr)

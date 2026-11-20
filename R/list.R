@@ -43,6 +43,9 @@
 #' @param list A list handle, from [`doc_list()`], [`doc_movable_list()`],
 #'   or a parent container. `list_move()`, `list_set()`, and
 #'   `list_set_container()` need a movable list.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   list, which is a plain list, so it cannot be used with the
+#'   functions that need a movable list; see [`doc_text()`].
 #' @param from,to 1-based positions.
 #' @param pos A 1-based position. For `list_delete()`, a vector of
 #'   positions such as `2:4`.
@@ -87,12 +90,12 @@ NULL
 #' @rdname list
 #' @export
 list_insert = function(list, pos, ...) {
-  check_container(list, loro_list, "list")
+  ptr = container_ptr(list, loro_list, "list")
   pos = check_count(pos, "pos", 1)
   values = unnamed_values(...)
-  check_insert_pos(pos, loro_list_length_impl(list@ptr), "list")
+  check_insert_pos(pos, loro_list_length_impl(ptr), "list")
   for (i in seq_along(values)) {
-    loro_list_insert_impl(list@ptr, pos + i - 2L, values[[i]])
+    loro_list_insert_impl(ptr, pos + i - 2L, values[[i]])
   }
   invisible(list)
 }
@@ -100,9 +103,9 @@ list_insert = function(list, pos, ...) {
 #' @rdname list
 #' @export
 list_push = function(list, ...) {
-  check_container(list, loro_list, "list")
+  ptr = container_ptr(list, loro_list, "list")
   for (value in unnamed_values(...)) {
-    loro_list_insert_impl(list@ptr, loro_list_length_impl(list@ptr), value)
+    loro_list_insert_impl(ptr, loro_list_length_impl(ptr), value)
   }
   invisible(list)
 }
@@ -110,41 +113,41 @@ list_push = function(list, ...) {
 #' @rdname list
 #' @export
 list_insert_container = function(list, pos, type) {
-  check_container(list, loro_list, "list")
+  ptr = container_ptr(list, loro_list, "list")
   pos = check_count(pos, "pos", 1)
   type = check_type(type)
-  check_insert_pos(pos, loro_list_length_impl(list@ptr), "list")
-  container_from_ref(loro_list_insert_container_impl(list@ptr, pos - 1L, type))
+  check_insert_pos(pos, loro_list_length_impl(ptr), "list")
+  container_from_ref(loro_list_insert_container_impl(ptr, pos - 1L, type))
 }
 
 #' @rdname list
 #' @export
 list_push_container = function(list, type) {
-  check_container(list, loro_list, "list")
-  pos = loro_list_length_impl(list@ptr)
-  container_from_ref(loro_list_insert_container_impl(list@ptr, pos, check_type(type)))
+  ptr = container_ptr(list, loro_list, "list")
+  pos = loro_list_length_impl(ptr)
+  container_from_ref(loro_list_insert_container_impl(ptr, pos, check_type(type)))
 }
 
 #' @rdname list
 #' @export
 list_get = function(list, pos) {
-  check_container(list, loro_list, "list")
+  ptr = container_ptr(list, loro_list, "list")
   pos = check_count(pos, "pos", 1)
-  check_element_pos(pos, loro_list_length_impl(list@ptr), "list")
-  container_from_ref(loro_list_get_impl(list@ptr, pos - 1L))
+  check_element_pos(pos, loro_list_length_impl(ptr), "list")
+  container_from_ref(loro_list_get_impl(ptr, pos - 1L))
 }
 
 #' @rdname list
 #' @export
 list_delete = function(list, pos) {
-  check_container(list, loro_list, "list")
-  pos = sort(check_positions(pos, loro_list_length_impl(list@ptr), "list"))
+  ptr = container_ptr(list, loro_list, "list")
+  pos = sort(check_positions(pos, loro_list_length_impl(ptr), "list"))
   if (length(pos) == 0) {
     return(invisible(list))
   }
   run = cumsum(c(TRUE, diff(pos) != 1L))
   for (positions in rev(split(pos, run))) {
-    loro_list_delete_impl(list@ptr, positions[1] - 1L, length(positions))
+    loro_list_delete_impl(ptr, positions[1] - 1L, length(positions))
   }
   invisible(list)
 }
@@ -152,55 +155,55 @@ list_delete = function(list, pos) {
 #' @rdname list
 #' @export
 list_length = function(list) {
-  check_container(list, loro_list, "list")
-  loro_list_length_impl(list@ptr)
+  ptr = container_ptr(list, loro_list, "list")
+  loro_list_length_impl(ptr)
 }
 
 #' @rdname list
 #' @export
 list_move = function(list, from, to) {
-  check_container(list, loro_movable_list, "list")
+  ptr = container_ptr(list, loro_movable_list, "list")
   from = check_count(from, "from", 1)
   to = check_count(to, "to", 1)
-  size = loro_list_length_impl(list@ptr)
+  size = loro_list_length_impl(ptr)
   check_element_pos(from, size, "list", arg = "from")
   check_element_pos(to, size, "list", arg = "to")
-  loro_list_move_impl(list@ptr, from - 1L, to - 1L)
+  loro_list_move_impl(ptr, from - 1L, to - 1L)
   invisible(list)
 }
 
 #' @rdname list
 #' @export
 list_set = function(list, pos, value) {
-  check_container(list, loro_movable_list, "list")
+  ptr = container_ptr(list, loro_movable_list, "list")
   pos = check_count(pos, "pos", 1)
-  check_element_pos(pos, loro_list_length_impl(list@ptr), "list")
-  loro_list_set_impl(list@ptr, pos - 1L, value)
+  check_element_pos(pos, loro_list_length_impl(ptr), "list")
+  loro_list_set_impl(ptr, pos - 1L, value)
   invisible(list)
 }
 
 #' @rdname list
 #' @export
 list_set_container = function(list, pos, type) {
-  check_container(list, loro_movable_list, "list")
+  ptr = container_ptr(list, loro_movable_list, "list")
   pos = check_count(pos, "pos", 1)
   type = check_type(type)
-  check_element_pos(pos, loro_list_length_impl(list@ptr), "list")
-  container_from_ref(loro_list_set_container_impl(list@ptr, pos - 1L, type))
+  check_element_pos(pos, loro_list_length_impl(ptr), "list")
+  container_from_ref(loro_list_set_container_impl(ptr, pos - 1L, type))
 }
 
 #' @rdname list
 #' @export
 list_pop = function(list) {
-  check_container(list, loro_list, "list")
-  loro_list_pop_impl(list@ptr)
+  ptr = container_ptr(list, loro_list, "list")
+  loro_list_pop_impl(ptr)
 }
 
 #' @rdname list
 #' @export
 list_clear = function(list) {
-  check_container(list, loro_list, "list")
-  loro_list_clear_impl(list@ptr)
+  ptr = container_ptr(list, loro_list, "list")
+  loro_list_clear_impl(ptr)
   invisible(list)
 }
 

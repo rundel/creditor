@@ -222,7 +222,7 @@ check_version = function(x, arg, call = rlang::caller_env()) {
 #'
 #' @examples
 #' doc = loro_doc()
-#' text_insert(doc_text(doc), 1, "a")
+#' text_insert(doc, 1, "a")
 #' frontiers = doc_frontiers(doc)
 #' frontiers
 #'

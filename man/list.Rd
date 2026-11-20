@@ -43,7 +43,10 @@ list_clear(list)
 \arguments{
 \item{list}{A list handle, from \code{\link[=doc_list]{doc_list()}}, \code{\link[=doc_movable_list]{doc_movable_list()}},
 or a parent container. \code{list_move()}, \code{list_set()}, and
-\code{list_set_container()} need a movable list.}
+\code{list_set_container()} need a movable list.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+list, which is a plain list, so it cannot be used with the
+functions that need a movable list; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{pos}{A 1-based position. For \code{list_delete()}, a vector of
 positions such as \code{2:4}.}

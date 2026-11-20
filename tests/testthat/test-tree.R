@@ -114,7 +114,7 @@ test_that("deleted and unknown nodes are rejected", {
 
 test_that("tree arguments are validated", {
   o = outline()
-  expect_error(tree_create(o$doc), "loro_tree")
+  expect_error(tree_create(doc_map(o$doc)), "loro_tree")
   expect_error(tree_create(o$tree, parent = "a"), "parent")
   expect_error(tree_create(o$tree, parent = 1), "parent")
   expect_error(tree_create(o$tree, index = 0), "index")

@@ -107,18 +107,18 @@ is still in transit.
 
 \examples{
 a = loro_doc()
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 
 b = loro_doc()
 doc_import(b, doc_export(a))
 
-text_insert(doc_text(a), 6, " world")
-text_insert(doc_text(b), 1, ">> ")
+text_insert(a, 6, " world")
+text_insert(b, 1, ">> ")
 
 doc_import(b, doc_export_updates(a, from = doc_version(b)))
 doc_import(a, doc_export_updates(b, from = doc_version(a)))
-text_get(doc_text(a))
-text_get(doc_text(b))
+text_get(a)
+text_get(b)
 
 small = doc_export_shallow(a)
 blob_metadata(small)$mode

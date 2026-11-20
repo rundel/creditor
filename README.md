@@ -25,20 +25,20 @@ Two replicas edit the same text concurrently and then merge.
 library(creditor)
 
 a = loro_doc()
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 
 b = loro_doc()
 doc_import(b, doc_export(a))
 
-text_insert(doc_text(a), 6, " world")
-text_insert(doc_text(b), 1, ">> ")
+text_insert(a, 6, " world")
+text_insert(b, 1, ">> ")
 
 doc_import(b, doc_export_updates(a, from = doc_version(b)))
 doc_import(a, doc_export_updates(b, from = doc_version(a)))
 
-text_get(doc_text(a))
+text_get(a)
 #> [1] ">> Hello world"
-text_get(doc_text(b))
+text_get(b)
 #> [1] ">> Hello world"
 ```
 
@@ -119,14 +119,14 @@ b = loro_doc()
 sync = doc_subscribe_local_updates(a, function(bytes) doc_import(b, bytes))
 manager = doc_undo_manager(a)
 
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 doc_commit(a)
-text_get(doc_text(b))
+text_get(b)
 #> [1] "Hello"
 
 undo(manager)
 #> [1] TRUE
-text_get(doc_text(b))
+text_get(b)
 #> [1] ""
 
 unsubscribe(sync)

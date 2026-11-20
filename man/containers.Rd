@@ -80,6 +80,14 @@ for text, maps, and lists, \code{names()}, \code{$}, and \code{[[} for maps, \co
 for lists, \code{as.character()} for text, and \code{as.list()} for maps and
 lists.
 
+A document can be passed wherever a text, map, list, counter, or tree
+handle is expected. It stands for its root container of that type
+under the default name, so \code{text_insert(doc, 1, "Hello")} is
+\code{text_insert(doc_text(doc), 1, "Hello")} and \code{map_set(doc, a = 1)} is
+\code{map_set(doc_map(doc), a = 1)}. This is convenient for a document
+that holds one container of a kind; use handles for named or nested
+containers and for movable lists.
+
 Root container names are shared across types within a document's
 value, so use distinct names for different root containers: if two
 root containers of different types have the same name, each keeps

@@ -14,8 +14,13 @@
 #'
 #' @examples
 #' doc = loro_doc()
-#' text_insert(doc_text(doc), 1, "Hello")
-#' text_get(doc_text(doc))
+#' text_insert(doc, 1, "Hello")
+#' text_get(doc)
+#'
+#' # the same, through a handle to the root text container
+#' text = doc_text(doc)
+#' text_push(text, " world")
+#' text_get(text)
 #'
 #' @export
 loro_doc = S7::new_class(
@@ -121,7 +126,7 @@ check_doc = function(doc, call = rlang::caller_env()) {
 #'
 #' @examples
 #' doc = loro_doc(peer_id = 1)
-#' text_insert(doc_text(doc), 1, "Hello")
+#' text_insert(doc, 1, "Hello")
 #' doc_peer_id(doc)
 #' doc_value(doc)
 #'
@@ -359,18 +364,18 @@ doc_jsonpath = function(doc, path) {
 #'
 #' @examples
 #' a = loro_doc()
-#' text_insert(doc_text(a), 1, "Hello")
+#' text_insert(a, 1, "Hello")
 #'
 #' b = loro_doc()
 #' doc_import(b, doc_export(a))
 #'
-#' text_insert(doc_text(a), 6, " world")
-#' text_insert(doc_text(b), 1, ">> ")
+#' text_insert(a, 6, " world")
+#' text_insert(b, 1, ">> ")
 #'
 #' doc_import(b, doc_export_updates(a, from = doc_version(b)))
 #' doc_import(a, doc_export_updates(b, from = doc_version(a)))
-#' text_get(doc_text(a))
-#' text_get(doc_text(b))
+#' text_get(a)
+#' text_get(b)
 #'
 #' small = doc_export_shallow(a)
 #' blob_metadata(small)$mode

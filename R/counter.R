@@ -12,6 +12,8 @@
 #'
 #' @param counter A counter handle, from [`doc_counter()`] or a parent
 #'   container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param by A number to add.
 #'
 #' @return `counter_increment()` returns `counter` invisibly and
@@ -30,17 +32,17 @@ NULL
 #' @rdname counter
 #' @export
 counter_increment = function(counter, by = 1) {
-  check_container(counter, loro_counter, "counter")
+  ptr = container_ptr(counter, loro_counter, "counter")
   if (!is.numeric(by) || length(by) != 1 || !is.finite(by)) {
     cli::cli_abort("{.arg by} must be a single finite number.")
   }
-  loro_counter_increment_impl(counter@ptr, as.numeric(by))
+  loro_counter_increment_impl(ptr, as.numeric(by))
   invisible(counter)
 }
 
 #' @rdname counter
 #' @export
 counter_get = function(counter) {
-  check_container(counter, loro_counter, "counter")
-  loro_container_value_impl(counter@ptr, TRUE)
+  ptr = container_ptr(counter, loro_counter, "counter")
+  loro_container_value_impl(ptr, TRUE)
 }

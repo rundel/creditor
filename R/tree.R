@@ -32,6 +32,8 @@
 #' to anything. Undoing a move, and [`doc_checkout()`], keep ids.
 #'
 #' @param tree A tree handle, from [`doc_tree()`] or a parent container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param node A node id.
 #' @param parent The id of the parent node, or `NULL` for the top level.
 #' @param index A 1-based position among the parent's children, or
@@ -89,14 +91,14 @@ check_index = function(index, call = rlang::caller_env()) {
 #' @rdname tree
 #' @export
 tree_create = function(tree, parent = NULL, index = NULL, meta = list()) {
-  check_container(tree, loro_tree, "tree")
+  ptr = container_ptr(tree, loro_tree, "tree")
   if (!is.list(meta) || is.object(meta)) {
     cli::cli_abort("{.arg meta} must be a named list.")
   }
   meta = named_values(!!!meta)
-  node = loro_tree_create_impl(tree@ptr, check_parent(parent), check_index(index))
+  node = loro_tree_create_impl(ptr, check_parent(parent), check_index(index))
   if (length(meta) > 0) {
-    map = loro_tree_meta_impl(tree@ptr, node)$ptr
+    map = loro_tree_meta_impl(ptr, node)$ptr
     for (key in names(meta)) {
       loro_map_set_impl(map, key, meta[[key]])
     }
@@ -107,45 +109,45 @@ tree_create = function(tree, parent = NULL, index = NULL, meta = list()) {
 #' @rdname tree
 #' @export
 tree_move = function(tree, node, parent = NULL, index = NULL) {
-  check_container(tree, loro_tree, "tree")
+  ptr = container_ptr(tree, loro_tree, "tree")
   node = check_node(node, "node")
-  loro_tree_move_impl(tree@ptr, node, check_parent(parent), check_index(index))
+  loro_tree_move_impl(ptr, node, check_parent(parent), check_index(index))
   invisible(tree)
 }
 
 #' @rdname tree
 #' @export
 tree_delete = function(tree, node) {
-  check_container(tree, loro_tree, "tree")
-  loro_tree_delete_impl(tree@ptr, check_node(node, "node"))
+  ptr = container_ptr(tree, loro_tree, "tree")
+  loro_tree_delete_impl(ptr, check_node(node, "node"))
   invisible(tree)
 }
 
 #' @rdname tree
 #' @export
 tree_meta = function(tree, node) {
-  check_container(tree, loro_tree, "tree")
-  container_from_ref(loro_tree_meta_impl(tree@ptr, check_node(node, "node")))
+  ptr = container_ptr(tree, loro_tree, "tree")
+  container_from_ref(loro_tree_meta_impl(ptr, check_node(node, "node")))
 }
 
 #' @rdname tree
 #' @export
 tree_children = function(tree, parent = NULL) {
-  check_container(tree, loro_tree, "tree")
-  loro_tree_children_impl(tree@ptr, check_parent(parent))
+  ptr = container_ptr(tree, loro_tree, "tree")
+  loro_tree_children_impl(ptr, check_parent(parent))
 }
 
 #' @rdname tree
 #' @export
 tree_nodes = function(tree) {
-  check_container(tree, loro_tree, "tree")
-  nodes = loro_tree_nodes_impl(tree@ptr)
+  ptr = container_ptr(tree, loro_tree, "tree")
+  nodes = loro_tree_nodes_impl(ptr)
   data.frame(id = nodes$id, parent = nodes$parent, index = nodes$index + 1L)
 }
 
 #' @rdname tree
 #' @export
 tree_contains = function(tree, node) {
-  check_container(tree, loro_tree, "tree")
-  loro_tree_contains_impl(tree@ptr, check_node(node, "node"))
+  ptr = container_ptr(tree, loro_tree, "tree")
+  loro_tree_contains_impl(ptr, check_node(node, "node"))
 }

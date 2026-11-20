@@ -23,7 +23,12 @@ document. Use \code{\link[=doc_fork]{doc_fork()}} for an independent replica.
 }
 \examples{
 doc = loro_doc()
-text_insert(doc_text(doc), 1, "Hello")
-text_get(doc_text(doc))
+text_insert(doc, 1, "Hello")
+text_get(doc)
+
+# the same, through a handle to the root text container
+text = doc_text(doc)
+text_push(text, " world")
+text_get(text)
 
 }

@@ -68,6 +68,8 @@
 #' the order `sort()` gives in your locale.
 #'
 #' @param map A map handle, from [`doc_map()`] or a parent container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param ... Values to store, each named with its key, for example
 #'   `map_set(map, title = "Notes", done = FALSE)`; see the Values
 #'   section. These are [dynamic dots][rlang::dyn-dots], so a named list
@@ -109,10 +111,10 @@ NULL
 #' @rdname map
 #' @export
 map_set = function(map, ...) {
-  check_container(map, loro_map, "map")
+  ptr = container_ptr(map, loro_map, "map")
   values = named_values(...)
   for (key in names(values)) {
-    loro_map_set_impl(map@ptr, key, values[[key]])
+    loro_map_set_impl(ptr, key, values[[key]])
   }
   invisible(map)
 }
@@ -120,39 +122,39 @@ map_set = function(map, ...) {
 #' @rdname map
 #' @export
 map_set_container = function(map, key, type) {
-  check_container(map, loro_map, "map")
+  ptr = container_ptr(map, loro_map, "map")
   key = check_string(key, "key")
-  container_from_ref(loro_map_set_container_impl(map@ptr, key, check_type(type)))
+  container_from_ref(loro_map_set_container_impl(ptr, key, check_type(type)))
 }
 
 #' @rdname map
 #' @export
 map_ensure_container = function(map, key, type) {
-  check_container(map, loro_map, "map")
+  ptr = container_ptr(map, loro_map, "map")
   key = check_string(key, "key")
-  container_from_ref(loro_map_ensure_container_impl(map@ptr, key, check_type(type)))
+  container_from_ref(loro_map_ensure_container_impl(ptr, key, check_type(type)))
 }
 
 #' @rdname map
 #' @export
 map_get = function(map, key) {
-  check_container(map, loro_map, "map")
-  container_from_ref(loro_map_get_impl(map@ptr, check_string(key, "key")))
+  ptr = container_ptr(map, loro_map, "map")
+  container_from_ref(loro_map_get_impl(ptr, check_string(key, "key")))
 }
 
 #' @rdname map
 #' @export
 map_has = function(map, keys) {
-  check_container(map, loro_map, "map")
-  check_strings(keys, "keys") %in% loro_map_keys_impl(map@ptr)
+  ptr = container_ptr(map, loro_map, "map")
+  check_strings(keys, "keys") %in% loro_map_keys_impl(ptr)
 }
 
 #' @rdname map
 #' @export
 map_delete = function(map, ...) {
-  check_container(map, loro_map, "map")
+  ptr = container_ptr(map, loro_map, "map")
   for (key in key_dots(...)) {
-    loro_map_delete_impl(map@ptr, key)
+    loro_map_delete_impl(ptr, key)
   }
   invisible(map)
 }
@@ -160,30 +162,30 @@ map_delete = function(map, ...) {
 #' @rdname map
 #' @export
 map_clear = function(map) {
-  check_container(map, loro_map, "map")
-  loro_map_clear_impl(map@ptr)
+  ptr = container_ptr(map, loro_map, "map")
+  loro_map_clear_impl(ptr)
   invisible(map)
 }
 
 #' @rdname map
 #' @export
 map_keys = function(map) {
-  check_container(map, loro_map, "map")
-  loro_map_keys_impl(map@ptr)
+  ptr = container_ptr(map, loro_map, "map")
+  loro_map_keys_impl(ptr)
 }
 
 #' @rdname map
 #' @export
 map_length = function(map) {
-  check_container(map, loro_map, "map")
-  loro_map_length_impl(map@ptr)
+  ptr = container_ptr(map, loro_map, "map")
+  loro_map_length_impl(ptr)
 }
 
 #' @rdname map
 #' @export
 map_last_editor = function(map, key) {
-  check_container(map, loro_map, "map")
-  loro_map_last_editor_impl(map@ptr, check_string(key, "key"))
+  ptr = container_ptr(map, loro_map, "map")
+  loro_map_last_editor_impl(ptr, check_string(key, "key"))
 }
 
 S7::method(`[[`, loro_map) = function(x, i, ...) {

@@ -68,7 +68,7 @@ test_that("counter arguments are validated", {
   expect_error(counter_increment(counter, NA_real_), "by")
   expect_error(counter_increment(counter, Inf), "by")
   expect_error(counter_increment(doc_text(doc), 1), "loro_counter")
-  expect_error(counter_get(doc), "loro_counter")
+  expect_error(counter_get(doc_text(doc)), "loro_counter")
 })
 
 test_that("a counter prints its value", {

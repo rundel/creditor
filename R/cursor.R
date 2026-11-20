@@ -27,8 +27,12 @@
 #' created the anchor character.
 #'
 #' @param text A text handle, from [`doc_text()`] or a parent container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param list A list handle, from [`doc_list()`], [`doc_movable_list()`],
 #'   or a parent container.
+#'   A [`loro_doc`] is also accepted and stands for its default root
+#'   container; see [`doc_text()`].
 #' @param pos A 1-based character or element position.
 #' @param side Which side of the anchor the cursor sticks to when the
 #'   anchor character is deleted: `"middle"` (the default), `"left"`,
@@ -54,31 +58,31 @@ NULL
 #' @rdname cursor
 #' @export
 text_cursor = function(text, pos, side = c("middle", "left", "right")) {
-  check_container(text, loro_text, "text")
+  ptr = container_ptr(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
   side = rlang::arg_match(side)
-  length = loro_text_length_impl(text@ptr)
+  length = loro_text_length_impl(ptr)
   if (pos > length + 1L) {
     cli::cli_abort(
       "{.arg pos} must be at most {length + 1L}, one past the end of the text, not {pos}."
     )
   }
-  loro_text_cursor_impl(text@ptr, pos - 1L, c(left = -1L, middle = 0L, right = 1L)[[side]])
+  loro_text_cursor_impl(ptr, pos - 1L, c(left = -1L, middle = 0L, right = 1L)[[side]])
 }
 
 #' @rdname cursor
 #' @export
 list_cursor = function(list, pos, side = c("middle", "left", "right")) {
-  check_container(list, loro_list, "list")
+  ptr = container_ptr(list, loro_list, "list")
   pos = check_count(pos, "pos", 1)
   side = rlang::arg_match(side)
-  length = loro_list_length_impl(list@ptr)
+  length = loro_list_length_impl(ptr)
   if (pos > length + 1L) {
     cli::cli_abort(
       "{.arg pos} must be at most {length + 1L}, one past the end of the list, not {pos}."
     )
   }
-  loro_list_cursor_impl(list@ptr, pos - 1L, c(left = -1L, middle = 0L, right = 1L)[[side]])
+  loro_list_cursor_impl(ptr, pos - 1L, c(left = -1L, middle = 0L, right = 1L)[[side]])
 }
 
 #' @rdname cursor

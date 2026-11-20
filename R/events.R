@@ -63,9 +63,9 @@
 #'   cat("b changed by", event$by, "\n")
 #' })
 #'
-#' text_insert(doc_text(a), 1, "Hello")
+#' text_insert(a, 1, "Hello")
 #' doc_commit(a)
-#' text_get(doc_text(b))
+#' text_get(b)
 #'
 #' unsubscribe(sync)
 #' unsubscribe(watch)

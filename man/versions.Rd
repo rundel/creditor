@@ -35,7 +35,7 @@ kinds; use \code{\link[=doc_frontiers_to_version]{doc_frontiers_to_version()}} a
 }
 \examples{
 doc = loro_doc()
-text_insert(doc_text(doc), 1, "a")
+text_insert(doc, 1, "a")
 frontiers = doc_frontiers(doc)
 frontiers
 

@@ -35,7 +35,9 @@ map_length(map)
 map_last_editor(map, key)
 }
 \arguments{
-\item{map}{A map handle, from \code{\link[=doc_map]{doc_map()}} or a parent container.}
+\item{map}{A map handle, from \code{\link[=doc_map]{doc_map()}} or a parent container.
+A \code{\link{loro_doc}} is also accepted and stands for its default root
+container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{...}{Values to store, each named with its key, for example
 \code{map_set(map, title = "Notes", done = FALSE)}; see the Values
