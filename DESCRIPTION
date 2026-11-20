@@ -7,6 +7,8 @@ Description: Exploratory R bindings to the Loro Rust crate, a library of
     conflict-free replicated data types (CRDTs). Create documents, edit
     collaborative text, and exchange snapshots and updates between
     replicas that merge without conflicts.
+URL: https://github.com/rundel/creditor, https://rundel.github.io/creditor/
+BugReports: https://github.com/rundel/creditor/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

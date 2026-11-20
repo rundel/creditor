@@ -1,0 +1,10 @@
+url: https://rundel.github.io/creditor/
+
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [search, github]

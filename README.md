@@ -1,5 +1,9 @@
 # creditor
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/rundel/creditor/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/rundel/creditor/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
+
 Exploratory R bindings to [Loro](https://loro.dev), a Rust library of conflict-free replicated data types (CRDTs). Replicas of a document edit independently, exchange updates as raw vectors, and converge to the same contents. Text (including rich text marks and cursors), map, list, movable list, counter, and tree containers are supported, and they can be nested. Documents keep their full history, which can be listed, compared, checked out, and reverted. Exports can be full or shallow snapshots, incremental updates, or JSON. Subscriptions report changes as they are committed, an undo manager reverses local edits, and an ephemeral store shares presence state such as cursors.
 
 See `vignette("containers", package = "creditor")` for a tour of each container type and how it merges concurrent edits.
