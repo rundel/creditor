@@ -16,21 +16,19 @@ concurrently and merge.
 A replica is a copy of a document that can be edited independently. Two
 small helpers keep the examples short. `replica()` makes a second copy
 of a document under its own peer id, and `sync()` exchanges whatever
-each side is missing.
+each side is missing and returns the first document.
 
 ``` r
 library(creditor)
 
 replica = function(doc, peer_id) {
-  copy = doc_fork(doc)
-  doc_set_peer_id(copy, peer_id)
-  copy
+  doc_fork(doc) |>
+    doc_set_peer_id(peer_id)
 }
 
 sync = function(a, b) {
   doc_import(b, doc_export_updates(a, from = doc_version(b)))
   doc_import(a, doc_export_updates(b, from = doc_version(a)))
-  invisible()
 }
 ```
 
@@ -58,6 +56,13 @@ then stands for its root container of that type under the default name:
 `text_insert(doc_text(doc), 1, "Hello")`. Most examples below use this
 form, and switch to handles for named and nested containers.
 
+Editing functions return the document or handle they were given,
+invisibly, so a series of edits can be written as a pipeline. Functions
+that read something, such as
+[`text_get()`](https://rundel.github.io/creditor/reference/text.md) or
+[`doc_value()`](https://rundel.github.io/creditor/reference/doc.md), end
+a pipeline.
+
 ## Text
 
 A text container holds a string that can be edited by inserting and
@@ -65,11 +70,11 @@ deleting at character positions. Positions are 1-based and count Unicode
 code points.
 
 ``` r
-doc = loro_doc(peer_id = 1)
-text_insert(doc, 1, "The quick fox")
-text_insert(doc, 11, "brown ")
-text_delete(doc, 1, 4)
-text_get(doc)
+loro_doc(peer_id = 1) |>
+  text_insert(1, "The quick fox") |>
+  text_insert(11, "brown ") |>
+  text_delete(1, 4) |>
+  text_get()
 #> [1] "quick brown fox"
 ```
 
@@ -77,15 +82,15 @@ Concurrent edits to different parts of a text are all kept. Here one
 replica changes the start of a sentence while the other changes the end.
 
 ``` r
-a = loro_doc(peer_id = 1)
-text_insert(a, 1, "The quick fox jumps")
+a = loro_doc(peer_id = 1) |>
+  text_insert(1, "The quick fox jumps")
 b = replica(a, 2)
 
 text_replace(a, 1, 3, "A")
 text_insert(b, 20, " over the dog")
 
-sync(a, b)
-text_get(a)
+sync(a, b) |>
+  text_get()
 #> [1] "A quick fox jumps over the dog"
 text_get(b)
 #> [1] "A quick fox jumps over the dog"
@@ -99,15 +104,15 @@ matters for merging: replacing the whole string would discard a
 concurrent edit, while an update keeps it.
 
 ``` r
-a = loro_doc(peer_id = 1)
-text_insert(a, 1, "Meeting at noon on Tuesday")
+a = loro_doc(peer_id = 1) |>
+  text_insert(1, "Meeting at noon on Tuesday")
 b = replica(a, 2)
 
 text_update(a, "Meeting at 12:30 on Tuesday")
 text_update(b, "Meeting at noon on Wednesday")
 
-sync(a, b)
-text_get(a)
+sync(a, b) |>
+  text_get()
 #> [1] "Meeting at 12:30 on Wednesday"
 ```
 
@@ -121,12 +126,12 @@ returns the text as a sequence of runs, each with the marks that apply
 to it.
 
 ``` r
-doc = loro_doc(peer_id = 1)
-text_insert(doc, 1, "Read the docs today")
-
-text_mark(doc, 1, 4, bold = TRUE)
-text_mark(doc, 10, 13, link = "https://loro.dev")
-str(text_delta(doc))
+loro_doc(peer_id = 1) |>
+  text_insert(1, "Read the docs today") |>
+  text_mark(1, 4, bold = TRUE) |>
+  text_mark(10, 13, link = "https://loro.dev") |>
+  text_delta() |>
+  str()
 #> List of 4
 #>  $ :List of 2
 #>   ..$ insert    : chr "Read"
@@ -146,15 +151,16 @@ Marks merge with concurrent edits. If one replica makes a phrase bold
 while another types inside it, the new characters are bold too.
 
 ``` r
-a = loro_doc(peer_id = 1)
-text_insert(a, 1, "Hello world")
+a = loro_doc(peer_id = 1) |>
+  text_insert(1, "Hello world")
 b = replica(a, 2)
 
 text_mark(a, 1, 5, bold = TRUE)
 text_insert(b, 3, "XX")
 
-sync(a, b)
-str(text_delta(a))
+sync(a, b) |>
+  text_delta() |>
+  str()
 #> List of 2
 #>  $ :List of 2
 #>   ..$ insert    : chr "HeXXllo"
@@ -173,11 +179,12 @@ after a link produces plain text. Keys other than the built-in ones
 [`doc_config_text_style()`](https://rundel.github.io/creditor/reference/richtext.md).
 
 ``` r
-doc = loro_doc(peer_id = 1)
-doc_config_text_style(doc, author = "none")
-text_insert(doc, 1, "Reviewed")
-text_mark(doc, 1, 8, author = "cr")
-str(text_delta(doc))
+loro_doc(peer_id = 1) |>
+  doc_config_text_style(author = "none") |>
+  text_insert(1, "Reviewed") |>
+  text_mark(1, 8, author = "cr") |>
+  text_delta() |>
+  str()
 #> List of 1
 #>  $ :List of 2
 #>   ..$ insert    : chr "Reviewed"
@@ -193,15 +200,16 @@ map named `settings`.
 
 ``` r
 doc = loro_doc(peer_id = 1)
-settings = doc_map(doc, "settings")
-
-map_set(settings, theme = "dark", font_size = 12L, recent = c("a.qmd", "b.qmd"))
+settings = doc_map(doc, "settings") |>
+  map_set(theme = "dark", font_size = 12L, recent = c("a.qmd", "b.qmd"))
 
 map_keys(settings)
 #> [1] "font_size" "recent"    "theme"
 map_get(settings, "theme")
 #> [1] "dark"
-str(container_value(settings))
+settings |>
+  container_value() |>
+  str()
 #> List of 3
 #>  $ font_size: int 12
 #>  $ recent   :List of 2
@@ -236,15 +244,17 @@ the same key cannot both be kept, so one of them wins, and it is the
 same one on every replica.
 
 ``` r
-a = loro_doc(peer_id = 1)
-map_set(a, theme = "light")
+a = loro_doc(peer_id = 1) |>
+  map_set(theme = "light")
 b = replica(a, 2)
 
 map_set(a, theme = "dark", font_size = 12L)
 map_set(b, theme = "sepia", line_numbers = TRUE)
 
-sync(a, b)
-str(as.list(doc_map(a)))
+sync(a, b) |>
+  doc_map() |>
+  as.list() |>
+  str()
 #> List of 3
 #>  $ font_size   : int 12
 #>  $ line_numbers: logi TRUE
@@ -263,11 +273,13 @@ a value should merge independently, store a child container instead; see
 A list is an ordered sequence of values, addressed by 1-based position.
 
 ``` r
-doc = loro_doc(peer_id = 1)
-list_push(doc, "milk", "eggs")
-list_insert(doc, 1, "bread")
-list_delete(doc, 2)
-str(as.list(doc_list(doc)))
+loro_doc(peer_id = 1) |>
+  list_push("milk", "eggs") |>
+  list_insert(1, "bread") |>
+  list_delete(2) |>
+  doc_list() |>
+  as.list() |>
+  str()
 #> List of 2
 #>  $ : chr "bread"
 #>  $ : chr "eggs"
@@ -277,15 +289,17 @@ Concurrent insertions are all kept, even at the same position. Their
 relative order is decided the same way on every replica.
 
 ``` r
-a = loro_doc(peer_id = 1)
-list_push(a, "milk")
+a = loro_doc(peer_id = 1) |>
+  list_push("milk")
 b = replica(a, 2)
 
 list_push(a, "eggs")
 list_push(b, "bread")
 
-sync(a, b)
-str(as.list(doc_list(a)))
+sync(a, b) |>
+  doc_list() |>
+  as.list() |>
+  str()
 #> List of 3
 #>  $ : chr "milk"
 #>  $ : chr "eggs"
@@ -298,20 +312,23 @@ replicas do that to the same element, each insertion is kept and the
 element is duplicated.
 
 ``` r
-a = loro_doc(peer_id = 1)
-list_push(a, "write", "test", "ship")
+a = loro_doc(peer_id = 1) |>
+  list_push("write", "test", "ship")
 b = replica(a, 2)
 
 move_by_copy = function(list, from, to) {
   value = list_get(list, from)
-  list_delete(list, from)
-  list_insert(list, to, value)
+  list |>
+    list_delete(from) |>
+    list_insert(to, value)
 }
 move_by_copy(a, 3, 1)
 move_by_copy(b, 3, 2)
 
-sync(a, b)
-str(as.list(doc_list(a)))
+sync(a, b) |>
+  doc_list() |>
+  as.list() |>
+  str()
 #> List of 4
 #>  $ : chr "ship"
 #>  $ : chr "write"
@@ -336,12 +353,12 @@ or a parent container.
 
 ``` r
 doc = loro_doc(peer_id = 1)
-tasks = doc_movable_list(doc, "tasks")
-list_push(tasks, "write", "test", "ship")
-
-list_move(tasks, 3, 1)
-list_set(tasks, 2, "write docs")
-str(as.list(tasks))
+doc_movable_list(doc, "tasks") |>
+  list_push("write", "test", "ship") |>
+  list_move(3, 1) |>
+  list_set(2, "write docs") |>
+  as.list() |>
+  str()
 #> List of 3
 #>  $ : chr "ship"
 #>  $ : chr "write docs"
@@ -354,15 +371,18 @@ where it should go, so one destination wins.
 
 ``` r
 a = loro_doc(peer_id = 1)
-tasks = doc_movable_list(a, "tasks")
-list_push(tasks, "write", "test", "ship")
+tasks = doc_movable_list(a, "tasks") |>
+  list_push("write", "test", "ship")
 b = replica(a, 2)
 
 list_move(tasks, 3, 1)
-list_move(doc_movable_list(b, "tasks"), 3, 2)
+doc_movable_list(b, "tasks") |>
+  list_move(3, 2)
 
 sync(a, b)
-str(as.list(tasks))
+tasks |>
+  as.list() |>
+  str()
 #> List of 3
 #>  $ : chr "write"
 #>  $ : chr "ship"
@@ -375,15 +395,18 @@ task in its new position.
 
 ``` r
 a = loro_doc(peer_id = 1)
-tasks = doc_movable_list(a, "tasks")
-list_push(tasks, "write", "test", "ship")
+tasks = doc_movable_list(a, "tasks") |>
+  list_push("write", "test", "ship")
 b = replica(a, 2)
 
 list_move(tasks, 1, 3)
-list_set(doc_movable_list(b, "tasks"), 1, "write the vignette")
+doc_movable_list(b, "tasks") |>
+  list_set(1, "write the vignette")
 
 sync(a, b)
-str(as.list(tasks))
+tasks |>
+  as.list() |>
+  str()
 #> List of 3
 #>  $ : chr "test"
 #>  $ : chr "ship"
@@ -404,11 +427,12 @@ a = loro_doc(peer_id = 1)
 b = replica(a, 2)
 
 counter_increment(a, 3)
-counter_increment(b, 4)
-counter_increment(b, -1)
+b |>
+  counter_increment(4) |>
+  counter_increment(-1)
 
-sync(a, b)
-counter_get(a)
+sync(a, b) |>
+  counter_get()
 #> [1] 6
 ```
 
@@ -418,8 +442,8 @@ merge only one of those writes survives, and the other replica’s votes
 are lost.
 
 ``` r
-a = loro_doc(peer_id = 1)
-map_set(a, votes = 0)
+a = loro_doc(peer_id = 1) |>
+  map_set(votes = 0)
 b = replica(a, 2)
 
 add_votes = function(doc, n) {
@@ -428,8 +452,8 @@ add_votes = function(doc, n) {
 add_votes(a, 3)
 add_votes(b, 4)
 
-sync(a, b)
-map_get(a, "votes")
+sync(a, b) |>
+  map_get("votes")
 #> [1] 4
 ```
 
@@ -457,11 +481,13 @@ data = add_section(outline, "Data", parent = methods)
 model = add_section(outline, "Model", parent = methods)
 
 tree_nodes(outline)
-#>    id parent index
-#> 1 0@1   <NA>     1
-#> 2 2@1   <NA>     2
-#> 3 4@1    2@1     1
-#> 4 6@1    2@1     2
+#> # A tibble: 4 × 3
+#>   id    parent index
+#>   <chr> <chr>  <int>
+#> 1 0@1   <NA>       1
+#> 2 2@1   <NA>       2
+#> 3 4@1   2@1        1
+#> 4 6@1   2@1        2
 ```
 
 [`tree_nodes()`](https://rundel.github.io/creditor/reference/tree.md)
@@ -486,8 +512,9 @@ show_outline(outline)
 Moving a node carries its whole subtree with it.
 
 ``` r
-tree_move(outline, methods, parent = intro)
-show_outline(outline)
+outline |>
+  tree_move(methods, parent = intro) |>
+  show_outline()
 #> - Introduction
 #>   - Methods
 #>     - Data
@@ -510,8 +537,8 @@ b = replica(a, 2)
 tree_move(a, methods, parent = intro)
 tree_move(b, intro, parent = methods)
 
-sync(a, b)
-show_outline(a)
+sync(a, b) |>
+  show_outline()
 #> - Introduction
 #>   - Methods
 identical(tree_nodes(a), tree_nodes(b))
@@ -524,10 +551,11 @@ the top level while the other retitles it, and both changes apply.
 
 ``` r
 tree_move(a, methods)
-map_set(tree_meta(b, methods), title = "Approach")
+tree_meta(b, methods) |>
+  map_set(title = "Approach")
 
-sync(a, b)
-show_outline(a)
+sync(a, b) |>
+  show_outline()
 #> - Introduction
 #> - Approach
 ```
@@ -551,13 +579,17 @@ do.
 
 ``` r
 doc = loro_doc(peer_id = 1)
-note = doc_map(doc, "note")
-note$title = "Trip planning"
-note$body = loro_text("Flights are booked.")
-note$todo = loro_movable_list(loro_map(label = "Book hotel", done = FALSE))
-note$likes = loro_counter(1)
+note = doc_map(doc, "note") |>
+  map_set(
+    title = "Trip planning",
+    body = loro_text("Flights are booked."),
+    todo = loro_movable_list(loro_map(label = "Book hotel", done = FALSE)),
+    likes = loro_counter(1)
+  )
 
-str(doc_value(doc))
+doc |>
+  doc_value() |>
+  str()
 #> List of 1
 #>  $ note:List of 4
 #>   ..$ body : chr "Flights are booked."
@@ -575,8 +607,9 @@ keep being used for edits.
 ``` r
 body = loro_text("Flights")
 note$body = body
-text_push(body, " and trains are booked.")
-text_get(note$body)
+body |>
+  text_push(" and trains are booked.") |>
+  text_get()
 #> [1] "Flights and trains are booked."
 ```
 
@@ -586,7 +619,9 @@ be navigated step by step or reached directly by path.
 ``` r
 class(map_get(note, "body"))[1]
 #> [1] "creditor::loro_text"
-text_get(map_get(note, "body"))
+note |>
+  map_get("body") |>
+  text_get()
 #> [1] "Flights and trains are booked."
 doc_get(doc, "note", "todo", 1, "label")
 #> [1] "Book hotel"
@@ -598,22 +633,25 @@ list under one key, and once as a child map. Two replicas then change
 different fields.
 
 ``` r
-a = loro_doc(peer_id = 1)
-root = doc_map(a)
-map_set(root, plain = list(label = "Book hotel", done = FALSE))
-root$child = loro_map(label = "Book hotel", done = FALSE)
+a = loro_doc(peer_id = 1) |>
+  map_set(
+    plain = list(label = "Book hotel", done = FALSE),
+    child = loro_map(label = "Book hotel", done = FALSE)
+  )
 b = replica(a, 2)
 
-root_a = doc_map(a)
-map_set(root_a, plain = list(label = "Book hotel", done = TRUE))
-root_a$child$done = TRUE
+map_set(a, plain = list(label = "Book hotel", done = TRUE))
+doc_map(a)$child |>
+  map_set(done = TRUE)
 
-root_b = doc_map(b)
-map_set(root_b, plain = list(label = "Book a hotel in Lisbon", done = FALSE))
-root_b$child$label = "Book a hotel in Lisbon"
+map_set(b, plain = list(label = "Book a hotel in Lisbon", done = FALSE))
+doc_map(b)$child |>
+  map_set(label = "Book a hotel in Lisbon")
 
-sync(a, b)
-str(as.list(root_a))
+sync(a, b) |>
+  doc_map() |>
+  as.list() |>
+  str()
 #> List of 2
 #>  $ child:List of 2
 #>   ..$ done : logi TRUE
@@ -642,11 +680,16 @@ container, so the edits from both are kept.
 a = loro_doc(peer_id = 1)
 b = loro_doc(peer_id = 2)
 
-text_insert(map_ensure_container(a, "body", "text"), 1, "From A. ")
-text_insert(map_ensure_container(b, "body", "text"), 1, "From B. ")
+a |>
+  map_ensure_container("body", "text") |>
+  text_insert(1, "From A. ")
+b |>
+  map_ensure_container("body", "text") |>
+  text_insert(1, "From B. ")
 
-sync(a, b)
-text_get(map_get(a, "body"))
+sync(a, b) |>
+  map_get("body") |>
+  text_get()
 #> [1] "From A. From B. "
 ```
 

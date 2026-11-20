@@ -117,9 +117,11 @@ doc_record_timestamps(doc, record = TRUE)
 
 - frontiers, from, to, x, y:
 
-  A version: frontiers from `doc_frontiers()` or the `frontiers` column
-  of `doc_changes()`. See
-  [`as_frontiers()`](https://rundel.github.io/creditor/reference/versions.md).
+  A version: frontiers from `doc_frontiers()` (see
+  [`as_frontiers()`](https://rundel.github.io/creditor/reference/versions.md)),
+  or the version after one change, named by its number in
+  `doc_changes()` order or by its commit message. For
+  `doc_apply_diff()`, change numbers and messages refer to `source`.
 
 - version:
 
@@ -148,7 +150,7 @@ and `doc_is_detached_editing()` a logical. `doc_frontiers()`,
 raw vectors. `doc_compare_frontiers()` returns an integer,
 `doc_change_count()` and `doc_op_count()` integers, and
 `doc_changed_containers()` a character vector. `doc_changes()` and
-`doc_change()` return a data frame, `doc_is_detached()` a logical, and
+`doc_change()` return a tibble, `doc_is_detached()` a logical, and
 `doc_diff()` a named list. `doc_checkout()`, `doc_revert_to()`,
 `doc_apply_diff()`, and `doc_record_timestamps()` return `doc`
 invisibly.
@@ -170,7 +172,7 @@ saved in exports.
 
 ## Changes
 
-`doc_changes()` returns a data frame, in causal order, with columns:
+`doc_changes()` returns a tibble, in causal order, with columns:
 
 - `peer`, `counter`: the id of the change's first operation.
 
@@ -234,7 +236,9 @@ doc_commit(doc, "audience")
 v2 = doc_frontiers(doc)
 
 doc_changes(doc)[, c("lamport", "length", "message")]
-#>   lamport length  message
+#> # A tibble: 2 × 3
+#>   lamport length message 
+#>     <int>  <int> <chr>   
 #> 1       0      5 greeting
 #> 2       5      6 audience
 str(doc_diff(doc, v1, v2))

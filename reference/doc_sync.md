@@ -76,9 +76,12 @@ doc_import_json(doc, json)
 
 - since:
 
-  A version from
-  [`doc_frontiers()`](https://rundel.github.io/creditor/reference/history.md).
-  The default, the latest version, keeps no earlier history at all.
+  A version: frontiers from
+  [`doc_frontiers()`](https://rundel.github.io/creditor/reference/history.md),
+  or the version after one change, named by its number in
+  [`doc_changes()`](https://rundel.github.io/creditor/reference/history.md)
+  order or by its commit message. The default, the latest version, keeps
+  no earlier history at all.
 
 - bytes:
 
@@ -113,7 +116,7 @@ they can be used in a pipe. The outcome of the most recent import into a
 document is kept with it, and `doc_import_status()` returns it, or
 `NULL` if nothing has been imported. Like the document, it is shared by
 every reference to it, so it can be read from the original variable as
-well as from the result of a pipe. It is a list of two data frames,
+well as from the result of a pipe. It is a list of two tibbles,
 `success` and `pending`, each with columns `peer`, `start`, and `end`
 giving a range of that peer's operation counters. `success` holds the
 operations that were applied. `pending` holds operations that arrived
@@ -141,12 +144,14 @@ text_get(b)
 #> [1] ">> Hello world"
 doc_import_status(b)
 #> $success
-#>                  peer start end
-#> 1 4361946284435857240     5  11
+#> # A tibble: 1 × 3
+#>   peer                start   end
+#>   <chr>               <int> <int>
+#> 1 1230894951369738907     5    11
 #> 
 #> $pending
-#> [1] peer  start end  
-#> <0 rows> (or 0-length row.names)
+#> # A tibble: 0 × 3
+#> # ℹ 3 variables: peer <chr>, start <int>, end <int>
 #> 
 
 # Imports return the document, so they can be piped

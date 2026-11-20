@@ -23,7 +23,7 @@ and concurrent moves merge without creating cycles or duplicate nodes.
 - `tree_children()` returns the ids of a node's children in order, or of
   the root nodes when `parent` is `NULL`.
 
-- `tree_nodes()` returns a data frame of all nodes with columns `id`,
+- `tree_nodes()` returns a tibble of all nodes with columns `id`,
   `parent` (`NA` for root nodes), and `index` (the 1-based position
   among siblings).
 
@@ -109,10 +109,12 @@ tree_move(tree, data, parent = methods)
 tree_meta(tree, data)$title
 #> [1] "Data"
 tree_nodes(tree)
-#>                       id                 parent index
-#> 1 0@15299301599359755871                   <NA>     1
-#> 2 2@15299301599359755871                   <NA>     2
-#> 3 4@15299301599359755871 2@15299301599359755871     1
+#> # A tibble: 3 × 3
+#>   id                     parent                 index
+#>   <chr>                  <chr>                  <int>
+#> 1 0@14192854179024220560 NA                         1
+#> 2 2@14192854179024220560 NA                         2
+#> 3 4@14192854179024220560 2@14192854179024220560     1
 tree_children(tree, methods)
-#> [1] "4@15299301599359755871"
+#> [1] "4@14192854179024220560"
 ```

@@ -165,7 +165,9 @@ typically that of the replica the updates are destined for, or
 
 
 <dt id="arg-since">since<a class="anchor" aria-label="anchor" href="#arg-since"></a></dt>
-<dd><p>A version from <code><a href="history.html">doc_frontiers()</a></code>. The default, the
+<dd><p>A version: frontiers from <code><a href="history.html">doc_frontiers()</a></code>, or the version
+after one change, named by its number in <code><a href="history.html">doc_changes()</a></code> order or by
+its commit message. The default, the
 latest version, keeps no earlier history at all.</p></dd>
 
 
@@ -206,7 +208,7 @@ into a document is kept with it, and <code>doc_import_status()</code> returns
 it, or <code>NULL</code> if nothing has been imported. Like the document, it is
 shared by every reference to it, so it can be read from the original
 variable as well as from the result of a pipe. It is a list of two
-data frames, <code>success</code> and <code>pending</code>, each with columns <code>peer</code>,
+tibbles, <code>success</code> and <code>pending</code>, each with columns <code>peer</code>,
 <code>start</code>, and <code>end</code> giving a range of that peer's operation counters.
 <code>success</code> holds the operations that were applied. <code>pending</code> holds
 operations that arrived before the changes they depend on; they are
@@ -234,12 +236,14 @@ is still in transit.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "&gt;&gt; Hello world"</span>
 <span class="r-in"><span><span class="fu">doc_import_status</span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $success</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                  peer start end</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 4361946284435857240     5  11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 3</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   peer                start   end</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>               <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 1230894951369738907     5    11</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $pending</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] peer  start end  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;0 rows&gt; (or 0-length row.names)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 0 × 3</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># ℹ 3 variables: peer &lt;chr&gt;, start &lt;int&gt;, end &lt;int&gt;</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Imports return the document, so they can be piped</span></span></span>

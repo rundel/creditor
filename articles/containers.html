@@ -71,50 +71,49 @@
 <p>This vignette walks through every container type creditor supports: text, map, list, movable list, counter, and tree. Each section shows the basic operations and then what happens when two replicas edit concurrently and merge.</p>
 <section class="level2"><h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
-<p>A replica is a copy of a document that can be edited independently. Two small helpers keep the examples short. <code>replica()</code> makes a second copy of a document under its own peer id, and <code>sync()</code> exchanges whatever each side is missing.</p>
+<p>A replica is a copy of a document that can be edited independently. Two small helpers keep the examples short. <code>replica()</code> makes a second copy of a document under its own peer id, and <code>sync()</code> exchanges whatever each side is missing and returns the first document.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/rundel/creditor" class="external-link">creditor</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">replica</span> <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">doc</span>, <span class="va">peer_id</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">copy</span> <span class="op">=</span> <span class="fu"><a href="../reference/doc.html">doc_fork</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="../reference/doc.html">doc_set_peer_id</a></span><span class="op">(</span><span class="va">copy</span>, <span class="va">peer_id</span><span class="op">)</span></span>
-<span>  <span class="va">copy</span></span>
+<span>  <span class="fu"><a href="../reference/doc.html">doc_fork</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="../reference/doc.html">doc_set_peer_id</a></span><span class="op">(</span><span class="va">peer_id</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span></span>
 <span><span class="va">sync</span> <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="../reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="va">b</span>, <span class="fu"><a href="../reference/doc_sync.html">doc_export_updates</a></span><span class="op">(</span><span class="va">a</span>, from <span class="op">=</span> <span class="fu"><a href="../reference/doc_sync.html">doc_version</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="../reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="va">a</span>, <span class="fu"><a href="../reference/doc_sync.html">doc_export_updates</a></span><span class="op">(</span><span class="va">b</span>, from <span class="op">=</span> <span class="fu"><a href="../reference/doc_sync.html">doc_version</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </div>
 <p>Every example follows the same pattern: create a document, make a replica, edit both without communicating, and then sync. After a sync the two replicas always hold the same contents. What differs between container types is what those contents are.</p>
 <p>Containers are reached through handles. <code><a href="../reference/containers.html">doc_text()</a></code>, <code><a href="../reference/containers.html">doc_map()</a></code>, <code><a href="../reference/containers.html">doc_list()</a></code>, <code><a href="../reference/containers.html">doc_movable_list()</a></code>, <code><a href="../reference/containers.html">doc_counter()</a></code>, and <code><a href="../reference/containers.html">doc_tree()</a></code> each return a handle to a named root container, creating it on first use. Handles have reference semantics: editing through a handle changes the document.</p>
 <p>A document that needs only one container of a kind can skip the handle. Every function that takes a handle also takes the document itself, which then stands for its root container of that type under the default name: <code>text_insert(doc, 1, "Hello")</code> is short for <code>text_insert(doc_text(doc), 1, "Hello")</code>. Most examples below use this form, and switch to handles for named and nested containers.</p>
+<p>Editing functions return the document or handle they were given, invisibly, so a series of edits can be written as a pipeline. Functions that read something, such as <code><a href="../reference/text.html">text_get()</a></code> or <code><a href="../reference/doc.html">doc_value()</a></code>, end a pipeline.</p>
 </section><section class="level2"><h2 id="text">Text<a class="anchor" aria-label="anchor" href="#text"></a>
 </h2>
 <p>A text container holds a string that can be edited by inserting and deleting at character positions. Positions are 1-based and count Unicode code points.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="st">"The quick fox"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">11</span>, <span class="st">"brown "</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_delete</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"The quick fox"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">11</span>, <span class="st">"brown "</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_delete</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">4</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "quick brown fox"</span></span></code></pre></div>
 </div>
 <p>Concurrent edits to different parts of a text are all kept. Here one replica changes the start of a sentence while the other changes the end.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="st">"The quick fox jumps"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"The quick fox jumps"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/text.html">text_replace</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="st">"A"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">b</span>, <span class="fl">20</span>, <span class="st">" over the dog"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "A quick fox jumps over the dog"</span></span>
 <span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "A quick fox jumps over the dog"</span></span></code></pre></div>
@@ -122,15 +121,15 @@
 <p>When you have the new contents as a whole string, for example from an editor widget, <code><a href="../reference/text.html">text_update()</a></code> works out the difference and applies only the changes needed. That matters for merging: replacing the whole string would discard a concurrent edit, while an update keeps it.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="st">"Meeting at noon on Tuesday"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"Meeting at noon on Tuesday"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/text.html">text_update</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"Meeting at 12:30 on Tuesday"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/text.html">text_update</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"Meeting at noon on Wednesday"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Meeting at 12:30 on Wednesday"</span></span></code></pre></div>
 </div>
 <section class="level3"><h3 id="rich-text">Rich text<a class="anchor" aria-label="anchor" href="#rich-text"></a>
@@ -138,12 +137,12 @@
 <p>Text can carry marks: a key and a value attached to a range of characters. Marks are how formatting, links, and comments are represented. <code><a href="../reference/richtext.html">text_delta()</a></code> returns the text as a sequence of runs, each with the marks that apply to it.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="st">"Read the docs today"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="fl">4</span>, bold <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">10</span>, <span class="fl">13</span>, link <span class="op">=</span> <span class="st">"https://loro.dev"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"Read the docs today"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">4</span>, bold <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">13</span>, link <span class="op">=</span> <span class="st">"https://loro.dev"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 4</span></span>
 <span><span class="co">#&gt;  $ :List of 2</span></span>
 <span><span class="co">#&gt;   ..$ insert    : chr "Read"</span></span>
@@ -161,15 +160,16 @@
 <p>Marks merge with concurrent edits. If one replica makes a phrase bold while another types inside it, the new characters are bold too.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="st">"Hello world"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"Hello world"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="fl">5</span>, bold <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">b</span>, <span class="fl">3</span>, <span class="st">"XX"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 2</span></span>
 <span><span class="co">#&gt;  $ :List of 2</span></span>
 <span><span class="co">#&gt;   ..$ insert    : chr "HeXXllo"</span></span>
@@ -181,11 +181,12 @@
 <p>Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands at its end, so typing after a bold word continues in bold. A link does not, so typing after a link produces plain text. Keys other than the built-in ones (<code>bold</code>, <code>italic</code>, <code>underline</code>, <code>link</code>, <code>highlight</code>, <code>comment</code>, and <code>code</code>) must be declared first with <code><a href="../reference/richtext.html">doc_config_text_style()</a></code>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/richtext.html">doc_config_text_style</a></span><span class="op">(</span><span class="va">doc</span>, author <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="st">"Reviewed"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="fl">8</span>, author <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">doc_config_text_style</a></span><span class="op">(</span>author <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"Reviewed"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">8</span>, author <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 1</span></span>
 <span><span class="co">#&gt;  $ :List of 2</span></span>
 <span><span class="co">#&gt;   ..$ insert    : chr "Reviewed"</span></span>
@@ -198,15 +199,16 @@
 <div class="cell">
 <div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">settings</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"settings"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">settings</span>, theme <span class="op">=</span> <span class="st">"dark"</span>, font_size <span class="op">=</span> <span class="fl">12L</span>, recent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a.qmd"</span>, <span class="st">"b.qmd"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">settings</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"settings"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"dark"</span>, font_size <span class="op">=</span> <span class="fl">12L</span>, recent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a.qmd"</span>, <span class="st">"b.qmd"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/map.html">map_keys</a></span><span class="op">(</span><span class="va">settings</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "font_size" "recent"    "theme"</span></span>
 <span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">settings</span>, <span class="st">"theme"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "dark"</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">container_value</a></span><span class="op">(</span><span class="va">settings</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">settings</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/containers.html">container_value</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ font_size: int 12</span></span>
 <span><span class="co">#&gt;  $ recent   :List of 2</span></span>
@@ -234,15 +236,17 @@
 <p>Concurrent writes to different keys are both kept. Concurrent writes to the same key cannot both be kept, so one of them wins, and it is the same one on every replica.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">a</span>, theme <span class="op">=</span> <span class="st">"light"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"light"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">a</span>, theme <span class="op">=</span> <span class="st">"dark"</span>, font_size <span class="op">=</span> <span class="fl">12L</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">b</span>, theme <span class="op">=</span> <span class="st">"sepia"</span>, line_numbers <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ font_size   : int 12</span></span>
 <span><span class="co">#&gt;  $ line_numbers: logi TRUE</span></span>
@@ -256,11 +260,13 @@
 <p>A list is an ordered sequence of values, addressed by 1-based position.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"milk"</span>, <span class="st">"eggs"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_insert</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">1</span>, <span class="st">"bread"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_delete</a></span><span class="op">(</span><span class="va">doc</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">doc_list</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"milk"</span>, <span class="st">"eggs"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"bread"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_delete</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/containers.html">doc_list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 2</span></span>
 <span><span class="co">#&gt;  $ : chr "bread"</span></span>
 <span><span class="co">#&gt;  $ : chr "eggs"</span></span></code></pre></div>
@@ -268,15 +274,17 @@
 <p>Concurrent insertions are all kept, even at the same position. Their relative order is decided the same way on every replica.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"milk"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"milk"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"eggs"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"bread"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">doc_list</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/containers.html">doc_list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ : chr "milk"</span></span>
 <span><span class="co">#&gt;  $ : chr "eggs"</span></span>
@@ -285,20 +293,23 @@
 <p>A plain list has no way to move or replace an element. You can imitate a move by deleting an element and inserting it elsewhere, but if two replicas do that to the same element, each insertion is kept and the element is duplicated.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">move_by_copy</span> <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">list</span>, <span class="va">from</span>, <span class="va">to</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">value</span> <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list_get</a></span><span class="op">(</span><span class="va">list</span>, <span class="va">from</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="../reference/list.html">list_delete</a></span><span class="op">(</span><span class="va">list</span>, <span class="va">from</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="../reference/list.html">list_insert</a></span><span class="op">(</span><span class="va">list</span>, <span class="va">to</span>, <span class="va">value</span><span class="op">)</span></span>
+<span>  <span class="va">list</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="../reference/list.html">list_delete</a></span><span class="op">(</span><span class="va">from</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="../reference/list.html">list_insert</a></span><span class="op">(</span><span class="va">to</span>, <span class="va">value</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="fu">move_by_copy</span><span class="op">(</span><span class="va">a</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="fu">move_by_copy</span><span class="op">(</span><span class="va">b</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">doc_list</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/containers.html">doc_list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 4</span></span>
 <span><span class="co">#&gt;  $ : chr "ship"</span></span>
 <span><span class="co">#&gt;  $ : chr "write"</span></span>
@@ -312,12 +323,12 @@
 <div class="cell">
 <div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"tasks"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="../reference/list.html">list_move</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_set</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="fl">2</span>, <span class="st">"write docs"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">tasks</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_move</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_set</a></span><span class="op">(</span><span class="fl">2</span>, <span class="st">"write docs"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ : chr "ship"</span></span>
 <span><span class="co">#&gt;  $ : chr "write docs"</span></span>
@@ -327,15 +338,18 @@
 <div class="cell">
 <div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"tasks"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
+<span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/list.html">list_move</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_move</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"tasks"</span><span class="op">)</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_move</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">tasks</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">tasks</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ : chr "write"</span></span>
 <span><span class="co">#&gt;  $ : chr "ship"</span></span>
@@ -345,15 +359,18 @@
 <div class="cell">
 <div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"tasks"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
+<span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/list.html">list_move</a></span><span class="op">(</span><span class="va">tasks</span>, <span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/list.html">list_set</a></span><span class="op">(</span><span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"tasks"</span><span class="op">)</span>, <span class="fl">1</span>, <span class="st">"write the vignette"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/list.html">list_set</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"write the vignette"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">tasks</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">tasks</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ : chr "test"</span></span>
 <span><span class="co">#&gt;  $ : chr "ship"</span></span>
@@ -369,18 +386,19 @@
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/counter.html">counter_increment</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/counter.html">counter_increment</a></span><span class="op">(</span><span class="va">b</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/counter.html">counter_increment</a></span><span class="op">(</span><span class="va">b</span>, <span class="op">-</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">b</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/counter.html">counter_increment</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/counter.html">counter_increment</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/counter.html">counter_get</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/counter.html">counter_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 6</span></span></code></pre></div>
 </div>
 <p>Compare that with keeping the count as a number in a map. Each replica reads the current value, adds to it, and writes the result back. After a merge only one of those writes survives, and the other replica’s votes are lost.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">a</span>, votes <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>votes <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">add_votes</span> <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">doc</span>, <span class="va">n</span><span class="op">)</span> <span class="op">{</span></span>
@@ -389,8 +407,8 @@
 <span><span class="fu">add_votes</span><span class="op">(</span><span class="va">a</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="fu">add_votes</span><span class="op">(</span><span class="va">b</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"votes"</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="st">"votes"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 4</span></span></code></pre></div>
 </div>
 </section><section class="level2"><h2 id="tree">Tree<a class="anchor" aria-label="anchor" href="#tree"></a>
@@ -411,11 +429,13 @@
 <span><span class="va">model</span> <span class="op">=</span> <span class="fu">add_section</span><span class="op">(</span><span class="va">outline</span>, <span class="st">"Model"</span>, parent <span class="op">=</span> <span class="va">methods</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/tree.html">tree_nodes</a></span><span class="op">(</span><span class="va">outline</span><span class="op">)</span></span>
-<span><span class="co">#&gt;    id parent index</span></span>
-<span><span class="co">#&gt; 1 0@1   &lt;NA&gt;     1</span></span>
-<span><span class="co">#&gt; 2 2@1   &lt;NA&gt;     2</span></span>
-<span><span class="co">#&gt; 3 4@1    2@1     1</span></span>
-<span><span class="co">#&gt; 4 6@1    2@1     2</span></span></code></pre></div>
+<span><span class="co">#&gt; # A tibble: 4 × 3</span></span>
+<span><span class="co">#&gt;   id    parent index</span></span>
+<span><span class="co">#&gt;   &lt;chr&gt; &lt;chr&gt;  &lt;int&gt;</span></span>
+<span><span class="co">#&gt; 1 0@1   &lt;NA&gt;       1</span></span>
+<span><span class="co">#&gt; 2 2@1   &lt;NA&gt;       2</span></span>
+<span><span class="co">#&gt; 3 4@1   2@1        1</span></span>
+<span><span class="co">#&gt; 4 6@1   2@1        2</span></span></code></pre></div>
 </div>
 <p><code><a href="../reference/tree.html">tree_nodes()</a></code> gives a flat table of the structure. A small recursive function prints it as an outline.</p>
 <div class="cell">
@@ -436,8 +456,9 @@
 <p>Moving a node carries its whole subtree with it.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">outline</span>, <span class="va">methods</span>, parent <span class="op">=</span> <span class="va">intro</span><span class="op">)</span></span>
-<span><span class="fu">show_outline</span><span class="op">(</span><span class="va">outline</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">outline</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">methods</span>, parent <span class="op">=</span> <span class="va">intro</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_outline</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; - Introduction</span></span>
 <span><span class="co">#&gt;   - Methods</span></span>
 <span><span class="co">#&gt;     - Data</span></span>
@@ -454,8 +475,8 @@
 <span><span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">methods</span>, parent <span class="op">=</span> <span class="va">intro</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">intro</span>, parent <span class="op">=</span> <span class="va">methods</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu">show_outline</span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_outline</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; - Introduction</span></span>
 <span><span class="co">#&gt;   - Methods</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/tree.html">tree_nodes</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span>, <span class="fu"><a href="../reference/tree.html">tree_nodes</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span><span class="op">)</span></span>
@@ -465,10 +486,11 @@
 <div class="cell">
 <div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">methods</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="fu"><a href="../reference/tree.html">tree_meta</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">methods</span><span class="op">)</span>, title <span class="op">=</span> <span class="st">"Approach"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/tree.html">tree_meta</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">methods</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Approach"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu">show_outline</span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">show_outline</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; - Introduction</span></span>
 <span><span class="co">#&gt; - Approach</span></span></code></pre></div>
 </div>
@@ -479,13 +501,17 @@
 <div class="cell">
 <div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">note</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span><span class="op">)</span></span>
-<span><span class="va">note</span><span class="op">$</span><span class="va">title</span> <span class="op">=</span> <span class="st">"Trip planning"</span></span>
-<span><span class="va">note</span><span class="op">$</span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Flights are booked."</span><span class="op">)</span></span>
-<span><span class="va">note</span><span class="op">$</span><span class="va">todo</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_movable_list</a></span><span class="op">(</span><span class="fu"><a href="../reference/loro_text.html">loro_map</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">note</span><span class="op">$</span><span class="va">likes</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_counter</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">note</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"Trip planning"</span>,</span>
+<span>    body <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Flights are booked."</span><span class="op">)</span>,</span>
+<span>    todo <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_movable_list</a></span><span class="op">(</span><span class="fu"><a href="../reference/loro_text.html">loro_map</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    likes <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_counter</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/doc.html">doc_value</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">doc</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/doc.html">doc_value</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 1</span></span>
 <span><span class="co">#&gt;  $ note:List of 4</span></span>
 <span><span class="co">#&gt;   ..$ body : chr "Flights are booked."</span></span>
@@ -501,8 +527,9 @@
 <div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Flights"</span><span class="op">)</span></span>
 <span><span class="va">note</span><span class="op">$</span><span class="va">body</span> <span class="op">=</span> <span class="va">body</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_push</a></span><span class="op">(</span><span class="va">body</span>, <span class="st">" and trains are booked."</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="va">note</span><span class="op">$</span><span class="va">body</span><span class="op">)</span></span>
+<span><span class="va">body</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_push</a></span><span class="op">(</span><span class="st">" and trains are booked."</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Flights and trains are booked."</span></span></code></pre></div>
 </div>
 <p>Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path.</p>
@@ -510,7 +537,9 @@
 <div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"body"</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
 <span><span class="co">#&gt; [1] "creditor::loro_text"</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"body"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">note</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="st">"body"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Flights and trains are booked."</span></span>
 <span><span class="fu"><a href="../reference/doc.html">doc_get</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span>, <span class="st">"todo"</span>, <span class="fl">1</span>, <span class="st">"label"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Book hotel"</span></span></code></pre></div>
@@ -518,22 +547,25 @@
 <p>The difference between a plain value and a child container is the unit of merging. Below, the same data is stored twice: once as a plain nested list under one key, and once as a child map. Two replicas then change different fields.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">root</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">root</span>, plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">root</span><span class="op">$</span><span class="va">child</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_map</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span></span>
+<span>    plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>,</span>
+<span>    child <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_map</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">root_a</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">root_a</span>, plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">root_a</span><span class="op">$</span><span class="va">child</span><span class="op">$</span><span class="va">done</span> <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">a</span>, plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">$</span><span class="va">child</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>done <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">root_b</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">root_b</span>, plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book a hotel in Lisbon"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">root_b</span><span class="op">$</span><span class="va">child</span><span class="op">$</span><span class="va">label</span> <span class="op">=</span> <span class="st">"Book a hotel in Lisbon"</span></span>
+<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">b</span>, plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book a hotel in Lisbon"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span><span class="op">$</span><span class="va">child</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book a hotel in Lisbon"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">root_a</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 2</span></span>
 <span><span class="co">#&gt;  $ child:List of 2</span></span>
 <span><span class="co">#&gt;   ..$ done : logi TRUE</span></span>
@@ -551,11 +583,16 @@
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_ensure_container</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"body"</span>, <span class="st">"text"</span><span class="op">)</span>, <span class="fl">1</span>, <span class="st">"From A. "</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_ensure_container</a></span><span class="op">(</span><span class="va">b</span>, <span class="st">"body"</span>, <span class="st">"text"</span><span class="op">)</span>, <span class="fl">1</span>, <span class="st">"From B. "</span><span class="op">)</span></span>
+<span><span class="va">a</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_ensure_container</a></span><span class="op">(</span><span class="st">"body"</span>, <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"From A. "</span><span class="op">)</span></span>
+<span><span class="va">b</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_ensure_container</a></span><span class="op">(</span><span class="st">"body"</span>, <span class="st">"text"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"From B. "</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"body"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">sync</span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="st">"body"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "From A. From B. "</span></span></code></pre></div>
 </div>
 </section></section><section class="level2"><h2 id="choosing-a-container">Choosing a container<a class="anchor" aria-label="anchor" href="#choosing-a-container"></a>

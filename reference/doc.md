@@ -73,9 +73,12 @@ doc_jsonpath(doc, path)
 
 - at:
 
-  A version from
-  [`doc_frontiers()`](https://rundel.github.io/creditor/reference/history.md)
-  to fork at, or `NULL` for the current version.
+  A version to fork at, or `NULL` for the current version: frontiers
+  from
+  [`doc_frontiers()`](https://rundel.github.io/creditor/reference/history.md),
+  or the version after one change, named by its number in
+  [`doc_changes()`](https://rundel.github.io/creditor/reference/history.md)
+  order or by its commit message.
 
 - message:
 

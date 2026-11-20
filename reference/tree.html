@@ -15,7 +15,7 @@ used with map_set(), map_get(), and the other map_*
 functions.
 tree_children() returns the ids of a node's children in order,
 or of the root nodes when parent is NULL.
-tree_nodes() returns a data frame of all nodes with columns
+tree_nodes() returns a tibble of all nodes with columns
 id, parent (NA for root nodes), and index (the 1-based
 position among siblings).
 tree_contains() reports whether a node exists and has not been
@@ -43,7 +43,7 @@ used with map_set(), map_get(), and the other map_*
 functions.
 tree_children() returns the ids of a node's children in order,
 or of the root nodes when parent is NULL.
-tree_nodes() returns a data frame of all nodes with columns
+tree_nodes() returns a tibble of all nodes with columns
 id, parent (NA for root nodes), and index (the 1-based
 position among siblings).
 tree_contains() reports whether a node exists and has not been
@@ -108,7 +108,7 @@ used with <code><a href="map.html">map_set()</a></code>, <code><a href="map.html
 functions.</p></li>
 <li><p><code>tree_children()</code> returns the ids of a node's children in order,
 or of the root nodes when <code>parent</code> is <code>NULL</code>.</p></li>
-<li><p><code>tree_nodes()</code> returns a data frame of all nodes with columns
+<li><p><code>tree_nodes()</code> returns a tibble of all nodes with columns
 <code>id</code>, <code>parent</code> (<code>NA</code> for root nodes), and <code>index</code> (the 1-based
 position among siblings).</p></li>
 <li><p><code>tree_contains()</code> reports whether a node exists and has not been
@@ -188,12 +188,14 @@ frame, and <code>tree_contains()</code> a logical.</p>
 <span class="r-in"><span><span class="fu">tree_meta</span><span class="op">(</span><span class="va">tree</span>, <span class="va">data</span><span class="op">)</span><span class="op">$</span><span class="va">title</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Data"</span>
 <span class="r-in"><span><span class="fu">tree_nodes</span><span class="op">(</span><span class="va">tree</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                       id                 parent index</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 0@15299301599359755871                   &lt;NA&gt;     1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 2@15299301599359755871                   &lt;NA&gt;     2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3 4@15299301599359755871 2@15299301599359755871     1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 3 × 3</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   id                     parent                 index</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                  <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 0@14192854179024220560 <span style="color: #BB0000;">NA</span>                         1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> 2@14192854179024220560 <span style="color: #BB0000;">NA</span>                         2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> 4@14192854179024220560 2@14192854179024220560     1</span>
 <span class="r-in"><span><span class="fu">tree_children</span><span class="op">(</span><span class="va">tree</span>, <span class="va">methods</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "4@15299301599359755871"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "4@14192854179024220560"</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

@@ -183,7 +183,16 @@ package.
     / `doc_changes()$frontiers` class `loro_frontiers` (raw vectors
     underneath). The encodings overlap, so Loro decodes one as the other
     without error and silently uses a different version; `check_version`
-    / `check_frontiers` prevent that.
+    / `check_frontiers` prevent that. Anywhere frontiers are expected,
+    `check_frontiers(x, arg, doc)` also accepts a change number (in
+    [`doc_changes()`](https://rundel.github.io/creditor/reference/history.md)
+    order) or a commit message, resolved against that document’s history
+    (`source`’s for `doc_apply_diff`) and returned as frontiers; callers
+    must use its return value. A message that matches no change or
+    several is an error. Indexing
+    [`doc_changes()`](https://rundel.github.io/creditor/reference/history.md)
+    (`changes$frontiers[[1]]`, `changes[1, ]`) is deliberately not the
+    documented way to name a version.
   - `revert_to` and `apply_diff` write into the open transaction without
     committing; the bindings commit afterwards so the change reaches
     subscribers, undo, and live sync.
@@ -293,7 +302,7 @@ package.
   raw vector, like a version from
   [`doc_version()`](https://rundel.github.io/creditor/reference/doc_sync.md).
 - [R/history.R](https://rundel.github.io/creditor/R/history.R) defines
-  `doc_frontiers`, `doc_changes` (a data frame with a `frontiers` list
+  `doc_frontiers`, `doc_changes` (a tibble with a `frontiers` list
   column), `doc_change`, the counts, `doc_changed_containers`, the
   conversions between frontiers and version vectors,
   `doc_compare_frontiers`, `doc_checkout`, `doc_is_detached`,
@@ -333,6 +342,15 @@ package.
 - [R/undo.R](https://rundel.github.io/creditor/R/undo.R) defines
   `doc_undo_manager`, `undo`, `redo`, `can_undo`, `can_redo`, the step
   counts, `undo_group`, pause and resume, and `undo_clear`.
+- Tabular results (`doc_changes`, `doc_change`, `tree_nodes`, the import
+  status) are tibbles built with
+  [`tibble::tibble()`](https://tibble.tidyverse.org/reference/tibble.html),
+  never base data frames. A value that has to appear in them must print
+  meaningfully: `loro_frontiers` formats as the `counter@peer` ids of
+  its operations (`loro_frontiers_ids_impl`) and registers
+  [`pillar::obj_sum`](https://pillar.r-lib.org/reference/type_sum.html)
+  so list-column cells show the same. If a column needs hiding to make
+  output readable, fix its display or drop it instead.
 - [R/utils.R](https://rundel.github.io/creditor/R/utils.R) holds the
   argument checks
   ([`cli::cli_abort()`](https://cli.r-lib.org/reference/cli_abort.html),
@@ -428,6 +446,9 @@ package.
 ## Style
 
 - R: use `=` for assignment, `pkg::fn` over imports, minimize
-  single-line comments.
+  single-line comments. In examples, the README, and vignettes, chain
+  edits with the native pipe (`|>`), one step per line, but only when
+  there are at least two steps: a single call on a variable is a plain
+  call (`text_push(a, "x")`, not `a |> text_push("x")`).
 - Rust: standard rustfmt; no decorative comments.
 - Commit messages: one short imperative line, no attribution trailers.
