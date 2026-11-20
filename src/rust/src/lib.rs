@@ -33,18 +33,30 @@ fn to_r_error<E: std::fmt::Display>(e: E) -> Error {
     Error::Other(strip_source_location(message))
 }
 
-/// Remove a trailing ` at /path/to/file.rs:LINE:COL` that Loro appends to
-/// some messages, keeping any closing parenthesis after it.
+/// Remove a trailing ` at <path>.rs:LINE:COL` that Loro appends to some
+/// messages, keeping any closing parenthesis after it. The path may be a
+/// Unix or a Windows path.
 fn strip_source_location(message: String) -> String {
-    let Some(start) = message.rfind(" at /") else {
-        return message;
-    };
-    let tail = &message[start..];
-    if !tail.contains(".rs:") {
-        return message;
+    for (start, _) in message.rmatch_indices(" at ") {
+        let tail = &message[start + 4..];
+        let (location, closing) = match tail.strip_suffix(')') {
+            Some(location) => (location, ")"),
+            None => (tail, ""),
+        };
+        if is_source_location(location) {
+            return format!("{}{}", &message[..start], closing);
+        }
     }
-    let closing = if tail.ends_with(')') { ")" } else { "" };
-    format!("{}{}", &message[..start], closing)
+    message
+}
+
+fn is_source_location(location: &str) -> bool {
+    let mut parts = location.rsplitn(3, ':');
+    let digits =
+        |s: Option<&str>| s.is_some_and(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()));
+    let col = parts.next();
+    let line = parts.next();
+    digits(col) && digits(line) && parts.next().is_some_and(|path| path.ends_with(".rs"))
 }
 
 fn to_index(value: i32, what: &str) -> Result<usize> {
