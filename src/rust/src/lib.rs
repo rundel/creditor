@@ -2,11 +2,12 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 use loro::cursor::{Cursor, Side};
 use loro::{
-    Container, ContainerTrait, ExpandType, ExportMode, LoroDoc, LoroList, LoroMap, LoroText,
-    StyleConfig, StyleConfigMap, UpdateOptions, ValueOrContainer, VersionVector,
+    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroDoc, LoroList, LoroMap,
+    LoroText, StyleConfig, StyleConfigMap, UpdateOptions, ValueOrContainer, VersionVector,
 };
 
 mod delta;
+mod history;
 mod r_to_value;
 mod value_to_r;
 
@@ -106,18 +107,95 @@ fn loro_doc_set_peer_id_impl(doc: DocPtr, peer_id: &str) -> Result<()> {
     doc.set_peer_id(id).map_err(to_r_error)
 }
 
-/// Commit the pending transaction.
+/// Commit the pending transaction, optionally with a message.
 /// @noRd
 #[extendr]
-fn loro_doc_commit_impl(doc: DocPtr) {
+fn loro_doc_commit_impl(doc: DocPtr, message: Nullable<String>) {
+    if let Nullable::NotNull(message) = message {
+        doc.set_next_commit_message(&message);
+    }
     doc.commit();
 }
 
-/// Fork a document into an independent replica with a new peer id.
+/// Record wall-clock timestamps on new changes.
 /// @noRd
 #[extendr]
-fn loro_doc_fork_impl(doc: DocPtr) -> DocPtr {
-    ExternalPtr::new(doc.fork())
+fn loro_doc_record_timestamps_impl(doc: DocPtr, record: bool) {
+    doc.set_record_timestamp(record);
+}
+
+fn to_frontiers(bytes: &Raw) -> Result<Frontiers> {
+    Frontiers::decode(bytes.as_slice())
+        .map_err(|_| Error::Other("not a valid frontiers value".to_string()))
+}
+
+/// Encoded frontiers of the version the document state is at.
+/// @noRd
+#[extendr]
+fn loro_doc_frontiers_impl(doc: DocPtr) -> Raw {
+    Raw::from_bytes(&doc.state_frontiers().encode())
+}
+
+/// Check out a version (encoded frontiers), or the latest when `NULL`.
+/// @noRd
+#[extendr]
+fn loro_doc_checkout_impl(doc: DocPtr, frontiers: Nullable<Raw>) -> Result<()> {
+    match frontiers {
+        Nullable::Null => {
+            doc.try_checkout_to_latest().map_err(to_r_error)
+        }
+        Nullable::NotNull(frontiers) => {
+            doc.checkout(&to_frontiers(&frontiers)?).map_err(to_r_error)
+        }
+    }
+}
+
+/// Whether the document state is detached from the latest version.
+/// @noRd
+#[extendr]
+fn loro_doc_is_detached_impl(doc: DocPtr) -> bool {
+    doc.is_detached()
+}
+
+/// Generate new changes that restore the state at `frontiers`.
+/// @noRd
+#[extendr]
+fn loro_doc_revert_to_impl(doc: DocPtr, frontiers: Raw) -> Result<()> {
+    doc.revert_to(&to_frontiers(&frontiers)?)
+        .map_err(to_r_error)
+}
+
+/// Diff between two versions as a named list keyed by container id.
+/// @noRd
+#[extendr]
+fn loro_doc_diff_impl(doc: DocPtr, from: Raw, to: Raw) -> Result<Robj> {
+    let batch = doc
+        .diff(&to_frontiers(&from)?, &to_frontiers(&to)?)
+        .map_err(to_r_error)?;
+    history::diff_batch_to_r(&batch)
+}
+
+/// Metadata for every change in the document's history, column-wise.
+/// @noRd
+#[extendr]
+fn loro_doc_changes_impl(doc: DocPtr) -> Result<Robj> {
+    history::changes_to_r(&doc)
+}
+
+/// Fork a document into an independent replica with a new peer id,
+/// optionally at an earlier version given as encoded frontiers.
+/// @noRd
+#[extendr]
+fn loro_doc_fork_impl(doc: DocPtr, at: Nullable<Raw>) -> Result<DocPtr> {
+    match at {
+        Nullable::Null => Ok(ExternalPtr::new(doc.fork())),
+        Nullable::NotNull(at) => {
+            let frontiers = to_frontiers(&at)?;
+            Ok(ExternalPtr::new(
+                doc.fork_at(&frontiers).map_err(to_r_error)?,
+            ))
+        }
+    }
 }
 
 /// Encoded version vector of the document's operation log.
@@ -462,6 +540,13 @@ extendr_module! {
     fn loro_doc_set_peer_id_impl;
     fn loro_doc_commit_impl;
     fn loro_doc_fork_impl;
+    fn loro_doc_record_timestamps_impl;
+    fn loro_doc_frontiers_impl;
+    fn loro_doc_checkout_impl;
+    fn loro_doc_is_detached_impl;
+    fn loro_doc_revert_to_impl;
+    fn loro_doc_diff_impl;
+    fn loro_doc_changes_impl;
     fn loro_doc_version_impl;
     fn loro_doc_export_impl;
     fn loro_doc_import_impl;

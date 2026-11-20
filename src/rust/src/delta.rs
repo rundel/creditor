@@ -21,23 +21,34 @@ fn to_count(robj: &Robj, what: &str) -> Result<usize> {
     }
 }
 
+fn attributes_to_r(
+    attributes: Option<impl IntoIterator<Item = (String, LoroValue)>>,
+) -> Option<Robj> {
+    let mut entries: Vec<(String, LoroValue)> = attributes?.into_iter().collect();
+    if entries.is_empty() {
+        return None;
+    }
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let names: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
+    let values: Vec<Robj> = entries.iter().map(|(_, v)| value_to_r(v)).collect();
+    List::from_names_and_values(names, values)
+        .ok()
+        .map(|l| l.into())
+}
+
 pub fn delta_to_r(delta: Vec<TextDelta>) -> Robj {
     let ops: Vec<Robj> = delta
         .into_iter()
-        .filter_map(|op| match op {
-            TextDelta::Insert { insert, attributes } => {
-                let mut entries: Vec<(String, LoroValue)> =
-                    attributes.unwrap_or_default().into_iter().collect();
-                if entries.is_empty() {
-                    return Some(list!(insert = insert).into());
-                }
-                entries.sort_by(|a, b| a.0.cmp(&b.0));
-                let names: Vec<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
-                let values: Vec<Robj> = entries.iter().map(|(_, v)| value_to_r(v)).collect();
-                let attributes = List::from_names_and_values(names, values).ok()?;
-                Some(list!(insert = insert, attributes = attributes).into())
-            }
-            _ => None,
+        .map(|op| match op {
+            TextDelta::Insert { insert, attributes } => match attributes_to_r(attributes) {
+                Some(attributes) => list!(insert = insert, attributes = attributes).into(),
+                None => list!(insert = insert).into(),
+            },
+            TextDelta::Retain { retain, attributes } => match attributes_to_r(attributes) {
+                Some(attributes) => list!(retain = retain as i32, attributes = attributes).into(),
+                None => list!(retain = retain as i32).into(),
+            },
+            TextDelta::Delete { delete } => list!(delete = delete as i32).into(),
         })
         .collect();
     List::from_values(ops).into()

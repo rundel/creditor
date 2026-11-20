@@ -10,14 +10,19 @@
 \usage{
 doc_peer_id(doc)
 
-doc_fork(doc)
+doc_fork(doc, at = NULL)
 
-doc_commit(doc)
+doc_commit(doc, message = NULL)
 
 doc_value(doc)
 }
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
+
+\item{at}{A version from \code{\link[=doc_frontiers]{doc_frontiers()}} to fork at, or \code{NULL}
+for the current version.}
+
+\item{message}{A string describing the change, or \code{NULL}.}
 }
 \value{
 \code{doc_peer_id()} returns a string, \code{doc_fork()} a new
@@ -28,9 +33,12 @@ doc_value(doc)
 \itemize{
 \item \code{doc_peer_id()} returns the peer id of this replica as a string.
 \item \code{doc_fork()} returns an independent replica with the same history
-and a new peer id.
-\item \code{doc_commit()} commits pending edits as one change. Edits are also
-committed implicitly on export and import.
+and a new peer id. With \code{at}, the replica holds the document as it
+was at that version.
+\item \code{doc_commit()} commits pending edits as one change, optionally
+labeled with a \code{message} that is kept in the history and shown by
+\code{\link[=doc_changes]{doc_changes()}}. Edits are also committed implicitly on export,
+import, and checkout.
 \item \code{doc_value()} returns the whole document as a named list with one
 element per root container.
 }

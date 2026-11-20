@@ -17,13 +17,42 @@ loro_doc_peer_id_impl <- function(doc) .Call(wrap__loro_doc_peer_id_impl, doc)
 #' @noRd
 loro_doc_set_peer_id_impl <- function(doc, peer_id) .Call(wrap__loro_doc_set_peer_id_impl, doc, peer_id)
 
-#' Commit the pending transaction.
+#' Commit the pending transaction, optionally with a message.
 #' @noRd
-loro_doc_commit_impl <- function(doc) .Call(wrap__loro_doc_commit_impl, doc)
+loro_doc_commit_impl <- function(doc, message) .Call(wrap__loro_doc_commit_impl, doc, message)
 
-#' Fork a document into an independent replica with a new peer id.
+#' Fork a document into an independent replica with a new peer id,
+#' optionally at an earlier version given as encoded frontiers.
 #' @noRd
-loro_doc_fork_impl <- function(doc) .Call(wrap__loro_doc_fork_impl, doc)
+loro_doc_fork_impl <- function(doc, at) .Call(wrap__loro_doc_fork_impl, doc, at)
+
+#' Record wall-clock timestamps on new changes.
+#' @noRd
+loro_doc_record_timestamps_impl <- function(doc, record) .Call(wrap__loro_doc_record_timestamps_impl, doc, record)
+
+#' Encoded frontiers of the version the document state is at.
+#' @noRd
+loro_doc_frontiers_impl <- function(doc) .Call(wrap__loro_doc_frontiers_impl, doc)
+
+#' Check out a version (encoded frontiers), or the latest when `NULL`.
+#' @noRd
+loro_doc_checkout_impl <- function(doc, frontiers) .Call(wrap__loro_doc_checkout_impl, doc, frontiers)
+
+#' Whether the document state is detached from the latest version.
+#' @noRd
+loro_doc_is_detached_impl <- function(doc) .Call(wrap__loro_doc_is_detached_impl, doc)
+
+#' Generate new changes that restore the state at `frontiers`.
+#' @noRd
+loro_doc_revert_to_impl <- function(doc, frontiers) .Call(wrap__loro_doc_revert_to_impl, doc, frontiers)
+
+#' Diff between two versions as a named list keyed by container id.
+#' @noRd
+loro_doc_diff_impl <- function(doc, from, to) .Call(wrap__loro_doc_diff_impl, doc, from, to)
+
+#' Metadata for every change in the document's history, column-wise.
+#' @noRd
+loro_doc_changes_impl <- function(doc) .Call(wrap__loro_doc_changes_impl, doc)
 
 #' Encoded version vector of the document's operation log.
 #' @noRd

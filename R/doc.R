@@ -68,13 +68,19 @@ check_doc = function(doc, call = sys.call(-1)) {
 #' @description
 #' * `doc_peer_id()` returns the peer id of this replica as a string.
 #' * `doc_fork()` returns an independent replica with the same history
-#'   and a new peer id.
-#' * `doc_commit()` commits pending edits as one change. Edits are also
-#'   committed implicitly on export and import.
+#'   and a new peer id. With `at`, the replica holds the document as it
+#'   was at that version.
+#' * `doc_commit()` commits pending edits as one change, optionally
+#'   labeled with a `message` that is kept in the history and shown by
+#'   [`doc_changes()`]. Edits are also committed implicitly on export,
+#'   import, and checkout.
 #' * `doc_value()` returns the whole document as a named list with one
 #'   element per root container.
 #'
 #' @param doc A [`loro_doc`].
+#' @param at A version from [`doc_frontiers()`] to fork at, or `NULL`
+#'   for the current version.
+#' @param message A string describing the change, or `NULL`.
 #'
 #' @return `doc_peer_id()` returns a string, `doc_fork()` a new
 #'   `loro_doc`, `doc_commit()` returns `doc` invisibly, and
@@ -98,16 +104,22 @@ doc_peer_id = function(doc) {
 
 #' @rdname doc
 #' @export
-doc_fork = function(doc) {
+doc_fork = function(doc, at = NULL) {
   check_doc(doc)
-  doc_from_ptr(loro_doc_fork_impl(doc@ptr))
+  if (!is.null(at)) {
+    check_frontiers(at, "at")
+  }
+  doc_from_ptr(loro_doc_fork_impl(doc@ptr, at))
 }
 
 #' @rdname doc
 #' @export
-doc_commit = function(doc) {
+doc_commit = function(doc, message = NULL) {
   check_doc(doc)
-  loro_doc_commit_impl(doc@ptr)
+  if (!is.null(message)) {
+    message = check_string(message, "message")
+  }
+  loro_doc_commit_impl(doc@ptr, message)
   invisible(doc)
 }
 

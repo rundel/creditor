@@ -1,6 +1,6 @@
 # creditor
 
-Exploratory R bindings to [Loro](https://loro.dev), a Rust library of conflict-free replicated data types (CRDTs). Replicas of a document edit independently, exchange updates as raw vectors, and converge to the same contents. Text (including rich text marks and cursors), map, and list containers are supported, and they can be nested.
+Exploratory R bindings to [Loro](https://loro.dev), a Rust library of conflict-free replicated data types (CRDTs). Replicas of a document edit independently, exchange updates as raw vectors, and converge to the same contents. Text (including rich text marks and cursors), map, and list containers are supported, and they can be nested. Documents keep their full history, which can be listed, compared, checked out, and reverted.
 
 ## Installation
 
@@ -80,4 +80,28 @@ str(text_delta(text))
 #>   ..$ insert: chr " brave new world"
 cursor_pos(doc, cursor)
 #> [1] 17
+```
+
+Every version stays reachable.
+
+```r
+doc = loro_doc()
+text = doc_text(doc)
+text_insert(text, 1, "Hello")
+doc_commit(doc, "greeting")
+text_insert(text, 6, " world")
+doc_commit(doc, "audience")
+
+changes = doc_changes(doc)
+changes[, c("lamport", "length", "message")]
+#>   lamport length  message
+#> 1       0      5 greeting
+#> 2       5      6 audience
+
+doc_checkout(doc, changes$frontiers[[1]])
+text_get(text)
+#> [1] "Hello"
+doc_checkout(doc)
+text_get(text)
+#> [1] "Hello world"
 ```
