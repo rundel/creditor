@@ -15,8 +15,10 @@ concurrently and merge.
 
 A replica is a copy of a document that can be edited independently. Two
 small helpers keep the examples short. `replica()` makes a second copy
-of a document under its own peer id, and `sync()` exchanges whatever
-each side is missing and returns the first document.
+of a document under its own peer id, and `sync()` uses
+[`doc_merge()`](https://rundel.github.io/creditor/reference/doc_sync.md)
+to give each side the changes it is missing, returning the first
+document.
 
 ``` r
 library(creditor)
@@ -27,8 +29,8 @@ replica = function(doc, peer_id) {
 }
 
 sync = function(a, b) {
-  doc_import(b, doc_export_updates(a, from = doc_version(b)))
-  doc_import(a, doc_export_updates(b, from = doc_version(a)))
+  doc_merge(b, a)
+  doc_merge(a, b)
 }
 ```
 
@@ -84,7 +86,7 @@ replica changes the start of a sentence while the other changes the end.
 ``` r
 a = loro_doc(peer_id = 1) |>
   text_insert(1, "The quick fox jumps")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 text_replace(a, 1, 3, "A")
 text_insert(b, 20, " over the dog")
@@ -92,21 +94,27 @@ text_insert(b, 20, " over the dog")
 sync(a, b) |>
   text_get()
 #> [1] "A quick fox jumps over the dog"
+
 text_get(b)
 #> [1] "A quick fox jumps over the dog"
 ```
 
-When you have the new contents as a whole string, for example from an
-editor widget,
+Sometimes only the new text as a whole is known, not the individual
+edits, for example when an editor widget reports its full contents.
 [`text_update()`](https://rundel.github.io/creditor/reference/text.md)
-works out the difference and applies only the changes needed. That
-matters for merging: replacing the whole string would discard a
-concurrent edit, while an update keeps it.
+compares the new string with the current text and applies just the
+insertions and deletions that turn one into the other. Deleting the old
+text and inserting the new string would look the same on this replica,
+but it makes the edit a rewrite of every character, which no longer
+lines up with what other replicas changed. Below, `a` changes the time
+and `b` the day, and the merge keeps both. Had `a` deleted and
+reinserted the whole text instead, the merge would give
+`"Meeting at 12:30 on TuesdayWedn"`.
 
 ``` r
 a = loro_doc(peer_id = 1) |>
   text_insert(1, "Meeting at noon on Tuesday")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 text_update(a, "Meeting at 12:30 on Tuesday")
 text_update(b, "Meeting at noon on Wednesday")
@@ -123,15 +131,22 @@ characters. Marks are how formatting, links, and comments are
 represented.
 [`text_delta()`](https://rundel.github.io/creditor/reference/richtext.md)
 returns the text as a sequence of runs, each with the marks that apply
-to it.
+to it. It prints as Markdown by default;
+[`print()`](https://rdrr.io/r/base/print.html) with `format = "html"`,
+`"ansi"`, or `"list"` shows it another way, and the
+`creditor.delta_format` option changes the default.
 
 ``` r
-loro_doc(peer_id = 1) |>
+doc = loro_doc(peer_id = 1) |>
   text_insert(1, "Read the docs today") |>
   text_mark(1, 4, bold = TRUE) |>
-  text_mark(10, 13, link = "https://loro.dev") |>
-  text_delta() |>
-  str()
+  text_mark(10, 13, link = "https://loro.dev")
+
+text_delta(doc)
+#> <loro_delta>
+#> **Read** the [docs](https://loro.dev) today
+
+str(text_delta(doc))
 #> List of 4
 #>  $ :List of 2
 #>   ..$ insert    : chr "Read"
@@ -147,27 +162,45 @@ loro_doc(peer_id = 1) |>
 #>   ..$ insert: chr " today"
 ```
 
+[`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
+returns that Markdown as a string, and
+[`text_html()`](https://rundel.github.io/creditor/reference/richtext.md)
+renders the marks as HTML instead. In the console,
+[`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)
+shows the text with the marks as terminal styles (bold, italic, colored
+links, and so on); a rendered page like this one has no terminal styles,
+so it is not shown here.
+
+``` r
+text_markdown(doc)
+#> [1] "**Read** the [docs](https://loro.dev) today"
+
+text_html(doc)
+#> [1] "<strong>Read</strong> the <a href=\"https://loro.dev\">docs</a> today"
+```
+
+The HTML can be written straight into a page, such as this one:
+
+``` r
+cat(text_html(doc))
+```
+
+**Read** the [docs](https://loro.dev) today
+
 Marks merge with concurrent edits. If one replica makes a phrase bold
 while another types inside it, the new characters are bold too.
 
 ``` r
 a = loro_doc(peer_id = 1) |>
   text_insert(1, "Hello world")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 text_mark(a, 1, 5, bold = TRUE)
 text_insert(b, 3, "XX")
 
 sync(a, b) |>
-  text_delta() |>
-  str()
-#> List of 2
-#>  $ :List of 2
-#>   ..$ insert    : chr "HeXXllo"
-#>   ..$ attributes:List of 1
-#>   .. ..$ bold: logi TRUE
-#>  $ :List of 1
-#>   ..$ insert: chr " world"
+  text_markdown()
+#> [1] "**HeXXllo** world"
 ```
 
 Each mark key has an expand rule that decides whether text typed at the
@@ -183,14 +216,15 @@ loro_doc(peer_id = 1) |>
   doc_config_text_style(author = "none") |>
   text_insert(1, "Reviewed") |>
   text_mark(1, 8, author = "cr") |>
-  text_delta() |>
-  str()
-#> List of 1
-#>  $ :List of 2
-#>   ..$ insert    : chr "Reviewed"
-#>   ..$ attributes:List of 1
-#>   .. ..$ author: chr "cr"
+  text_html()
+#> [1] "<span data-author=\"cr\">Reviewed</span>"
 ```
+
+Markdown has no way to write a mark like `author`, so
+[`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
+leaves it out, while
+[`text_html()`](https://rundel.github.io/creditor/reference/richtext.md)
+keeps it as a `data-` attribute.
 
 ## Map
 
@@ -205,8 +239,10 @@ settings = doc_map(doc, "settings") |>
 
 map_keys(settings)
 #> [1] "font_size" "recent"    "theme"
+
 map_get(settings, "theme")
 #> [1] "dark"
+
 settings |>
   container_value() |>
   str()
@@ -224,9 +260,11 @@ the same reads and writes can be spelled the base R way.
 ``` r
 settings$theme
 #> [1] "dark"
+
 settings$theme = "light"
 names(settings)
 #> [1] "font_size" "recent"    "theme"
+
 str(as.list(settings))
 #> List of 3
 #>  $ font_size: int 12
@@ -246,7 +284,7 @@ same one on every replica.
 ``` r
 a = loro_doc(peer_id = 1) |>
   map_set(theme = "light")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 map_set(a, theme = "dark", font_size = 12L)
 map_set(b, theme = "sepia", line_numbers = TRUE)
@@ -259,6 +297,7 @@ sync(a, b) |>
 #>  $ font_size   : int 12
 #>  $ line_numbers: logi TRUE
 #>  $ theme       : chr "sepia"
+
 identical(doc_value(a), doc_value(b))
 #> [1] TRUE
 ```
@@ -291,7 +330,7 @@ relative order is decided the same way on every replica.
 ``` r
 a = loro_doc(peer_id = 1) |>
   list_push("milk")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 list_push(a, "eggs")
 list_push(b, "bread")
@@ -314,7 +353,7 @@ element is duplicated.
 ``` r
 a = loro_doc(peer_id = 1) |>
   list_push("write", "test", "ship")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 move_by_copy = function(list, from, to) {
   value = list_get(list, from)
@@ -373,7 +412,7 @@ where it should go, so one destination wins.
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks") |>
   list_push("write", "test", "ship")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 list_move(tasks, 3, 1)
 doc_movable_list(b, "tasks") |>
@@ -397,7 +436,7 @@ task in its new position.
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks") |>
   list_push("write", "test", "ship")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 list_move(tasks, 1, 3)
 doc_movable_list(b, "tasks") |>
@@ -424,7 +463,7 @@ replica added.
 
 ``` r
 a = loro_doc(peer_id = 1)
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 counter_increment(a, 3)
 b |>
@@ -444,7 +483,7 @@ are lost.
 ``` r
 a = loro_doc(peer_id = 1) |>
   map_set(votes = 0)
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 add_votes = function(doc, n) {
   map_set(doc, votes = map_get(doc, "votes") + n)
@@ -532,7 +571,7 @@ always a valid tree and no node is lost.
 a = loro_doc(peer_id = 1)
 intro = add_section(a, "Introduction")
 methods = add_section(a, "Methods")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 tree_move(a, methods, parent = intro)
 tree_move(b, intro, parent = methods)
@@ -541,6 +580,7 @@ sync(a, b) |>
   show_outline()
 #> - Introduction
 #>   - Methods
+
 identical(tree_nodes(a), tree_nodes(b))
 #> [1] TRUE
 ```
@@ -619,10 +659,12 @@ be navigated step by step or reached directly by path.
 ``` r
 class(map_get(note, "body"))[1]
 #> [1] "creditor::loro_text"
+
 note |>
   map_get("body") |>
   text_get()
 #> [1] "Flights and trains are booked."
+
 doc_get(doc, "note", "todo", 1, "label")
 #> [1] "Book hotel"
 ```
@@ -638,7 +680,7 @@ a = loro_doc(peer_id = 1) |>
     plain = list(label = "Book hotel", done = FALSE),
     child = loro_map(label = "Book hotel", done = FALSE)
   )
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 map_set(a, plain = list(label = "Book hotel", done = TRUE))
 doc_map(a)$child |>

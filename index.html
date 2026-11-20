@@ -82,14 +82,14 @@
 <span><span class="fu"><a href="reference/text.html">text_push</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">" world"</span><span class="op">)</span>               <span class="co"># concurrent edits, not yet synced</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">b</span>, <span class="fl">1</span>, <span class="st">"&gt;&gt; "</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">b</span> <span class="op">|&gt;</span>                                 <span class="co"># each replica imports the updates it is missing</span></span>
-<span>  <span class="fu"><a href="reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="fu"><a href="reference/doc_sync.html">doc_export_updates</a></span><span class="op">(</span><span class="va">a</span>, from <span class="op">=</span> <span class="fu"><a href="reference/doc_sync.html">doc_version</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span><span class="fu"><a href="reference/doc_sync.html">doc_merge</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">a</span><span class="op">)</span> <span class="op">|&gt;</span>                   <span class="co"># each replica merges the changes it is missing</span></span>
 <span>  <span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "&gt;&gt; Hello world"</span></span>
-<span><span class="va">a</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="fu"><a href="reference/doc_sync.html">doc_export_updates</a></span><span class="op">(</span><span class="va">b</span>, from <span class="op">=</span> <span class="fu"><a href="reference/doc_sync.html">doc_version</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span></span>
+<span><span class="fu"><a href="reference/doc_sync.html">doc_merge</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "&gt;&gt; Hello world"</span></span></code></pre></div>
+<p><code><a href="reference/doc_sync.html">doc_merge()</a></code> is for replicas in the same R session. Replicas in different processes send each other raw vectors instead: <code>doc_export_updates(a, from = version)</code> holds the changes made to <code>a</code> since a version the other replica reported with <code><a href="reference/doc_sync.html">doc_version()</a></code>, and <code><a href="reference/doc_sync.html">doc_import()</a></code> applies them.</p>
 <p>Containers nest: a map or list can hold plain values or child containers, each of which merges independently. New containers are made with <code><a href="reference/loro_text.html">loro_text()</a></code>, <code><a href="reference/loro_text.html">loro_list()</a></code>, <code><a href="reference/loro_text.html">loro_map()</a></code>, and friends, and stored like any other value.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
@@ -114,6 +114,7 @@
 <span><span class="co">#&gt;   .. ..$ : chr "eggs"</span></span>
 <span><span class="co">#&gt;   .. ..$ : chr "bread"</span></span>
 <span><span class="co">#&gt;   ..$ title: chr "Groceries"</span></span></code></pre></div>
+<p>The title is stored as a plain value: it changes only by being set again, so when two replicas set it concurrently one of the values wins. The items and body are containers, with handles (<code>note$items</code>, <code>note$body</code>) that the <code>list_*</code> and <code>text_*</code> functions edit in place, and concurrent edits to them from different replicas are all kept. The same goes for R lists: <code>list("milk", "eggs")</code> would store a plain value that comes back as an ordinary R list, which <code><a href="reference/list.html">list_push()</a></code> cannot extend. Use plain values for things that change as a whole and containers for things people edit piece by piece.</p>
 <p>Text can carry marks, and a cursor keeps pointing at the same character as the text changes.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>

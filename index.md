@@ -42,15 +42,24 @@ b = loro_doc() |>                    # replica `b` starts from a snapshot of `a`
 text_push(a, " world")               # concurrent edits, not yet synced
 text_insert(b, 1, ">> ")
 
-b |>                                 # each replica imports the updates it is missing
-  doc_import(doc_export_updates(a, from = doc_version(b))) |>
+doc_merge(b, a) |>                   # each replica merges the changes it is missing
   text_get()
 #> [1] ">> Hello world"
-a |>
-  doc_import(doc_export_updates(b, from = doc_version(a))) |>
+
+doc_merge(a, b) |>
   text_get()
 #> [1] ">> Hello world"
 ```
+
+[`doc_merge()`](https://rundel.github.io/creditor/reference/doc_sync.md)
+is for replicas in the same R session. Replicas in different processes
+send each other raw vectors instead:
+`doc_export_updates(a, from = version)` holds the changes made to `a`
+since a version the other replica reported with
+[`doc_version()`](https://rundel.github.io/creditor/reference/doc_sync.md),
+and
+[`doc_import()`](https://rundel.github.io/creditor/reference/doc_sync.md)
+applies them.
 
 Containers nest: a map or list can hold plain values or child
 containers, each of which merges independently. New containers are made
@@ -84,6 +93,17 @@ doc |>
 #>   .. ..$ : chr "bread"
 #>   ..$ title: chr "Groceries"
 ```
+
+The title is stored as a plain value: it changes only by being set
+again, so when two replicas set it concurrently one of the values wins.
+The items and body are containers, with handles (`note$items`,
+`note$body`) that the `list_*` and `text_*` functions edit in place, and
+concurrent edits to them from different replicas are all kept. The same
+goes for R lists: `list("milk", "eggs")` would store a plain value that
+comes back as an ordinary R list, which
+[`list_push()`](https://rundel.github.io/creditor/reference/list.md)
+cannot extend. Use plain values for things that change as a whole and
+containers for things people edit piece by piece.
 
 Text can carry marks, and a cursor keeps pointing at the same character
 as the text changes.

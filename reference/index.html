@@ -35,9 +35,39 @@
     </div>
 
     <div class="section level2">
-      <h2 id="all-functions">All functions<a class="anchor" aria-label="anchor" href="#all-functions"></a></h2>
+      <h2 id="documents">Documents<a class="anchor" aria-label="anchor" href="#documents"></a></h2>
+
+      <div class="section-desc"><p>Create a document, identify its replica, and read its contents.</p></div>
+
+      <dl></dl></div><div class="section level2">
 
 
+
+
+      <dl><dt>
+
+          <code><a href="loro_doc.html">loro_doc()</a></code>
+
+        </dt>
+        <dd>Create a Loro document</dd>
+
+        <dt>
+
+          <code><a href="doc.html">doc_peer_id()</a></code> <code><a href="doc.html">doc_set_peer_id()</a></code> <code><a href="doc.html">doc_fork()</a></code> <code><a href="doc.html">doc_commit()</a></code> <code><a href="doc.html">doc_value()</a></code> <code><a href="doc.html">doc_get()</a></code> <code><a href="doc.html">doc_jsonpath()</a></code>
+
+        </dt>
+        <dd>Document identity, replicas, and contents</dd>
+
+        <dt>
+
+          <code><a href="creditor-package.html">creditor</a></code> <code><a href="creditor-package.html">creditor-package</a></code>
+
+        </dt>
+        <dd>creditor: R Interface to the Loro CRDT Library</dd>
+      </dl></div><div class="section level2">
+      <h2 id="containers">Containers<a class="anchor" aria-label="anchor" href="#containers"></a></h2>
+
+      <div class="section-desc"><p>Documents hold containers. Get a handle to a root container or create a new one to store inside a map or list.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -53,10 +83,33 @@
 
         <dt>
 
-          <code><a href="counter.html">counter_increment()</a></code> <code><a href="counter.html">counter_get()</a></code>
+          <code><a href="loro_text.html">loro_text()</a></code> <code><a href="loro_text.html">loro_map()</a></code> <code><a href="loro_text.html">loro_list()</a></code> <code><a href="loro_text.html">loro_movable_list()</a></code> <code><a href="loro_text.html">loro_counter()</a></code> <code><a href="loro_text.html">loro_tree()</a></code>
 
         </dt>
-        <dd>Counters</dd>
+        <dd>Create containers</dd>
+      </dl></div><div class="section level2">
+      <h2 id="editing-containers">Editing containers<a class="anchor" aria-label="anchor" href="#editing-containers"></a></h2>
+
+      <div class="section-desc"><p>Each container type has its own functions, which take a handle (or a document, standing for its default root container) as their first argument.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="text.html">text_insert()</a></code> <code><a href="text.html">text_push()</a></code> <code><a href="text.html">text_delete()</a></code> <code><a href="text.html">text_update()</a></code> <code><a href="text.html">text_replace()</a></code> <code><a href="text.html">text_sub()</a></code> <code><a href="text.html">text_get()</a></code> <code><a href="text.html">text_length()</a></code> <code><a href="text.html">text_convert_pos()</a></code>
+
+        </dt>
+        <dd>Edit collaborative text</dd>
+
+        <dt>
+
+          <code><a href="richtext.html">text_mark()</a></code> <code><a href="richtext.html">text_unmark()</a></code> <code><a href="richtext.html">text_delta()</a></code> <code><a href="richtext.html">text_markdown()</a></code> <code><a href="richtext.html">text_ansi()</a></code> <code><a href="richtext.html">text_html()</a></code> <code><a href="richtext.html">text_apply_delta()</a></code> <code><a href="richtext.html">doc_config_text_style()</a></code>
+
+        </dt>
+        <dd>Rich text</dd>
 
         <dt>
 
@@ -67,31 +120,10 @@
 
         <dt>
 
-          <code><a href="doc.html">doc_peer_id()</a></code> <code><a href="doc.html">doc_set_peer_id()</a></code> <code><a href="doc.html">doc_fork()</a></code> <code><a href="doc.html">doc_commit()</a></code> <code><a href="doc.html">doc_value()</a></code> <code><a href="doc.html">doc_get()</a></code> <code><a href="doc.html">doc_jsonpath()</a></code>
+          <code><a href="map.html">map_set()</a></code> <code><a href="map.html">map_ensure_container()</a></code> <code><a href="map.html">map_get()</a></code> <code><a href="map.html">map_has()</a></code> <code><a href="map.html">map_delete()</a></code> <code><a href="map.html">map_clear()</a></code> <code><a href="map.html">map_keys()</a></code> <code><a href="map.html">map_length()</a></code> <code><a href="map.html">map_last_editor()</a></code>
 
         </dt>
-        <dd>Document identity, replicas, and contents</dd>
-
-        <dt>
-
-          <code><a href="doc_sync.html">doc_export()</a></code> <code><a href="doc_sync.html">doc_export_updates()</a></code> <code><a href="doc_sync.html">doc_export_shallow()</a></code> <code><a href="doc_sync.html">doc_import()</a></code> <code><a href="doc_sync.html">doc_import_status()</a></code> <code><a href="doc_sync.html">doc_version()</a></code> <code><a href="doc_sync.html">doc_is_shallow()</a></code> <code><a href="doc_sync.html">blob_metadata()</a></code> <code><a href="doc_sync.html">doc_export_json()</a></code> <code><a href="doc_sync.html">doc_import_json()</a></code>
-
-        </dt>
-        <dd>Synchronize documents</dd>
-
-        <dt>
-
-          <code><a href="ephemeral.html">ephemeral_store()</a></code> <code><a href="ephemeral.html">ephemeral_set()</a></code> <code><a href="ephemeral.html">ephemeral_get()</a></code> <code><a href="ephemeral.html">ephemeral_delete()</a></code> <code><a href="ephemeral.html">ephemeral_keys()</a></code> <code><a href="ephemeral.html">ephemeral_values()</a></code> <code><a href="ephemeral.html">ephemeral_encode()</a></code> <code><a href="ephemeral.html">ephemeral_apply()</a></code> <code><a href="ephemeral.html">ephemeral_remove_outdated()</a></code> <code><a href="ephemeral.html">ephemeral_subscribe()</a></code> <code><a href="ephemeral.html">ephemeral_subscribe_local_updates()</a></code>
-
-        </dt>
-        <dd>Ephemeral state</dd>
-
-        <dt>
-
-          <code><a href="history.html">doc_frontiers()</a></code> <code><a href="history.html">doc_changes()</a></code> <code><a href="history.html">doc_change()</a></code> <code><a href="history.html">doc_change_count()</a></code> <code><a href="history.html">doc_op_count()</a></code> <code><a href="history.html">doc_changed_containers()</a></code> <code><a href="history.html">doc_frontiers_to_version()</a></code> <code><a href="history.html">doc_version_to_frontiers()</a></code> <code><a href="history.html">doc_compare_frontiers()</a></code> <code><a href="history.html">doc_checkout()</a></code> <code><a href="history.html">doc_is_detached()</a></code> <code><a href="history.html">doc_detach()</a></code> <code><a href="history.html">doc_set_detached_editing()</a></code> <code><a href="history.html">doc_is_detached_editing()</a></code> <code><a href="history.html">doc_revert_to()</a></code> <code><a href="history.html">doc_diff()</a></code> <code><a href="history.html">doc_apply_diff()</a></code> <code><a href="history.html">doc_record_timestamps()</a></code>
-
-        </dt>
-        <dd>Document history</dd>
+        <dd>Edit maps</dd>
 
         <dt>
 
@@ -102,33 +134,67 @@
 
         <dt>
 
-          <code><a href="loro_doc.html">loro_doc()</a></code>
+          <code><a href="counter.html">counter_increment()</a></code> <code><a href="counter.html">counter_get()</a></code>
 
         </dt>
-        <dd>Create a Loro document</dd>
+        <dd>Counters</dd>
 
         <dt>
 
-          <code><a href="loro_text.html">loro_text()</a></code> <code><a href="loro_text.html">loro_map()</a></code> <code><a href="loro_text.html">loro_list()</a></code> <code><a href="loro_text.html">loro_movable_list()</a></code> <code><a href="loro_text.html">loro_counter()</a></code> <code><a href="loro_text.html">loro_tree()</a></code>
+          <code><a href="tree.html">tree_create()</a></code> <code><a href="tree.html">tree_move()</a></code> <code><a href="tree.html">tree_delete()</a></code> <code><a href="tree.html">tree_meta()</a></code> <code><a href="tree.html">tree_children()</a></code> <code><a href="tree.html">tree_nodes()</a></code> <code><a href="tree.html">tree_contains()</a></code>
 
         </dt>
-        <dd>Create containers</dd>
+        <dd>Trees</dd>
+      </dl></div><div class="section level2">
+      <h2 id="synchronization">Synchronization<a class="anchor" aria-label="anchor" href="#synchronization"></a></h2>
+
+      <div class="section-desc"><p>Exchange snapshots and updates between replicas.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="doc_sync.html">doc_export()</a></code> <code><a href="doc_sync.html">doc_export_updates()</a></code> <code><a href="doc_sync.html">doc_export_shallow()</a></code> <code><a href="doc_sync.html">doc_import()</a></code> <code><a href="doc_sync.html">doc_merge()</a></code> <code><a href="doc_sync.html">doc_import_status()</a></code> <code><a href="doc_sync.html">doc_version()</a></code> <code><a href="doc_sync.html">doc_is_shallow()</a></code> <code><a href="doc_sync.html">blob_metadata()</a></code> <code><a href="doc_sync.html">doc_export_json()</a></code> <code><a href="doc_sync.html">doc_import_json()</a></code>
+
+        </dt>
+        <dd>Synchronize documents</dd>
 
         <dt>
 
-          <code><a href="map.html">map_set()</a></code> <code><a href="map.html">map_ensure_container()</a></code> <code><a href="map.html">map_get()</a></code> <code><a href="map.html">map_has()</a></code> <code><a href="map.html">map_delete()</a></code> <code><a href="map.html">map_clear()</a></code> <code><a href="map.html">map_keys()</a></code> <code><a href="map.html">map_length()</a></code> <code><a href="map.html">map_last_editor()</a></code>
+          <code><a href="versions.html">as_version()</a></code> <code><a href="versions.html">as_frontiers()</a></code>
 
         </dt>
-        <dd>Edit maps</dd>
+        <dd>Version objects</dd>
+      </dl></div><div class="section level2">
+      <h2 id="history">History<a class="anchor" aria-label="anchor" href="#history"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>List changes, compare versions, travel to earlier versions, and revert.</p></div>
 
-          <code><a href="richtext.html">text_mark()</a></code> <code><a href="richtext.html">text_unmark()</a></code> <code><a href="richtext.html">text_delta()</a></code> <code><a href="richtext.html">text_apply_delta()</a></code> <code><a href="richtext.html">doc_config_text_style()</a></code>
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="history.html">doc_frontiers()</a></code> <code><a href="history.html">doc_changes()</a></code> <code><a href="history.html">doc_change()</a></code> <code><a href="history.html">doc_change_count()</a></code> <code><a href="history.html">doc_op_count()</a></code> <code><a href="history.html">doc_changed_containers()</a></code> <code><a href="history.html">doc_frontiers_to_version()</a></code> <code><a href="history.html">doc_version_to_frontiers()</a></code> <code><a href="history.html">doc_compare_frontiers()</a></code> <code><a href="history.html">doc_checkout()</a></code> <code><a href="history.html">doc_is_detached()</a></code> <code><a href="history.html">doc_detach()</a></code> <code><a href="history.html">doc_set_detached_editing()</a></code> <code><a href="history.html">doc_is_detached_editing()</a></code> <code><a href="history.html">doc_revert_to()</a></code> <code><a href="history.html">doc_diff()</a></code> <code><a href="history.html">doc_apply_diff()</a></code> <code><a href="history.html">doc_record_timestamps()</a></code>
 
         </dt>
-        <dd>Rich text</dd>
+        <dd>Document history</dd>
+      </dl></div><div class="section level2">
+      <h2 id="events-and-undo">Events and undo<a class="anchor" aria-label="anchor" href="#events-and-undo"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>React to changes as they are committed and reverse local edits.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
 
           <code><a href="subscribe.html">doc_subscribe()</a></code> <code><a href="subscribe.html">doc_subscribe_local_updates()</a></code> <code><a href="subscribe.html">doc_subscribe_first_commit()</a></code> <code><a href="subscribe.html">doc_subscribe_peer_id()</a></code> <code><a href="subscribe.html">unsubscribe()</a></code>
 
@@ -137,33 +203,29 @@
 
         <dt>
 
-          <code><a href="text.html">text_insert()</a></code> <code><a href="text.html">text_push()</a></code> <code><a href="text.html">text_delete()</a></code> <code><a href="text.html">text_update()</a></code> <code><a href="text.html">text_replace()</a></code> <code><a href="text.html">text_sub()</a></code> <code><a href="text.html">text_get()</a></code> <code><a href="text.html">text_length()</a></code> <code><a href="text.html">text_convert_pos()</a></code>
-
-        </dt>
-        <dd>Edit collaborative text</dd>
-
-        <dt>
-
-          <code><a href="tree.html">tree_create()</a></code> <code><a href="tree.html">tree_move()</a></code> <code><a href="tree.html">tree_delete()</a></code> <code><a href="tree.html">tree_meta()</a></code> <code><a href="tree.html">tree_children()</a></code> <code><a href="tree.html">tree_nodes()</a></code> <code><a href="tree.html">tree_contains()</a></code>
-
-        </dt>
-        <dd>Trees</dd>
-
-        <dt>
-
           <code><a href="undo.html">doc_undo_manager()</a></code> <code><a href="undo.html">undo_count()</a></code> <code><a href="undo.html">redo_count()</a></code> <code><a href="undo.html">undo_pause()</a></code> <code><a href="undo.html">undo_resume()</a></code> <code><a href="undo.html">undo_is_paused()</a></code> <code><a href="undo.html">undo_clear()</a></code> <code><a href="undo.html">undo()</a></code> <code><a href="undo.html">redo()</a></code> <code><a href="undo.html">can_undo()</a></code> <code><a href="undo.html">can_redo()</a></code> <code><a href="undo.html">undo_group()</a></code>
 
         </dt>
         <dd>Undo and redo</dd>
+      </dl></div><div class="section level2">
+      <h2 id="presence">Presence<a class="anchor" aria-label="anchor" href="#presence"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>Share short-lived state, such as cursors and user names, outside the document.</p></div>
 
-          <code><a href="versions.html">as_version()</a></code> <code><a href="versions.html">as_frontiers()</a></code>
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="ephemeral.html">ephemeral_store()</a></code> <code><a href="ephemeral.html">ephemeral_set()</a></code> <code><a href="ephemeral.html">ephemeral_get()</a></code> <code><a href="ephemeral.html">ephemeral_delete()</a></code> <code><a href="ephemeral.html">ephemeral_keys()</a></code> <code><a href="ephemeral.html">ephemeral_values()</a></code> <code><a href="ephemeral.html">ephemeral_encode()</a></code> <code><a href="ephemeral.html">ephemeral_apply()</a></code> <code><a href="ephemeral.html">ephemeral_remove_outdated()</a></code> <code><a href="ephemeral.html">ephemeral_subscribe()</a></code> <code><a href="ephemeral.html">ephemeral_subscribe_local_updates()</a></code>
 
         </dt>
-        <dd>Version objects</dd>
+        <dd>Ephemeral state</dd>
       </dl></div>
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

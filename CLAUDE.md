@@ -244,10 +244,12 @@ package.
   expression keeps JSONPath’s 0-based positions), and sync (`doc_export`
   / `doc_export_updates` / `doc_export_shallow`, one function per export
   mode so no argument depends on another, plus `doc_import` /
-  `doc_version`, JSON updates, `blob_metadata`). `doc_import` /
-  `doc_import_json` return the document so they pipe; the status of the
-  most recent import is stored in `doc@state$import_status` and read
-  with
+  `doc_version`, `doc_merge` for two documents in one session (an
+  R-level import of `doc_export_updates(source, from = doc)`; `from`
+  accepts a document as its version), JSON updates, `blob_metadata`).
+  `doc_import` / `doc_merge` / `doc_import_json` return the document so
+  they pipe; the status of the most recent import is stored in
+  `doc@state$import_status` and read with
   [`doc_import_status()`](https://rundel.github.io/creditor/reference/doc_sync.md).
   A plain attribute on the returned object would not work, because
   callers who do not capture the result would never see it.
@@ -297,9 +299,29 @@ package.
   `doc_config_text_style`; `with_style_hint` rewrites Loro’s
   missing-style error (which names the JS API) to point at
   [`doc_config_text_style()`](https://rundel.github.io/creditor/reference/richtext.md).
-  [R/cursor.R](https://rundel.github.io/creditor/R/cursor.R) defines
-  `text_cursor`, `list_cursor`, and `cursor_pos`; a cursor is a plain
-  raw vector, like a version from
+  [`text_delta()`](https://rundel.github.io/creditor/reference/richtext.md)
+  returns class `loro_delta` (a plain list underneath;
+  [`text_apply_delta()`](https://rundel.github.io/creditor/reference/richtext.md)
+  unclasses it).
+  [R/render.R](https://rundel.github.io/creditor/R/render.R) renders
+  deltas.
+  [`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)
+  styles each run with cli and returns a
+  [`cli::ansi_string`](https://cli.r-lib.org/reference/ansi_string.html);
+  [`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
+  /
+  [`text_html()`](https://rundel.github.io/creditor/reference/richtext.md)
+  turn the runs into open/close tokens with a stack, opening the mark
+  that lasts longest outermost so tags nest, and Markdown moves spaces
+  outside `**` / `*` / link delimiters, which would otherwise not parse.
+  A delta prints as its Markdown rendering, or another one chosen by
+  `print(x, format =)` or the `creditor.delta_format` option; its
+  `format` / `print` methods are registered through S7 like the
+  package’s other print methods (see `R/history.R`), and
+  [`str()`](https://rdrr.io/r/utils/str.html) is an S3 method that drops
+  the class. [R/cursor.R](https://rundel.github.io/creditor/R/cursor.R)
+  defines `text_cursor`, `list_cursor`, and `cursor_pos`; a cursor is a
+  plain raw vector, like a version from
   [`doc_version()`](https://rundel.github.io/creditor/reference/doc_sync.md).
 - [R/history.R](https://rundel.github.io/creditor/R/history.R) defines
   `doc_frontiers`, `doc_changes` (a tibble with a `frontiers` list
@@ -407,9 +429,9 @@ package.
 - Pipeable editing functions are a primary goal of the API. Every
   exported function is one of three kinds: editors change something and
   return their first argument invisibly (all `text_*` / `map_*` /
-  `list_*` / `counter_*` / `tree_*` edits, `doc_import*`, `doc_commit`,
-  `doc_checkout`, the `doc_set_*` functions, `undo` / `redo` /
-  `undo_group`, the `ephemeral_*` setters); constructors create
+  `list_*` / `counter_*` / `tree_*` edits, `doc_import*`, `doc_merge`,
+  `doc_commit`, `doc_checkout`, the `doc_set_*` functions, `undo` /
+  `redo` / `undo_group`, the `ephemeral_*` setters); constructors create
   something new and return it (`loro_doc`, the `loro_*` container
   constructors, `doc_fork`, `doc_undo_manager`, the `doc_subscribe*`
   functions, `ephemeral_store`, and `tree_create`, which returns the new
@@ -449,6 +471,8 @@ package.
   single-line comments. In examples, the README, and vignettes, chain
   edits with the native pipe (`|>`), one step per line, but only when
   there are at least two steps: a single call on a variable is a plain
-  call (`text_push(a, "x")`, not `a |> text_push("x")`).
+  call (`text_push(a, "x")`, not `a |> text_push("x")`). Within a chunk,
+  leave a blank line after any code that prints output before the next
+  code, so each result sits visibly with the code that produced it.
 - Rust: standard rustfmt; no decorative comments.
 - Commit messages: one short imperative line, no attribution trailers.

@@ -13,7 +13,32 @@ and are 1-based, and a range runs from `start` to `end`.
 - `text_delta()` returns the text as a list of runs, each a list with a
   string `insert` and, for marked runs, a named list `attributes`. This
   is the Quill delta format. With `start` and `end` it covers only that
-  range.
+  range. The list has class `loro_delta`, which prints as Markdown (see
+  `text_markdown()`) and keeps the plain list structure for
+  [`str()`](https://rdrr.io/r/utils/str.html) and indexing. Its
+  [`print()`](https://rdrr.io/r/base/print.html) and
+  [`format()`](https://rdrr.io/r/base/format.html) methods take a
+  `format` argument, one of `"markdown"`, `"html"`, `"ansi"`, or
+  `"list"` (the [`str()`](https://rdrr.io/r/utils/str.html) view), whose
+  default comes from the `creditor.delta_format` option, so
+  `options(creditor.delta_format = "ansi")` changes how deltas
+  autoprint.
+
+- `text_markdown()` and `text_html()` render the text with its marks as
+  a Markdown or HTML string. Both handle `bold`, `italic`, `underline`,
+  `code`, and `link` (whose value is the target URL); Markdown writes
+  underline as `<u>` tags. HTML also writes `highlight` as `<mark>` and
+  any other mark as a `<span>` with a `data-` attribute holding its
+  value, for example `<span data-comment="check this">`. Markdown drops
+  the marks it cannot express.
+
+- `text_ansi()` renders the text for the console with ANSI styles from
+  cli: bold, italic, and underline as themselves, `code` in cyan,
+  `highlight` on a yellow background, and `link` in blue as a hyperlink
+  where the terminal supports one. Other marks are left unstyled. Styles
+  appear only where cli detects color support (see
+  [`cli::num_ansi_colors()`](https://cli.r-lib.org/reference/num_ansi_colors.html));
+  elsewhere the result is the plain text.
 
 - `text_apply_delta()` edits the text with a list of delta ops. Each op
   is a list with exactly one of `retain` (keep that many characters),
@@ -35,6 +60,12 @@ text_mark(.text, .start, .end, ...)
 text_unmark(text, start, end, keys)
 
 text_delta(text, start = 1, end = text_length(text))
+
+text_markdown(text, start = 1, end = text_length(text))
+
+text_ansi(text, start = 1, end = text_length(text))
+
+text_html(text, start = 1, end = text_length(text))
 
 text_apply_delta(text, delta)
 
@@ -73,7 +104,8 @@ doc_config_text_style(.doc, ..., .default = NULL)
 - start, end:
 
   1-based positions of the first and last characters of the range. For
-  `text_delta()` they default to the whole text.
+  `text_delta()` and the rendering functions they default to the whole
+  text.
 
 - keys:
 
@@ -99,7 +131,10 @@ doc_config_text_style(.doc, ..., .default = NULL)
 
 `text_mark()` returns `.text` invisibly, `text_unmark()` and
 `text_apply_delta()` return `text` invisibly, `text_delta()` returns a
-list, and `doc_config_text_style()` returns `.doc` invisibly.
+`loro_delta` list, `text_markdown()` and `text_html()` return a string,
+`text_ansi()` returns a
+[`cli::ansi_string()`](https://cli.r-lib.org/reference/ansi_string.html),
+and `doc_config_text_style()` returns `.doc` invisibly.
 
 ## Style configuration
 
@@ -126,6 +161,12 @@ text_insert(text, 1, "Hello world")
 text_mark(text, 1, 5, bold = TRUE)
 text_mark(text, 7, 11, link = "https://loro.dev", italic = TRUE)
 text_unmark(text, 7, 11, "italic")
+text_delta(text)
+#> <loro_delta>
+#> **Hello** [world](https://loro.dev)
+print(text_delta(text), format = "html")
+#> <loro_delta>
+#> <strong>Hello</strong> <a href="https://loro.dev">world</a>
 str(text_delta(text))
 #> List of 3
 #>  $ :List of 2
@@ -138,6 +179,12 @@ str(text_delta(text))
 #>   ..$ insert    : chr "world"
 #>   ..$ attributes:List of 1
 #>   .. ..$ link: chr "https://loro.dev"
+text_markdown(text)
+#> [1] "**Hello** [world](https://loro.dev)"
+text_html(text)
+#> [1] "<strong>Hello</strong> <a href=\"https://loro.dev\">world</a>"
+cat(text_ansi(text), "\n")
+#> Hello world 
 
 text_apply_delta(text, list(
   list(retain = 5),
