@@ -28,9 +28,10 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      # Without this rustc targets the runner's SDK version, newer than the
-      # one R links against, and ld's warning fails the install check.
-      MACOSX_DEPLOYMENT_TARGET: '11.0'
+      # Match the macOS version CRAN's R is built for. Left unset, rustc
+      # targets the runner's SDK, newer than the link, and lower values are
+      # older than libR; either way ld's warning fails the install check.
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
 
     steps:
       - uses: actions/checkout@v6
