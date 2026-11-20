@@ -5,6 +5,8 @@
 \alias{text_insert}
 \alias{text_delete}
 \alias{text_update}
+\alias{text_splice}
+\alias{text_slice}
 \alias{text_get}
 \alias{text_length}
 \title{Edit collaborative text}
@@ -13,7 +15,11 @@ text_insert(text, pos, value)
 
 text_delete(text, pos, len)
 
-text_update(text, value)
+text_update(text, value, by = c("char", "line"))
+
+text_splice(text, pos, len, value)
+
+text_slice(text, pos, len)
 
 text_get(text)
 
@@ -27,11 +33,14 @@ text_length(text)
 \item{value}{A string: the text to insert, or the new contents for
 \code{text_update()}.}
 
-\item{len}{Number of characters to delete.}
+\item{len}{Number of characters to delete, replace, or return.}
+
+\item{by}{Whether \code{text_update()} compares the old and new text
+character by character (\code{"char"}) or line by line (\code{"line"}).}
 }
 \value{
-\code{text_insert()}, \code{text_delete()}, and \code{text_update()} return
-\code{text} invisibly,
+\code{text_insert()}, \code{text_delete()}, \code{text_splice()}, and
+\code{text_update()} return \code{text} invisibly, \code{text_slice()} a string,
 \code{text_get()} a string, and \code{text_length()} an integer.
 }
 \description{
@@ -41,9 +50,15 @@ matching \code{\link[=substr]{substr()}}.
 \item \code{text_insert()} inserts \code{value} before the character currently at
 \code{pos}; \code{pos = text_length(text) + 1} appends.
 \item \code{text_delete()} removes \code{len} characters starting at \code{pos}.
+\item \code{text_splice()} replaces \code{len} characters starting at \code{pos} with
+\code{value}, as a deletion followed by an insertion.
 \item \code{text_update()} changes the text to \code{value} by computing a diff
 and applying only the insertions and deletions needed, so
 concurrent edits elsewhere in the text, marks, and cursors survive.
+With \code{by = "line"} the diff treats each line as a unit, which is
+faster for long texts but replaces a line whole when any part of
+it changes.
+\item \code{text_slice()} returns \code{len} characters starting at \code{pos}.
 \item \code{text_get()} returns the current contents as a string.
 \item \code{text_length()} returns the number of characters.
 }

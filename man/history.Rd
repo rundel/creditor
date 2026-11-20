@@ -8,6 +8,7 @@
 \alias{doc_is_detached}
 \alias{doc_revert_to}
 \alias{doc_diff}
+\alias{doc_apply_diff}
 \alias{doc_record_timestamps}
 \title{Document history}
 \usage{
@@ -23,6 +24,8 @@ doc_revert_to(doc, frontiers)
 
 doc_diff(doc, from, to)
 
+doc_apply_diff(doc, from, to, source = doc)
+
 doc_record_timestamps(doc, record = TRUE)
 }
 \arguments{
@@ -31,13 +34,17 @@ doc_record_timestamps(doc, record = TRUE)
 \item{frontiers, from, to}{A version: a raw vector from
 \code{doc_frontiers()} or the \code{frontiers} column of \code{doc_changes()}.}
 
+\item{source}{The \code{\link{loro_doc}} whose history \code{from} and \code{to} refer
+to.}
+
 \item{record}{Whether to record timestamps.}
 }
 \value{
 \code{doc_frontiers()} returns a raw vector, \code{doc_changes()} a
 data frame, \code{doc_is_detached()} a logical, and \code{doc_diff()} a named
-list. \code{doc_checkout()}, \code{doc_revert_to()}, and
-\code{doc_record_timestamps()} return \code{doc} invisibly.
+list. \code{doc_checkout()}, \code{doc_revert_to()},
+\code{doc_apply_diff()}, and \code{doc_record_timestamps()} return \code{doc}
+invisibly.
 }
 \description{
 A document keeps its full editing history, so earlier versions can be
@@ -57,6 +64,14 @@ latest version. \code{doc_is_detached()} reports this state.
 earlier version. History is kept, and the revert synchronizes to
 other replicas like any other edit.
 \item \code{doc_diff()} returns the differences between two versions.
+\item \code{doc_apply_diff()} takes the changes that \code{source} made between two
+of its versions and applies them to \code{doc} as new edits. With
+\code{source} left as \code{doc} this replays or (with the versions swapped)
+undoes a span of its own history; with another document it copies
+a span of work across without merging the two histories. The
+changes are applied by position, so \code{doc} must hold contents that
+match what \code{source} held at \code{from}; otherwise the call fails or
+lands edits in the wrong place.
 \item \code{doc_record_timestamps()} turns on recording of the wall-clock
 time of each new change. It is off by default.
 }

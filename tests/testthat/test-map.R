@@ -108,3 +108,81 @@ test_that("concurrent writes to one key converge", {
   expect_true(map_get(doc_map(a), "k") %in% c("from a", "from b"))
   expect_identical(map_get(doc_map(a), "other"), 1L)
 })
+
+test_that("a map can be cleared", {
+  map = doc_map(loro_doc())
+  map_set(map, "a", 1L)
+  map_set_container(map, "b", "text")
+  map_clear(map)
+  expect_identical(map_keys(map), character())
+  expect_identical(map_length(map), 0L)
+})
+
+test_that("the last editor of a key is reported", {
+  a = loro_doc(peer_id = 1)
+  map = doc_map(a)
+  expect_identical(map_last_editor(map, "k"), NA_character_)
+  map_set(map, "k", 1L)
+  expect_identical(map_last_editor(map, "k"), "1")
+
+  b = loro_doc(peer_id = 2)
+  doc_import(b, doc_export(a))
+  map_set(doc_map(b), "k", 2L)
+  doc_import(a, doc_export(b, "updates"))
+  expect_identical(map_last_editor(map, "k"), "2")
+})
+
+test_that("an ensured container is created once and then reused", {
+  map = doc_map(loro_doc(peer_id = 1), "m")
+  body = map_ensure_container(map, "body", "text")
+  expect_s3_class(body, "creditor::loro_text")
+  text_insert(body, 1, "x")
+
+  again = map_ensure_container(map, "body", "text")
+  expect_identical(container_id(again), container_id(body))
+  expect_identical(text_get(again), "x")
+
+  for (type in c("map", "list", "movable_list", "counter", "tree")) {
+    child = map_ensure_container(map, paste0("c_", type), type)
+    expect_s3_class(child, paste0("creditor::loro_", type))
+  }
+})
+
+test_that("ensured containers created concurrently merge into one", {
+  a = loro_doc(peer_id = 1)
+  b = loro_doc(peer_id = 2)
+  text_insert(map_ensure_container(doc_map(a, "m"), "body", "text"), 1, "from a ")
+  text_insert(map_ensure_container(doc_map(b, "m"), "body", "text"), 1, "from b ")
+
+  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export(a, "updates"))
+  expect_identical(doc_value(a), doc_value(b))
+  body = doc_value(a)$m$body
+  expect_match(body, "from a ", fixed = TRUE)
+  expect_match(body, "from b ", fixed = TRUE)
+})
+
+test_that("containers set concurrently do not merge", {
+  a = loro_doc(peer_id = 1)
+  b = loro_doc(peer_id = 2)
+  text_insert(map_set_container(doc_map(a, "m"), "body", "text"), 1, "from a ")
+  text_insert(map_set_container(doc_map(b, "m"), "body", "text"), 1, "from b ")
+
+  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export(a, "updates"))
+  expect_identical(doc_value(a), doc_value(b))
+  expect_true(doc_value(a)$m$body %in% c("from a ", "from b "))
+})
+
+test_that("ensuring a container over a conflicting entry is an error", {
+  map = doc_map(loro_doc(), "m")
+  map_set(map, "plain", 1L)
+  map_ensure_container(map, "body", "text")
+  map_set_container(map, "regular", "text")
+
+  expect_error(map_ensure_container(map, "plain", "text"), "non-mergeable")
+  expect_error(map_ensure_container(map, "body", "list"), "text container")
+  expect_error(map_ensure_container(map, "regular", "text"))
+  expect_error(map_ensure_container(map, "new", "nope"), "type")
+  expect_s3_class(map_get(map, "body"), "creditor::loro_text")
+})

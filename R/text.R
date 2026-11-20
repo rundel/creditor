@@ -7,9 +7,15 @@
 #' * `text_insert()` inserts `value` before the character currently at
 #'   `pos`; `pos = text_length(text) + 1` appends.
 #' * `text_delete()` removes `len` characters starting at `pos`.
+#' * `text_splice()` replaces `len` characters starting at `pos` with
+#'   `value`, as a deletion followed by an insertion.
 #' * `text_update()` changes the text to `value` by computing a diff
 #'   and applying only the insertions and deletions needed, so
 #'   concurrent edits elsewhere in the text, marks, and cursors survive.
+#'   With `by = "line"` the diff treats each line as a unit, which is
+#'   faster for long texts but replaces a line whole when any part of
+#'   it changes.
+#' * `text_slice()` returns `len` characters starting at `pos`.
 #' * `text_get()` returns the current contents as a string.
 #' * `text_length()` returns the number of characters.
 #'
@@ -17,10 +23,12 @@
 #' @param pos A 1-based character position.
 #' @param value A string: the text to insert, or the new contents for
 #'   `text_update()`.
-#' @param len Number of characters to delete.
+#' @param len Number of characters to delete, replace, or return.
+#' @param by Whether `text_update()` compares the old and new text
+#'   character by character (`"char"`) or line by line (`"line"`).
 #'
-#' @return `text_insert()`, `text_delete()`, and `text_update()` return
-#'   `text` invisibly,
+#' @return `text_insert()`, `text_delete()`, `text_splice()`, and
+#'   `text_update()` return `text` invisibly, `text_slice()` a string,
 #'   `text_get()` a string, and `text_length()` an integer.
 #'
 #' @examples
@@ -59,10 +67,30 @@ text_delete = function(text, pos, len) {
 
 #' @rdname text
 #' @export
-text_update = function(text, value) {
+text_update = function(text, value, by = c("char", "line")) {
   check_container(text, loro_text, "text")
-  loro_text_update_impl(text@ptr, check_string(value, "value"))
+  by = match.arg(by)
+  loro_text_update_impl(text@ptr, check_string(value, "value"), by == "line")
   invisible(text)
+}
+
+#' @rdname text
+#' @export
+text_splice = function(text, pos, len, value) {
+  check_container(text, loro_text, "text")
+  pos = check_count(pos, "pos", 1)
+  len = check_count(len, "len", 0)
+  loro_text_splice_impl(text@ptr, pos - 1L, len, check_string(value, "value"))
+  invisible(text)
+}
+
+#' @rdname text
+#' @export
+text_slice = function(text, pos, len) {
+  check_container(text, loro_text, "text")
+  pos = check_count(pos, "pos", 1)
+  len = check_count(len, "len", 0)
+  loro_text_slice_impl(text@ptr, pos - 1L, pos - 1L + len)
 }
 
 #' @rdname text

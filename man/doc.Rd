@@ -6,6 +6,8 @@
 \alias{doc_fork}
 \alias{doc_commit}
 \alias{doc_value}
+\alias{doc_get_path}
+\alias{doc_jsonpath}
 \title{Document identity, replicas, and contents}
 \usage{
 doc_peer_id(doc)
@@ -15,6 +17,10 @@ doc_fork(doc, at = NULL)
 doc_commit(doc, message = NULL)
 
 doc_value(doc)
+
+doc_get_path(doc, path)
+
+doc_jsonpath(doc, path)
 }
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
@@ -23,11 +29,14 @@ doc_value(doc)
 for the current version.}
 
 \item{message}{A string describing the change, or \code{NULL}.}
+
+\item{path}{A path or JSONPath expression, as a string.}
 }
 \value{
 \code{doc_peer_id()} returns a string, \code{doc_fork()} a new
 \code{loro_doc}, \code{doc_commit()} returns \code{doc} invisibly, and
-\code{doc_value()} a named list.
+\code{doc_value()} a named list. \code{doc_get_path()} returns a value or
+container handle, and \code{doc_jsonpath()} a list of them.
 }
 \description{
 \itemize{
@@ -41,6 +50,12 @@ labeled with a \code{message} that is kept in the history and shown by
 import, and checkout.
 \item \code{doc_value()} returns the whole document as a named list with one
 element per root container.
+\item \code{doc_get_path()} returns the value at a slash-separated path such
+as \code{"note/items/1"}: a root container name, then map keys, 0-based
+list positions, or tree node ids. Containers are returned as
+handles, and \code{NULL} means nothing is there.
+\item \code{doc_jsonpath()} returns a list of everything matching a JSONPath
+expression such as \code{"$.note.items[*]"}.
 }
 }
 \examples{

@@ -13,7 +13,7 @@ text_mark(text, pos, len, key, value = TRUE)
 
 text_unmark(text, pos, len, key)
 
-text_delta(text)
+text_delta(text, pos = NULL, len = NULL)
 
 text_apply_delta(text, delta)
 
@@ -24,7 +24,9 @@ doc_config_text_style(doc, ..., default = NULL)
 
 \item{pos}{A 1-based character position.}
 
-\item{len}{Number of characters to mark or unmark.}
+\item{len}{Number of characters to mark, unmark, or return. For
+\code{text_delta()}, \code{pos} and \code{len} are optional and must be given
+together.}
 
 \item{key}{Name of the mark. It must not contain \code{":"}.}
 
@@ -57,7 +59,8 @@ count Unicode code points and are 1-based.
 \item \code{text_unmark()} removes the mark \code{key} from that range.
 \item \code{text_delta()} returns the text as a list of runs, each a list
 with a string \code{insert} and, for marked runs, a named list
-\code{attributes}. This is the Quill delta format.
+\code{attributes}. This is the Quill delta format. With \code{pos} and \code{len}
+it covers only that range.
 \item \code{text_apply_delta()} edits the text with a list of delta ops.
 Each op is a list with exactly one of \code{retain} (keep that many
 characters), \code{insert} (a string), or \code{delete} (remove that many

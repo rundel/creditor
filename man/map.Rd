@@ -8,6 +8,9 @@
 \alias{map_delete}
 \alias{map_keys}
 \alias{map_length}
+\alias{map_ensure_container}
+\alias{map_clear}
+\alias{map_last_editor}
 \title{Edit maps}
 \usage{
 map_set(map, key, value)
@@ -21,6 +24,12 @@ map_delete(map, key)
 map_keys(map)
 
 map_length(map)
+
+map_ensure_container(map, key, type)
+
+map_clear(map)
+
+map_last_editor(map, key)
 }
 \arguments{
 \item{map}{A map handle, from \code{\link[=doc_map]{doc_map()}} or a parent container.}
@@ -33,8 +42,9 @@ map_length(map)
 \code{"list"}, \code{"movable_list"}, \code{"counter"}, or \code{"tree"}.}
 }
 \value{
-\code{map_set()} and \code{map_delete()} return \code{map} invisibly.
-\code{map_set_container()} returns the new container handle. \code{map_get()}
+\code{map_set()}, \code{map_delete()}, and \code{map_clear()} return \code{map}
+invisibly. \code{map_set_container()} and \code{map_ensure_container()}
+return a container handle, and \code{map_last_editor()} a string. \code{map_get()}
 returns a value or handle, \code{map_keys()} a character vector, and
 \code{map_length()} an integer.
 }
@@ -47,7 +57,17 @@ concurrently, one write wins on every replica.
 \code{key} and returns its handle.
 \item \code{map_get()} returns the value under \code{key}, a handle if it is a
 container, or \code{NULL} if the key is absent.
-\item \code{map_delete()} removes \code{key}.
+\item \code{map_ensure_container()} returns the child container under \code{key},
+creating it if the key is empty. Unlike \code{map_set_container()},
+which always makes a fresh container, the container it creates is
+shared: replicas that each create it independently end up editing
+the same one, with all their edits merged. Use it for containers
+that are created lazily on first use. It is an error if \code{key}
+already holds a plain value, a container of another type, or a
+container made by \code{map_set_container()}.
+\item \code{map_delete()} removes \code{key}, and \code{map_clear()} removes every key.
+\item \code{map_last_editor()} returns the peer id of the replica that last
+wrote \code{key}, or \code{NA} if the key has never been written.
 \item \code{map_keys()} returns the keys in sorted order, and \code{map_length()}
 the number of entries.
 }

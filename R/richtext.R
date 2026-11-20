@@ -11,7 +11,8 @@
 #' * `text_unmark()` removes the mark `key` from that range.
 #' * `text_delta()` returns the text as a list of runs, each a list
 #'   with a string `insert` and, for marked runs, a named list
-#'   `attributes`. This is the Quill delta format.
+#'   `attributes`. This is the Quill delta format. With `pos` and `len`
+#'   it covers only that range.
 #' * `text_apply_delta()` edits the text with a list of delta ops.
 #'   Each op is a list with exactly one of `retain` (keep that many
 #'   characters), `insert` (a string), or `delete` (remove that many
@@ -38,7 +39,9 @@
 #'
 #' @param text A text handle, from [`doc_text()`] or a parent container.
 #' @param pos A 1-based character position.
-#' @param len Number of characters to mark or unmark.
+#' @param len Number of characters to mark, unmark, or return. For
+#'   `text_delta()`, `pos` and `len` are optional and must be given
+#'   together.
 #' @param key Name of the mark. It must not contain `":"`.
 #' @param value A plain value for the mark; see the Values section of
 #'   [`map_set()`].
@@ -126,9 +129,17 @@ text_unmark = function(text, pos, len, key) {
 
 #' @rdname richtext
 #' @export
-text_delta = function(text) {
+text_delta = function(text, pos = NULL, len = NULL) {
   check_container(text, loro_text, "text")
-  loro_text_delta_impl(text@ptr)
+  if (is.null(pos) && is.null(len)) {
+    return(loro_text_delta_impl(text@ptr, NULL, NULL))
+  }
+  if (is.null(pos) || is.null(len)) {
+    cli::cli_abort("{.arg pos} and {.arg len} must be given together.")
+  }
+  pos = check_count(pos, "pos", 1)
+  len = check_count(len, "len", 0)
+  loro_text_delta_impl(text@ptr, pos - 1L, pos - 1L + len)
 }
 
 #' @rdname richtext

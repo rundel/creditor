@@ -11,7 +11,11 @@
 #'   with a new, empty child container and return its handle.
 #' * `list_get()` returns the element at `pos`, as a handle if it is a
 #'   container.
-#' * `list_delete()` removes `len` elements starting at `pos`.
+#' * `list_delete()` removes `len` elements starting at `pos`, and
+#'   `list_clear()` removes them all.
+#' * `list_pop()` removes the last element and returns it, or returns
+#'   `NULL` if the list is empty. A removed child container is returned
+#'   as its contents.
 #' * `list_length()` returns the number of elements.
 #'
 #' A movable list, from [`doc_movable_list()`], works with all of the
@@ -39,7 +43,8 @@
 #' @inheritParams map
 #'
 #' @return `list_insert()`, `list_push()`, `list_delete()`,
-#'   `list_move()`, and `list_set()` return `list` invisibly.
+#'   `list_clear()`, `list_move()`, and `list_set()` return `list`
+#'   invisibly. `list_pop()` returns the removed element.
 #'   `list_insert_container()`, `list_push_container()`, and
 #'   `list_set_container()` return the new container handle.
 #'   `list_get()` returns a value or handle, and `list_length()` an
@@ -152,4 +157,19 @@ list_set_container = function(list, pos, type) {
   check_container(list, loro_movable_list, "list")
   pos = check_count(pos, "pos", 1)
   container_from_ref(loro_list_set_container_impl(list@ptr, pos - 1L, check_type(type)))
+}
+
+#' @rdname list
+#' @export
+list_pop = function(list) {
+  check_container(list, loro_list, "list")
+  loro_list_pop_impl(list@ptr)
+}
+
+#' @rdname list
+#' @export
+list_clear = function(list) {
+  check_container(list, loro_list, "list")
+  loro_list_clear_impl(list@ptr)
+  invisible(list)
 }

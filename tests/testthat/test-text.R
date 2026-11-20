@@ -46,3 +46,39 @@ test_that("invalid edits are errors", {
   expect_error(text_get(doc_map(doc, "m")), "loro_text")
   expect_identical(text_get(text), "abc")
 })
+
+test_that("a range of text can be read", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "Hello \U0001F600 world")
+  expect_identical(text_slice(text, 1, 5), "Hello")
+  expect_identical(text_slice(text, 7, 1), "\U0001F600")
+  expect_identical(text_slice(text, 9, 5), "world")
+  expect_identical(text_slice(text, 1, 0), "")
+  expect_error(text_slice(text, 10, 99))
+  expect_error(text_slice(text, 0, 1), "pos")
+})
+
+test_that("a range of text can be replaced", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "Hello world")
+  text_splice(text, 1, 5, "Howdy")
+  expect_identical(text_get(text), "Howdy world")
+  text_splice(text, 6, 0, ",")
+  expect_identical(text_get(text), "Howdy, world")
+  text_splice(text, 6, 7, "")
+  expect_identical(text_get(text), "Howdy")
+  expect_error(text_splice(text, 99, 1, "x"))
+  expect_identical(text_get(text), "Howdy")
+})
+
+test_that("text can be updated line by line", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "line one\nline two\nline three\n")
+  text_mark(text, 1, 8, "bold")
+
+  new = "line one\nline 2\nline three\nline four\n"
+  text_update(text, new, by = "line")
+  expect_identical(text_get(text), new)
+  expect_identical(text_delta(text, 1, 8), list(list(insert = "line one", attributes = list(bold = TRUE))))
+  expect_error(text_update(text, new, by = "word"))
+})

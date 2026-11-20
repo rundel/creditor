@@ -61,3 +61,25 @@ test_that("concurrent insertions are all kept", {
   expect_identical(doc_value(a), doc_value(b))
   expect_setequal(unlist(container_value(doc_list(a))), c("from a", "from b"))
 })
+
+test_that("elements can be popped and the list cleared", {
+  for (make in list(doc_list, doc_movable_list)) {
+    items = make(loro_doc())
+    expect_null(list_pop(items))
+
+    list_push(items, 1L)
+    list_push(items, "two")
+    child = list_push_container(items, "text")
+    text_insert(child, 1, "kid")
+
+    expect_identical(list_pop(items), "kid")
+    expect_identical(list_pop(items), "two")
+    expect_identical(list_length(items), 1L)
+
+    list_push(items, 3L)
+    list_clear(items)
+    expect_identical(list_length(items), 0L)
+    list_clear(items)
+    expect_identical(container_value(items), list())
+  }
+})

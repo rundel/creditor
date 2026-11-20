@@ -3,11 +3,12 @@ use extendr_api::prelude::*;
 use std::sync::Arc;
 
 use loro::awareness::EphemeralStore;
-use loro::cursor::{Cursor, Side};
+use loro::cursor::{Cursor, PosType, Side};
 use loro::{
-    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroCounter, LoroDoc, LoroList,
-    LoroMap, LoroMovableList, LoroText, LoroTree, StyleConfig, StyleConfigMap, TreeID,
-    TreeParentId, UndoManager, UpdateOptions, ValueOrContainer, VersionVector,
+    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, ImportStatus, JsonSchema,
+    LoroCounter, LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText, LoroTree, StyleConfig,
+    StyleConfigMap, TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
+    VersionRange, VersionVector,
 };
 
 mod delta;
@@ -296,11 +297,18 @@ fn loro_doc_version_impl(doc: DocPtr) -> Raw {
     Raw::from_bytes(&doc.oplog_vv().encode())
 }
 
-/// Export a document. `mode` is "snapshot" or "updates"; `from` is an
-/// encoded version vector (or `NULL` for all updates).
+/// Export a document. `mode` is "snapshot", "updates" (since the encoded
+/// version vector `from`, or everything when `NULL`), or
+/// "shallow_snapshot" (dropping history before the encoded frontiers
+/// `since`, or before the latest version when `NULL`).
 /// @noRd
 #[extendr]
-fn loro_doc_export_impl(doc: DocPtr, mode: &str, from: Nullable<Raw>) -> Result<Raw> {
+fn loro_doc_export_impl(
+    doc: DocPtr,
+    mode: &str,
+    from: Nullable<Raw>,
+    since: Nullable<Raw>,
+) -> Result<Raw> {
     let bytes = match (mode, from) {
         ("snapshot", _) => doc.export(ExportMode::Snapshot),
         ("updates", Nullable::Null) => doc.export(ExportMode::all_updates()),
@@ -308,17 +316,155 @@ fn loro_doc_export_impl(doc: DocPtr, mode: &str, from: Nullable<Raw>) -> Result<
             let vv = VersionVector::decode(from.as_slice()).map_err(to_r_error)?;
             doc.export(ExportMode::updates(&vv))
         }
+        ("shallow_snapshot", _) => {
+            let frontiers = match since {
+                Nullable::NotNull(since) => to_frontiers(&since)?,
+                Nullable::Null => doc.oplog_frontiers(),
+            };
+            doc.export(ExportMode::shallow_snapshot(&frontiers))
+        }
         _ => return Err(Error::Other(format!("unknown export mode: {mode}"))),
     };
     Ok(Raw::from_bytes(&bytes.map_err(to_r_error)?))
 }
 
+fn range_to_r(range: Option<&VersionRange>) -> Robj {
+    let mut spans: Vec<(u64, i32, i32)> = match range {
+        Some(range) => range
+            .iter()
+            .map(|(peer, (start, end))| (*peer, *start, *end))
+            .collect(),
+        None => Vec::new(),
+    };
+    spans.sort();
+    let peer: Vec<String> = spans.iter().map(|s| s.0.to_string()).collect();
+    let start: Vec<i32> = spans.iter().map(|s| s.1).collect();
+    let end: Vec<i32> = spans.iter().map(|s| s.2).collect();
+    list!(peer = peer, start = start, end = end).into()
+}
+
+/// Operation ranges an import applied (`success`) and those it is holding
+/// until their missing dependencies arrive (`pending`), column-wise.
+fn status_to_r(status: &ImportStatus) -> Robj {
+    list!(
+        success = range_to_r(Some(&status.success)),
+        pending = range_to_r(status.pending.as_ref())
+    )
+    .into()
+}
+
 /// Import a snapshot or updates into a document.
 /// @noRd
 #[extendr]
-fn loro_doc_import_impl(doc: DocPtr, bytes: Raw) -> Result<()> {
-    doc.import(bytes.as_slice()).map_err(to_r_error)?;
-    Ok(())
+fn loro_doc_import_impl(doc: DocPtr, bytes: Raw) -> Result<Robj> {
+    let status = doc.import(bytes.as_slice()).map_err(to_r_error)?;
+    Ok(status_to_r(&status))
+}
+
+/// Import several snapshots or updates in one step.
+/// @noRd
+#[extendr]
+fn loro_doc_import_batch_impl(doc: DocPtr, blobs: List) -> Result<Robj> {
+    let blobs = blobs
+        .values()
+        .map(|blob| match blob.as_raw_slice() {
+            Some(bytes) => Ok(bytes.to_vec()),
+            None if blob.rtype() == Rtype::Raw => Ok(Vec::new()),
+            None => Err(Error::Other(
+                "every element must be a raw vector".to_string(),
+            )),
+        })
+        .collect::<Result<Vec<Vec<u8>>>>()?;
+    let status = doc.import_batch(&blobs).map_err(to_r_error)?;
+    Ok(status_to_r(&status))
+}
+
+/// Whether the document lacks history before some version.
+/// @noRd
+#[extendr]
+fn loro_doc_is_shallow_impl(doc: DocPtr) -> bool {
+    doc.is_shallow()
+}
+
+/// Describe an exported blob without importing it.
+/// @noRd
+#[extendr]
+fn loro_blob_metadata_impl(bytes: Raw) -> Result<Robj> {
+    let meta = LoroDoc::decode_import_blob_meta(bytes.as_slice(), true).map_err(to_r_error)?;
+    Ok(list!(
+        mode = meta.mode.to_string(),
+        changes = meta.change_num as i32,
+        start_timestamp = meta.start_timestamp as f64,
+        end_timestamp = meta.end_timestamp as f64,
+        start_frontiers = Raw::from_bytes(&meta.start_frontiers.encode()),
+        start_version = Raw::from_bytes(&meta.partial_start_vv.encode()),
+        end_version = Raw::from_bytes(&meta.partial_end_vv.encode())
+    )
+    .into())
+}
+
+fn to_version(bytes: Nullable<Raw>, default: VersionVector) -> Result<VersionVector> {
+    match bytes {
+        Nullable::NotNull(bytes) => VersionVector::decode(bytes.as_slice()).map_err(to_r_error),
+        Nullable::Null => Ok(default),
+    }
+}
+
+/// Export the changes between two encoded version vectors as JSON text.
+/// @noRd
+#[extendr]
+fn loro_doc_export_json_impl(
+    doc: DocPtr,
+    from: Nullable<Raw>,
+    to: Nullable<Raw>,
+) -> Result<String> {
+    let from = to_version(from, VersionVector::default())?;
+    let to = to_version(to, doc.oplog_vv())?;
+    let json = doc.export_json_updates(&from, &to).map_err(to_r_error)?;
+    serde_json::to_string(&json).map_err(to_r_error)
+}
+
+/// Import changes from JSON text produced by `loro_doc_export_json_impl`.
+/// @noRd
+#[extendr]
+fn loro_doc_import_json_impl(doc: DocPtr, json: &str) -> Result<Robj> {
+    // Loro reports unparseable JSON with an unrelated error message.
+    let schema = JsonSchema::try_from(json)
+        .map_err(|_| Error::Other("json is not valid Loro JSON updates".to_string()))?;
+    let status = doc.import_json_updates(schema).map_err(to_r_error)?;
+    Ok(status_to_r(&status))
+}
+
+/// Value or container at a slash-separated path; `NULL` when absent.
+/// @noRd
+#[extendr]
+fn loro_doc_get_path_impl(doc: DocPtr, path: &str) -> Result<Robj> {
+    match doc.get_by_str_path(path) {
+        Some(item) => value_or_container_to_r(item),
+        None => Ok(().into()),
+    }
+}
+
+/// Values and containers matching a JSONPath expression.
+/// @noRd
+#[extendr]
+fn loro_doc_jsonpath_impl(doc: DocPtr, path: &str) -> Result<List> {
+    let matches = doc.jsonpath(path).map_err(to_r_error)?;
+    let values = matches
+        .into_iter()
+        .map(value_or_container_to_r)
+        .collect::<Result<Vec<Robj>>>()?;
+    Ok(List::from_values(values))
+}
+
+/// Apply to `doc` the changes `source` made between two encoded frontiers.
+/// @noRd
+#[extendr]
+fn loro_doc_apply_diff_impl(doc: DocPtr, source: DocPtr, from: Raw, to: Raw) -> Result<()> {
+    let batch = source
+        .diff(&to_frontiers(&from)?, &to_frontiers(&to)?)
+        .map_err(to_r_error)?;
+    doc.apply_diff(batch).map_err(to_r_error)
 }
 
 /// Deep value of the whole document as nested R lists.
@@ -612,11 +758,45 @@ fn loro_text_unmark_impl(text: ContainerPtr, start: i32, end: i32, key: &str) ->
     as_text(&text)?.unmark(range, key).map_err(to_r_error)
 }
 
-/// Rich text contents as a list of insert ops.
+/// Rich text contents as a list of insert ops, for the whole text or the
+/// 0-based code point range `[start, end)`.
 /// @noRd
 #[extendr]
-fn loro_text_delta_impl(text: ContainerPtr) -> Result<Robj> {
-    Ok(delta::delta_to_r(as_text(&text)?.to_delta()))
+fn loro_text_delta_impl(
+    text: ContainerPtr,
+    start: Nullable<i32>,
+    end: Nullable<i32>,
+) -> Result<Robj> {
+    let text = as_text(&text)?;
+    let delta = match (start, end) {
+        (Nullable::NotNull(start), Nullable::NotNull(end)) => text
+            .slice_delta(
+                to_index(start, "start")?,
+                to_index(end, "end")?,
+                PosType::Unicode,
+            )
+            .map_err(to_r_error)?,
+        _ => text.to_delta(),
+    };
+    Ok(delta::delta_to_r(delta))
+}
+
+/// Text in the 0-based code point range `[start, end)`.
+/// @noRd
+#[extendr]
+fn loro_text_slice_impl(text: ContainerPtr, start: i32, end: i32) -> Result<String> {
+    as_text(&text)?
+        .slice(to_index(start, "start")?, to_index(end, "end")?)
+        .map_err(to_r_error)
+}
+
+/// Replace `len` code points at a 0-based position; returns what was removed.
+/// @noRd
+#[extendr]
+fn loro_text_splice_impl(text: ContainerPtr, pos: i32, len: i32, value: &str) -> Result<String> {
+    as_text(&text)?
+        .splice(to_index(pos, "pos")?, to_index(len, "len")?, value)
+        .map_err(to_r_error)
 }
 
 /// Apply a list of retain / insert / delete ops.
@@ -627,13 +807,18 @@ fn loro_text_apply_delta_impl(text: ContainerPtr, delta: Robj) -> Result<()> {
     as_text(&text)?.apply_delta(&delta).map_err(to_r_error)
 }
 
-/// Change the text to `value` by applying a minimal diff.
+/// Change the text to `value` by applying a minimal diff, computed over
+/// characters or over whole lines.
 /// @noRd
 #[extendr]
-fn loro_text_update_impl(text: ContainerPtr, value: &str) -> Result<()> {
-    as_text(&text)?
-        .update(value, UpdateOptions::default())
-        .map_err(to_r_error)
+fn loro_text_update_impl(text: ContainerPtr, value: &str, by_line: bool) -> Result<()> {
+    let text = as_text(&text)?;
+    if by_line {
+        text.update_by_line(value, UpdateOptions::default())
+    } else {
+        text.update(value, UpdateOptions::default())
+    }
+    .map_err(to_r_error)
 }
 
 type SubscriptionPtr = ExternalPtr<events::QueuedSubscription>;
@@ -939,6 +1124,78 @@ fn loro_tree_nodes_impl(tree: ContainerPtr) -> Result<Robj> {
     .into())
 }
 
+/// Remove every entry of a map.
+/// @noRd
+#[extendr]
+fn loro_map_clear_impl(map: ContainerPtr) -> Result<()> {
+    as_map(&map)?.clear().map_err(to_r_error)
+}
+
+/// The child container of `kind` at `key`, created if absent in a way
+/// that merges with concurrent creation on other replicas.
+/// @noRd
+#[extendr]
+fn loro_map_ensure_container_impl(map: ContainerPtr, key: &str, kind: &str) -> Result<Robj> {
+    let map = as_map(&map)?;
+    // Loro would otherwise create a second container of the new type
+    // under the same key, hiding the existing one.
+    if let Some(ValueOrContainer::Container(existing)) = map.get(key) {
+        if kind_of(&existing) != Some(kind) {
+            return Err(Error::Other(format!(
+                "key already holds a {} container",
+                kind_of(&existing).unwrap_or("different")
+            )));
+        }
+    }
+    let child = match kind {
+        "text" => Container::Text(map.ensure_mergeable_text(key).map_err(to_r_error)?),
+        "map" => Container::Map(map.ensure_mergeable_map(key).map_err(to_r_error)?),
+        "list" => Container::List(map.ensure_mergeable_list(key).map_err(to_r_error)?),
+        "movable_list" => {
+            Container::MovableList(map.ensure_mergeable_movable_list(key).map_err(to_r_error)?)
+        }
+        "counter" => Container::Counter(map.ensure_mergeable_counter(key).map_err(to_r_error)?),
+        "tree" => Container::Tree(map.ensure_mergeable_tree(key).map_err(to_r_error)?),
+        _ => return Err(Error::Other(format!("unknown container type: {kind}"))),
+    };
+    container_ref(child)
+}
+
+/// Peer id that last wrote `key`, or `NA`.
+/// @noRd
+#[extendr]
+fn loro_map_last_editor_impl(map: ContainerPtr, key: &str) -> Result<Rstr> {
+    Ok(match as_map(&map)?.get_last_editor(key) {
+        Some(peer) => Rstr::from(peer.to_string()),
+        None => Rstr::na(),
+    })
+}
+
+/// Remove and return the last element of a list; `NULL` when empty.
+/// @noRd
+#[extendr]
+fn loro_list_pop_impl(list: ContainerPtr) -> Result<Robj> {
+    let len = with_list!(list, |l| l.len());
+    if len == 0 {
+        return Ok(().into());
+    }
+    // Read before deleting: `LoroList::pop` returns a child container as
+    // a bare id, after which its contents can no longer be read.
+    let value = match with_list!(list, |l| l.get(len - 1)) {
+        Some(item) => value_to_r(&item.get_deep_value()),
+        None => ().into(),
+    };
+    with_list!(list, |l| l.delete(len - 1, 1).map_err(to_r_error))?;
+    Ok(value)
+}
+
+/// Remove every element of a list.
+/// @noRd
+#[extendr]
+fn loro_list_clear_impl(list: ContainerPtr) -> Result<()> {
+    with_list!(list, |l| l.clear().map_err(to_r_error))
+}
+
 extendr_module! {
     mod creditor;
     fn loro_doc_new_impl;
@@ -956,6 +1213,21 @@ extendr_module! {
     fn loro_doc_version_impl;
     fn loro_doc_export_impl;
     fn loro_doc_import_impl;
+    fn loro_doc_import_batch_impl;
+    fn loro_doc_is_shallow_impl;
+    fn loro_blob_metadata_impl;
+    fn loro_doc_export_json_impl;
+    fn loro_doc_import_json_impl;
+    fn loro_doc_get_path_impl;
+    fn loro_doc_jsonpath_impl;
+    fn loro_doc_apply_diff_impl;
+    fn loro_text_slice_impl;
+    fn loro_text_splice_impl;
+    fn loro_map_clear_impl;
+    fn loro_map_ensure_container_impl;
+    fn loro_map_last_editor_impl;
+    fn loro_list_pop_impl;
+    fn loro_list_clear_impl;
     fn loro_doc_value_impl;
     fn loro_doc_container_impl;
     fn loro_container_id_impl;

@@ -18,6 +18,14 @@
 #'   earlier version. History is kept, and the revert synchronizes to
 #'   other replicas like any other edit.
 #' * `doc_diff()` returns the differences between two versions.
+#' * `doc_apply_diff()` takes the changes that `source` made between two
+#'   of its versions and applies them to `doc` as new edits. With
+#'   `source` left as `doc` this replays or (with the versions swapped)
+#'   undoes a span of its own history; with another document it copies
+#'   a span of work across without merging the two histories. The
+#'   changes are applied by position, so `doc` must hold contents that
+#'   match what `source` held at `from`; otherwise the call fails or
+#'   lands edits in the wrong place.
 #' * `doc_record_timestamps()` turns on recording of the wall-clock
 #'   time of each new change. It is off by default.
 #'
@@ -60,11 +68,14 @@
 #' @param frontiers,from,to A version: a raw vector from
 #'   `doc_frontiers()` or the `frontiers` column of `doc_changes()`.
 #' @param record Whether to record timestamps.
+#' @param source The [`loro_doc`] whose history `from` and `to` refer
+#'   to.
 #'
 #' @return `doc_frontiers()` returns a raw vector, `doc_changes()` a
 #'   data frame, `doc_is_detached()` a logical, and `doc_diff()` a named
-#'   list. `doc_checkout()`, `doc_revert_to()`, and
-#'   `doc_record_timestamps()` return `doc` invisibly.
+#'   list. `doc_checkout()`, `doc_revert_to()`,
+#'   `doc_apply_diff()`, and `doc_record_timestamps()` return `doc`
+#'   invisibly.
 #'
 #' @examples
 #' doc = loro_doc()
@@ -165,6 +176,20 @@ doc_diff = function(doc, from, to) {
   diff = loro_doc_diff_impl(doc@ptr, from, to)
   deliver_events()
   diff
+}
+
+#' @rdname history
+#' @export
+doc_apply_diff = function(doc, from, to, source = doc) {
+  check_doc(doc)
+  if (!S7::S7_inherits(source, loro_doc)) {
+    cli::cli_abort("{.arg source} must be a {.cls loro_doc}.")
+  }
+  check_frontiers(from, "from")
+  check_frontiers(to, "to")
+  loro_doc_apply_diff_impl(doc@ptr, source@ptr, from, to)
+  deliver_events()
+  invisible(doc)
 }
 
 #' @rdname history

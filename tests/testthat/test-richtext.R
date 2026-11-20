@@ -182,3 +182,20 @@ test_that("text_update applies a minimal diff", {
   text_update(text, "")
   expect_identical(text_get(text), "")
 })
+
+test_that("a delta can be taken for a range", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "Hello world")
+  text_mark(text, 1, 5, "bold")
+
+  expect_identical(
+    text_delta(text, 4, 5),
+    list(marked("lo", bold = TRUE), plain(" wo"))
+  )
+  expect_identical(text_delta(text, 7, 5), list(plain("world")))
+  expect_identical(text_delta(text, 1, 0), list())
+  expect_identical(text_delta(text, 1, 11), text_delta(text))
+  expect_error(text_delta(text, 2), "together")
+  expect_error(text_delta(text, len = 2), "together")
+  expect_error(text_delta(text, 2, 99))
+})

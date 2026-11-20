@@ -9,7 +9,17 @@
 #'   `key` and returns its handle.
 #' * `map_get()` returns the value under `key`, a handle if it is a
 #'   container, or `NULL` if the key is absent.
-#' * `map_delete()` removes `key`.
+#' * `map_ensure_container()` returns the child container under `key`,
+#'   creating it if the key is empty. Unlike `map_set_container()`,
+#'   which always makes a fresh container, the container it creates is
+#'   shared: replicas that each create it independently end up editing
+#'   the same one, with all their edits merged. Use it for containers
+#'   that are created lazily on first use. It is an error if `key`
+#'   already holds a plain value, a container of another type, or a
+#'   container made by `map_set_container()`.
+#' * `map_delete()` removes `key`, and `map_clear()` removes every key.
+#' * `map_last_editor()` returns the peer id of the replica that last
+#'   wrote `key`, or `NA` if the key has never been written.
 #' * `map_keys()` returns the keys in sorted order, and `map_length()`
 #'   the number of entries.
 #'
@@ -32,8 +42,9 @@
 #' @param type Type of the child container: `"text"`, `"map"`,
 #'   `"list"`, `"movable_list"`, `"counter"`, or `"tree"`.
 #'
-#' @return `map_set()` and `map_delete()` return `map` invisibly.
-#'   `map_set_container()` returns the new container handle. `map_get()`
+#' @return `map_set()`, `map_delete()`, and `map_clear()` return `map`
+#'   invisibly. `map_set_container()` and `map_ensure_container()`
+#'   return a container handle, and `map_last_editor()` a string. `map_get()`
 #'   returns a value or handle, `map_keys()` a character vector, and
 #'   `map_length()` an integer.
 #'
@@ -97,4 +108,27 @@ map_keys = function(map) {
 map_length = function(map) {
   check_container(map, loro_map, "map")
   loro_map_length_impl(map@ptr)
+}
+
+#' @rdname map
+#' @export
+map_ensure_container = function(map, key, type) {
+  check_container(map, loro_map, "map")
+  key = check_string(key, "key")
+  container_from_ref(loro_map_ensure_container_impl(map@ptr, key, check_type(type)))
+}
+
+#' @rdname map
+#' @export
+map_clear = function(map) {
+  check_container(map, loro_map, "map")
+  loro_map_clear_impl(map@ptr)
+  invisible(map)
+}
+
+#' @rdname map
+#' @export
+map_last_editor = function(map, key) {
+  check_container(map, loro_map, "map")
+  loro_map_last_editor_impl(map@ptr, check_string(key, "key"))
 }

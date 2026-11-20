@@ -12,6 +12,8 @@
 \alias{list_move}
 \alias{list_set}
 \alias{list_set_container}
+\alias{list_pop}
+\alias{list_clear}
 \title{Edit lists}
 \usage{
 list_insert(list, pos, value)
@@ -33,6 +35,10 @@ list_move(list, from, to)
 list_set(list, pos, value)
 
 list_set_container(list, pos, type)
+
+list_pop(list)
+
+list_clear(list)
 }
 \arguments{
 \item{list}{A list handle, from \code{\link[=doc_list]{doc_list()}}, \code{\link[=doc_movable_list]{doc_movable_list()}},
@@ -52,7 +58,8 @@ or a parent container. \code{list_move()}, \code{list_set()}, and
 }
 \value{
 \code{list_insert()}, \code{list_push()}, \code{list_delete()},
-\code{list_move()}, and \code{list_set()} return \code{list} invisibly.
+\code{list_clear()}, \code{list_move()}, and \code{list_set()} return \code{list}
+invisibly. \code{list_pop()} returns the removed element.
 \code{list_insert_container()}, \code{list_push_container()}, and
 \code{list_set_container()} return the new container handle.
 \code{list_get()} returns a value or handle, and \code{list_length()} an
@@ -69,7 +76,11 @@ at \code{pos}, and \code{list_push()} appends one.
 with a new, empty child container and return its handle.
 \item \code{list_get()} returns the element at \code{pos}, as a handle if it is a
 container.
-\item \code{list_delete()} removes \code{len} elements starting at \code{pos}.
+\item \code{list_delete()} removes \code{len} elements starting at \code{pos}, and
+\code{list_clear()} removes them all.
+\item \code{list_pop()} removes the last element and returns it, or returns
+\code{NULL} if the list is empty. A removed child container is returned
+as its contents.
 \item \code{list_length()} returns the number of elements.
 }
 

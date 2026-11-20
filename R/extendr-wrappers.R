@@ -58,14 +58,77 @@ loro_doc_changes_impl <- function(doc) .Call(wrap__loro_doc_changes_impl, doc)
 #' @noRd
 loro_doc_version_impl <- function(doc) .Call(wrap__loro_doc_version_impl, doc)
 
-#' Export a document. `mode` is "snapshot" or "updates"; `from` is an
-#' encoded version vector (or `NULL` for all updates).
+#' Export a document. `mode` is "snapshot", "updates" (since the encoded
+#' version vector `from`, or everything when `NULL`), or
+#' "shallow_snapshot" (dropping history before the encoded frontiers
+#' `since`, or before the latest version when `NULL`).
 #' @noRd
-loro_doc_export_impl <- function(doc, mode, from) .Call(wrap__loro_doc_export_impl, doc, mode, from)
+loro_doc_export_impl <- function(doc, mode, from, since) .Call(wrap__loro_doc_export_impl, doc, mode, from, since)
 
 #' Import a snapshot or updates into a document.
 #' @noRd
 loro_doc_import_impl <- function(doc, bytes) .Call(wrap__loro_doc_import_impl, doc, bytes)
+
+#' Import several snapshots or updates in one step.
+#' @noRd
+loro_doc_import_batch_impl <- function(doc, blobs) .Call(wrap__loro_doc_import_batch_impl, doc, blobs)
+
+#' Whether the document lacks history before some version.
+#' @noRd
+loro_doc_is_shallow_impl <- function(doc) .Call(wrap__loro_doc_is_shallow_impl, doc)
+
+#' Describe an exported blob without importing it.
+#' @noRd
+loro_blob_metadata_impl <- function(bytes) .Call(wrap__loro_blob_metadata_impl, bytes)
+
+#' Export the changes between two encoded version vectors as JSON text.
+#' @noRd
+loro_doc_export_json_impl <- function(doc, from, to) .Call(wrap__loro_doc_export_json_impl, doc, from, to)
+
+#' Import changes from JSON text produced by `loro_doc_export_json_impl`.
+#' @noRd
+loro_doc_import_json_impl <- function(doc, json) .Call(wrap__loro_doc_import_json_impl, doc, json)
+
+#' Value or container at a slash-separated path; `NULL` when absent.
+#' @noRd
+loro_doc_get_path_impl <- function(doc, path) .Call(wrap__loro_doc_get_path_impl, doc, path)
+
+#' Values and containers matching a JSONPath expression.
+#' @noRd
+loro_doc_jsonpath_impl <- function(doc, path) .Call(wrap__loro_doc_jsonpath_impl, doc, path)
+
+#' Apply to `doc` the changes `source` made between two encoded frontiers.
+#' @noRd
+loro_doc_apply_diff_impl <- function(doc, source, from, to) .Call(wrap__loro_doc_apply_diff_impl, doc, source, from, to)
+
+#' Text in the 0-based code point range `[start, end)`.
+#' @noRd
+loro_text_slice_impl <- function(text, start, end) .Call(wrap__loro_text_slice_impl, text, start, end)
+
+#' Replace `len` code points at a 0-based position; returns what was removed.
+#' @noRd
+loro_text_splice_impl <- function(text, pos, len, value) .Call(wrap__loro_text_splice_impl, text, pos, len, value)
+
+#' Remove every entry of a map.
+#' @noRd
+loro_map_clear_impl <- function(map) .Call(wrap__loro_map_clear_impl, map)
+
+#' The child container of `kind` at `key`, created if absent in a way
+#' that merges with concurrent creation on other replicas.
+#' @noRd
+loro_map_ensure_container_impl <- function(map, key, kind) .Call(wrap__loro_map_ensure_container_impl, map, key, kind)
+
+#' Peer id that last wrote `key`, or `NA`.
+#' @noRd
+loro_map_last_editor_impl <- function(map, key) .Call(wrap__loro_map_last_editor_impl, map, key)
+
+#' Remove and return the last element of a list; `NULL` when empty.
+#' @noRd
+loro_list_pop_impl <- function(list) .Call(wrap__loro_list_pop_impl, list)
+
+#' Remove every element of a list.
+#' @noRd
+loro_list_clear_impl <- function(list) .Call(wrap__loro_list_clear_impl, list)
 
 #' Deep value of the whole document as nested R lists.
 #' @noRd
@@ -117,17 +180,19 @@ loro_text_mark_impl <- function(text, start, end, key, value) .Call(wrap__loro_t
 #' @noRd
 loro_text_unmark_impl <- function(text, start, end, key) .Call(wrap__loro_text_unmark_impl, text, start, end, key)
 
-#' Rich text contents as a list of insert ops.
+#' Rich text contents as a list of insert ops, for the whole text or the
+#' 0-based code point range `[start, end)`.
 #' @noRd
-loro_text_delta_impl <- function(text) .Call(wrap__loro_text_delta_impl, text)
+loro_text_delta_impl <- function(text, start, end) .Call(wrap__loro_text_delta_impl, text, start, end)
 
 #' Apply a list of retain / insert / delete ops.
 #' @noRd
 loro_text_apply_delta_impl <- function(text, delta) .Call(wrap__loro_text_apply_delta_impl, text, delta)
 
-#' Change the text to `value` by applying a minimal diff.
+#' Change the text to `value` by applying a minimal diff, computed over
+#' characters or over whole lines.
 #' @noRd
-loro_text_update_impl <- function(text, value) .Call(wrap__loro_text_update_impl, text, value)
+loro_text_update_impl <- function(text, value, by_line) .Call(wrap__loro_text_update_impl, text, value, by_line)
 
 #' Queue change events for the whole document.
 #' @noRd
