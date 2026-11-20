@@ -18,6 +18,9 @@ Imports:
     cli,
     S7
 Suggests:
+    knitr,
+    quarto,
     testthat (>= 3.0.0)
+VignetteBuilder: quarto
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.1

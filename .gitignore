@@ -5,3 +5,7 @@ src/Makevars.win
 .claude/settings.local.json
 docs
 .DS_Store
+inst/doc
+vignettes/*.html
+vignettes/*.R
+vignettes/*_files

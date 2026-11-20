@@ -1,0 +1,448 @@
+---
+title: "Container types"
+format: html
+vignette: >
+  %\VignetteIndexEntry{Container types}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| include: false
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+A Loro document is a collection of containers. Each container type holds a different shape of data and, more importantly, resolves concurrent edits in a different way. Choosing a container is mostly a matter of deciding what should happen when two people change the same thing at once.
+
+This vignette walks through every container type creditor supports: text, map, list, movable list, counter, and tree. Each section shows the basic operations and then what happens when two replicas edit concurrently and merge.
+
+## Setup
+
+A replica is a copy of a document that can be edited independently. Two small helpers keep the examples short. `replica()` makes a second copy of a document under its own peer id, and `sync()` exchanges whatever each side is missing.
+
+```{r}
+library(creditor)
+
+replica = function(doc, peer_id) {
+  copy = doc_fork(doc)
+  doc_set_peer_id(copy, peer_id)
+  copy
+}
+
+sync = function(a, b) {
+  doc_import(b, doc_export(a, "updates", from = doc_version(b)))
+  doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+  invisible()
+}
+```
+
+Every example follows the same pattern: create a document, make a replica, edit both without communicating, and then sync. After a sync the two replicas always hold the same contents. What differs between container types is what those contents are.
+
+Containers are reached through handles. `doc_text()`, `doc_map()`, `doc_list()`, `doc_movable_list()`, `doc_counter()`, and `doc_tree()` each return a handle to a named root container, creating it on first use. Handles have reference semantics: editing through a handle changes the document.
+
+## Text
+
+A text container holds a string that can be edited by inserting and deleting at character positions. Positions are 1-based and count Unicode code points.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+text = doc_text(doc, "body")
+
+text_insert(text, 1, "The quick fox")
+text_insert(text, 11, "brown ")
+text_delete(text, 1, 4)
+text_get(text)
+```
+
+Concurrent edits to different parts of a text are all kept. Here one replica changes the start of a sentence while the other changes the end.
+
+```{r}
+a = loro_doc(peer_id = 1)
+text_insert(doc_text(a, "body"), 1, "The quick fox jumps")
+b = replica(a, 2)
+
+text_splice(doc_text(a, "body"), 1, 3, "A")
+text_insert(doc_text(b, "body"), 20, " over the dog")
+
+sync(a, b)
+text_get(doc_text(a, "body"))
+text_get(doc_text(b, "body"))
+```
+
+When you have the new contents as a whole string, for example from an editor widget, `text_update()` works out the difference and applies only the changes needed. That matters for merging: replacing the whole string would discard a concurrent edit, while an update keeps it.
+
+```{r}
+a = loro_doc(peer_id = 1)
+text_insert(doc_text(a, "body"), 1, "Meeting at noon on Tuesday")
+b = replica(a, 2)
+
+text_update(doc_text(a, "body"), "Meeting at 12:30 on Tuesday")
+text_update(doc_text(b, "body"), "Meeting at noon on Wednesday")
+
+sync(a, b)
+text_get(doc_text(a, "body"))
+```
+
+### Rich text
+
+Text can carry marks: a key and a value attached to a range of characters. Marks are how formatting, links, and comments are represented. `text_delta()` returns the text as a sequence of runs, each with the marks that apply to it.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+text = doc_text(doc, "body")
+text_insert(text, 1, "Read the docs today")
+
+text_mark(text, 1, 4, "bold")
+text_mark(text, 10, 4, "link", "https://loro.dev")
+str(text_delta(text))
+```
+
+Marks merge with concurrent edits. If one replica makes a phrase bold while another types inside it, the new characters are bold too.
+
+```{r}
+a = loro_doc(peer_id = 1)
+text_insert(doc_text(a, "body"), 1, "Hello world")
+b = replica(a, 2)
+
+text_mark(doc_text(a, "body"), 1, 5, "bold")
+text_insert(doc_text(b, "body"), 3, "XX")
+
+sync(a, b)
+str(text_delta(doc_text(a, "body")))
+```
+
+Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands at its end, so typing after a bold word continues in bold. A link does not, so typing after a link produces plain text. Keys other than the built-in ones (`bold`, `italic`, `underline`, `link`, `highlight`, `comment`, and `code`) must be declared first with `doc_config_text_style()`.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+doc_config_text_style(doc, author = "none")
+text = doc_text(doc, "body")
+text_insert(text, 1, "Reviewed")
+text_mark(text, 1, 8, "author", "cr")
+str(text_delta(text))
+```
+
+## Map
+
+A map holds values under string keys, like a named list. Values can be scalars, vectors, or nested lists.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+settings = doc_map(doc, "settings")
+
+map_set(settings, "theme", "dark")
+map_set(settings, "font_size", 12L)
+map_set(settings, "recent", c("a.qmd", "b.qmd"))
+
+map_keys(settings)
+map_get(settings, "theme")
+str(container_value(settings))
+```
+
+A vector is stored as a list and comes back as one, so `recent` above reads back as a list of two strings.
+
+Concurrent writes to different keys are both kept. Concurrent writes to the same key cannot both be kept, so one of them wins, and it is the same one on every replica.
+
+```{r}
+a = loro_doc(peer_id = 1)
+map_set(doc_map(a, "settings"), "theme", "light")
+b = replica(a, 2)
+
+map_set(doc_map(a, "settings"), "theme", "dark")
+map_set(doc_map(a, "settings"), "font_size", 12L)
+map_set(doc_map(b, "settings"), "theme", "sepia")
+map_set(doc_map(b, "settings"), "line_numbers", TRUE)
+
+sync(a, b)
+str(container_value(doc_map(a, "settings")))
+identical(doc_value(a), doc_value(b))
+```
+
+A stored value is replaced as a unit. If two replicas each change one element of the `recent` vector, one whole vector wins. When the parts of a value should merge independently, store a child container instead; see [Nesting containers](#nesting-containers).
+
+## List
+
+A list is an ordered sequence of values, addressed by 1-based position.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+items = doc_list(doc, "groceries")
+
+list_push(items, "milk")
+list_push(items, "eggs")
+list_insert(items, 1, "bread")
+list_delete(items, 2)
+str(container_value(items))
+```
+
+Concurrent insertions are all kept, even at the same position. Their relative order is decided the same way on every replica.
+
+```{r}
+a = loro_doc(peer_id = 1)
+list_push(doc_list(a, "groceries"), "milk")
+b = replica(a, 2)
+
+list_push(doc_list(a, "groceries"), "eggs")
+list_push(doc_list(b, "groceries"), "bread")
+
+sync(a, b)
+str(container_value(doc_list(a, "groceries")))
+```
+
+A plain list has no way to move or replace an element. You can imitate a move by deleting an element and inserting it elsewhere, but if two replicas do that to the same element, each insertion is kept and the element is duplicated.
+
+```{r}
+a = loro_doc(peer_id = 1)
+tasks = doc_list(a, "tasks")
+for (task in c("write", "test", "ship")) list_push(tasks, task)
+b = replica(a, 2)
+
+move_by_copy = function(list, from, to) {
+  value = list_get(list, from)
+  list_delete(list, from)
+  list_insert(list, to, value)
+}
+move_by_copy(doc_list(a, "tasks"), 3, 1)
+move_by_copy(doc_list(b, "tasks"), 3, 2)
+
+sync(a, b)
+str(container_value(doc_list(a, "tasks")))
+```
+
+"ship" now appears twice. The movable list exists to solve this.
+
+## Movable list
+
+A movable list supports everything a list does, plus two operations that merge cleanly: `list_move()` moves an element, and `list_set()` replaces one in place. It uses the same `list_*` functions as a plain list.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+tasks = doc_movable_list(doc, "tasks")
+for (task in c("write", "test", "ship")) list_push(tasks, task)
+
+list_move(tasks, 3, 1)
+list_set(tasks, 2, "write docs")
+str(container_value(tasks))
+```
+
+Repeating the concurrent move from the previous section with a movable list leaves one copy of the element. The two replicas disagreed about where it should go, so one destination wins.
+
+```{r}
+a = loro_doc(peer_id = 1)
+tasks = doc_movable_list(a, "tasks")
+for (task in c("write", "test", "ship")) list_push(tasks, task)
+b = replica(a, 2)
+
+list_move(doc_movable_list(a, "tasks"), 3, 1)
+list_move(doc_movable_list(b, "tasks"), 3, 2)
+
+sync(a, b)
+str(container_value(doc_movable_list(a, "tasks")))
+```
+
+A move and an edit to the same element also combine: if one replica reorders a task while another rewrites it, the result is the rewritten task in its new position.
+
+```{r}
+a = loro_doc(peer_id = 1)
+tasks = doc_movable_list(a, "tasks")
+for (task in c("write", "test", "ship")) list_push(tasks, task)
+b = replica(a, 2)
+
+list_move(doc_movable_list(a, "tasks"), 1, 3)
+list_set(doc_movable_list(b, "tasks"), 1, "write the vignette")
+
+sync(a, b)
+str(container_value(doc_movable_list(a, "tasks")))
+```
+
+Use a movable list whenever users can reorder or replace elements. A plain list is enough for append-only data such as a log.
+
+## Counter
+
+A counter holds a number that is changed by adding to it. Concurrent increments are all applied, so the total is the sum of what every replica added.
+
+```{r}
+a = loro_doc(peer_id = 1)
+b = replica(a, 2)
+
+counter_increment(doc_counter(a, "votes"), 3)
+counter_increment(doc_counter(b, "votes"), 4)
+counter_increment(doc_counter(b, "votes"), -1)
+
+sync(a, b)
+counter_get(doc_counter(a, "votes"))
+```
+
+Compare that with keeping the count as a number in a map. Each replica reads the current value, adds to it, and writes the result back. After a merge only one of those writes survives, and the other replica's votes are lost.
+
+```{r}
+a = loro_doc(peer_id = 1)
+map_set(doc_map(a, "tally"), "votes", 0)
+b = replica(a, 2)
+
+add_votes = function(doc, n) {
+  tally = doc_map(doc, "tally")
+  map_set(tally, "votes", map_get(tally, "votes") + n)
+}
+add_votes(a, 3)
+add_votes(b, 4)
+
+sync(a, b)
+map_get(doc_map(a, "tally"), "votes")
+```
+
+## Tree
+
+A tree is a hierarchy of nodes, such as an outline, a folder structure, or a set of nested comments. `tree_create()` adds a node and returns its id. Each node has a metadata map that holds its contents, reached with `tree_meta()` and edited with the `map_*` functions.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+outline = doc_tree(doc, "outline")
+
+add_section = function(tree, title, parent = NULL) {
+  node = tree_create(tree, parent = parent)
+  map_set(tree_meta(tree, node), "title", title)
+  node
+}
+
+intro = add_section(outline, "Introduction")
+methods = add_section(outline, "Methods")
+data = add_section(outline, "Data", parent = methods)
+model = add_section(outline, "Model", parent = methods)
+
+tree_nodes(outline)
+```
+
+`tree_nodes()` gives a flat table of the structure. A small recursive function prints it as an outline.
+
+```{r}
+show_outline = function(tree, parent = NULL, depth = 0) {
+  for (node in tree_children(tree, parent)) {
+    title = map_get(tree_meta(tree, node), "title")
+    cat(strrep("  ", depth), "- ", title, "\n", sep = "")
+    show_outline(tree, node, depth + 1)
+  }
+}
+show_outline(outline)
+```
+
+Moving a node carries its whole subtree with it.
+
+```{r}
+tree_move(outline, methods, parent = intro)
+show_outline(outline)
+```
+
+The hard case for a tree is two replicas making moves that are each valid alone but contradictory together. Here one replica moves "Methods" under "Introduction" while the other moves "Introduction" under "Methods". Applying both would create a cycle with no path to the top level. Loro keeps one of the moves and drops the other, so the result is always a valid tree and no node is lost.
+
+```{r}
+a = loro_doc(peer_id = 1)
+tree_a = doc_tree(a, "outline")
+intro = add_section(tree_a, "Introduction")
+methods = add_section(tree_a, "Methods")
+b = replica(a, 2)
+tree_b = doc_tree(b, "outline")
+
+tree_move(tree_a, methods, parent = intro)
+tree_move(tree_b, intro, parent = methods)
+
+sync(a, b)
+show_outline(tree_a)
+identical(tree_nodes(tree_a), tree_nodes(tree_b))
+```
+
+Edits to a node's metadata are independent of moves, because the metadata is an ordinary map. Here one replica moves "Methods" back to the top level while the other retitles it, and both changes apply.
+
+```{r}
+tree_move(tree_a, methods)
+map_set(tree_meta(tree_b, methods), "title", "Approach")
+
+sync(a, b)
+show_outline(tree_a)
+```
+
+## Nesting containers
+
+Maps, lists, movable lists, and tree metadata can hold child containers as well as plain values. This is what lets a real document be more than one flat structure, and it controls how finely concurrent edits merge.
+
+`map_set_container()`, `list_push_container()`, and `list_insert_container()` create an empty child and return its handle.
+
+```{r}
+doc = loro_doc(peer_id = 1)
+note = doc_map(doc, "note")
+map_set(note, "title", "Trip planning")
+
+body = map_set_container(note, "body", "text")
+text_insert(body, 1, "Flights are booked.")
+
+todo = map_set_container(note, "todo", "movable_list")
+item = list_push_container(todo, "map")
+map_set(item, "label", "Book hotel")
+map_set(item, "done", FALSE)
+
+likes = map_set_container(note, "likes", "counter")
+counter_increment(likes)
+
+str(doc_value(doc))
+```
+
+Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path. Positions inside a path string are 0-based, following Loro's path syntax.
+
+```{r}
+class(map_get(note, "body"))[1]
+text_get(map_get(note, "body"))
+doc_get_path(doc, "note/todo/0/label")
+```
+
+The difference between a plain value and a child container is the unit of merging. Below, the same data is stored twice: once as a plain nested list under one key, and once as a child map. Two replicas then change different fields.
+
+```{r}
+a = loro_doc(peer_id = 1)
+root = doc_map(a, "root")
+map_set(root, "plain", list(label = "Book hotel", done = FALSE))
+child = map_set_container(root, "child", "map")
+map_set(child, "label", "Book hotel")
+map_set(child, "done", FALSE)
+b = replica(a, 2)
+
+root_a = doc_map(a, "root")
+map_set(root_a, "plain", list(label = "Book hotel", done = TRUE))
+map_set(map_get(root_a, "child"), "done", TRUE)
+
+root_b = doc_map(b, "root")
+map_set(root_b, "plain", list(label = "Book a hotel in Lisbon", done = FALSE))
+map_set(map_get(root_b, "child"), "label", "Book a hotel in Lisbon")
+
+sync(a, b)
+str(container_value(doc_map(a, "root")))
+```
+
+In the child map both changes survive: the item is relabeled and marked done. In the plain value one replica's whole list replaced the other's, so one of the two changes is gone.
+
+### Creating children on first use
+
+When replicas create a child container lazily, the first time it is needed, two of them may each create one under the same key before they have synced. With `map_set_container()` those are two different containers, and after a merge only one is visible. `map_ensure_container()` creates the child in a way that makes both replicas end up with the same container, so the edits from both are kept.
+
+```{r}
+a = loro_doc(peer_id = 1)
+b = loro_doc(peer_id = 2)
+
+text_insert(map_ensure_container(doc_map(a, "note"), "body", "text"), 1, "From A. ")
+text_insert(map_ensure_container(doc_map(b, "note"), "body", "text"), 1, "From B. ")
+
+sync(a, b)
+text_get(map_get(doc_map(a, "note"), "body"))
+```
+
+## Choosing a container
+
+| Container    | Holds                        | Concurrent edits                                             | Typical use                         |
+| ------------ | ---------------------------- | ------------------------------------------------------------ | ----------------------------------- |
+| Text         | A string, with optional marks | Insertions and deletions all apply                           | Prose, code, any edited string      |
+| Map          | Values under string keys     | Different keys both apply; the same key has one winner       | Records, settings, fields of an item |
+| List         | An ordered sequence          | All insertions are kept                                      | Logs and append-only collections    |
+| Movable list | An ordered sequence          | As a list, plus moves and replacements that do not duplicate | Anything users reorder              |
+| Counter      | A number                     | Increments add up                                            | Votes, tallies, usage counts        |
+| Tree         | A hierarchy of nodes         | Moves never create cycles or lose nodes                      | Outlines, folders, nested comments  |
+
+Two rules of thumb cover most decisions. First, if a value is edited piece by piece, give it a container of its own instead of storing it as a plain value. Second, pick the container whose merge behavior is the one you would want if two people made the change at the same moment.

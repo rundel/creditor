@@ -8,3 +8,5 @@
 ^docs$
 ^\.github$
 ^CLAUDE\.md$
+^vignettes/\.quarto$
+^vignettes/.*_files$
