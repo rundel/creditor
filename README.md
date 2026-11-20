@@ -30,126 +30,97 @@ Two replicas edit the same text concurrently and then merge.
 ``` r
 library(creditor)
 
-# Replica `a` starts the document with some text, and replica `b` starts from a snapshot of `a`
-a = loro_doc() |>
+a = loro_doc() |>                    # replica `a` starts the text
   text_insert(1, "Hello")
-b = loro_doc() |>
+b = loro_doc() |>                    # replica `b` starts from a snapshot of `a`
   doc_import(doc_export(a))
 
-# Both replicas edit the text independently, without syncing
-text_push(a, " world")
+text_push(a, " world")               # concurrent edits, not yet synced
 text_insert(b, 1, ">> ")
 
-# Each replica sends the other the updates it is missing, and both edits are kept
-b |>
+b |>                                 # each replica imports the updates it is missing
   doc_import(doc_export_updates(a, from = doc_version(b))) |>
   text_get()
-```
-
-    [1] ">> Hello world"
-
-``` r
+#> [1] ">> Hello world"
 a |>
   doc_import(doc_export_updates(b, from = doc_version(a))) |>
   text_get()
+#> [1] ">> Hello world"
 ```
-
-    [1] ">> Hello world"
 
 Containers nest: a map or list can hold plain values or child containers, each of which merges independently. New containers are made with `loro_text()`, `loro_list()`, `loro_map()`, and friends, and stored like any other value.
 
 ``` r
 doc = loro_doc()
 
-# A plain value (the title) is replaced whole when edited concurrently, while child containers
-# (the list and the text) merge concurrent edits to their contents
 note = doc_map(doc, "note") |>
   map_set(
-    title = "Groceries",
-    items = loro_list("milk", "eggs"),
+    title = "Groceries",                   # plain value, replaced whole
+    items = loro_list("milk", "eggs"),     # child containers merge their contents
     body = loro_text("Buy before Friday")
   )
 
-# Edit a child container in place
-note$items |>
-  list_push("bread")
+list_push(note$items, "bread")             # edit a child container in place
 
 doc |>
   doc_value() |>
   str()
+#> List of 1
+#>  $ note:List of 3
+#>   ..$ body : chr "Buy before Friday"
+#>   ..$ items:List of 3
+#>   .. ..$ : chr "milk"
+#>   .. ..$ : chr "eggs"
+#>   .. ..$ : chr "bread"
+#>   ..$ title: chr "Groceries"
 ```
-
-    List of 1
-     $ note:List of 3
-      ..$ body : chr "Buy before Friday"
-      ..$ items:List of 3
-      .. ..$ : chr "milk"
-      .. ..$ : chr "eggs"
-      .. ..$ : chr "bread"
-      ..$ title: chr "Groceries"
 
 Text can carry marks, and a cursor keeps pointing at the same character as the text changes.
 
 ``` r
-# Mark characters 1 to 5 ("Hello") as bold
 doc = loro_doc() |>
   text_insert(1, "Hello world") |>
-  text_mark(1, 5, bold = TRUE)
+  text_mark(1, 5, bold = TRUE)             # "Hello" is bold
 
-# A cursor at the "w" of "world" (character 7)
-cursor = text_cursor(doc, 7)
+cursor = text_cursor(doc, 7)               # at the "w" of "world"
 
-# Rewrite the text; only the differences are applied, so the mark and cursor survive. The delta
-# shows the text as runs of characters with their marks
 doc |>
-  text_update("Hello brave new world") |>
-  text_delta() |>
+  text_update("Hello brave new world") |>  # applies only the differences
+  text_delta() |>                          # runs of text with their marks
   str()
+#> List of 2
+#>  $ :List of 2
+#>   ..$ insert    : chr "Hello"
+#>   ..$ attributes:List of 1
+#>   .. ..$ bold: logi TRUE
+#>  $ :List of 1
+#>   ..$ insert: chr " brave new world"
+
+cursor_pos(doc, cursor)                    # still at the "w", now character 17
+#> [1] 17
 ```
-
-    List of 2
-     $ :List of 2
-      ..$ insert    : chr "Hello"
-      ..$ attributes:List of 1
-      .. ..$ bold: logi TRUE
-     $ :List of 1
-      ..$ insert: chr " brave new world"
-
-``` r
-# The cursor has moved with the "w", which is now character 17
-cursor_pos(doc, cursor)
-```
-
-    [1] 17
 
 Every version stays reachable.
 
 ``` r
-# Two commits, each labeled with a message
 doc = loro_doc(peer_id = 1) |>
   text_insert(1, "Hello") |>
-  doc_commit("greeting") |>
+  doc_commit("greeting") |>                # label each commit with a message
   text_push(" world") |>
   doc_commit("audience")
 
-# One row per change
-(changes = doc_changes(doc))
-```
+(changes = doc_changes(doc))               # one row per change
+#> # A tibble: 2 × 7
+#>   peer  counter lamport length timestamp message  frontiers
+#>   <chr>   <int>   <int>  <int> <dttm>    <chr>    <list>   
+#> 1 1           0       0      5 NA        greeting <4@1>    
+#> 2 1           5       5      6 NA        audience <10@1>
 
-    # A tibble: 2 × 7
-      peer  counter lamport length timestamp message  frontiers
-      <chr>   <int>   <int>  <int> <dttm>    <chr>    <list>   
-    1 1           0       0      5 NA        greeting <4@1>    
-    2 1           5       5      6 NA        audience <10@1>   
-
-``` r
-# Read the document as it was after the greeting commit, from a copy at that version
 doc |>
-  doc_fork(at = "greeting") |>
+  doc_fork(at = "greeting") |>             # a copy at the "greeting" version
   text_get()
+#> [1] "Hello"
 ```
-
-    [1] "Hello"
 
 Subscriptions make live sync a one-liner, and undo reverses only local edits.
 
@@ -157,32 +128,20 @@ Subscriptions make live sync a one-liner, and undo reverses only local edits.
 a = loro_doc()
 b = loro_doc()
 
-# Send every update committed on `a` straight to `b`
-sync = doc_subscribe_local_updates(a, \(bytes) doc_import(b, bytes))
+sync = doc_subscribe_local_updates(a, \(bytes) doc_import(b, bytes))  # send `a`'s updates to `b`
+manager = doc_undo_manager(a)              # track `a`'s local edits
 
-# Track `a`'s local edits so they can be undone
-manager = doc_undo_manager(a)
-
-# Committing on `a` delivers the update to `b`
 a |>
   text_insert(1, "Hello") |>
-  doc_commit()
+  doc_commit()                             # delivers the update to `b`
 text_get(b)
-```
+#> [1] "Hello"
 
-    [1] "Hello"
-
-``` r
-# Undo is itself an edit, so it syncs to `b` too
-undo(manager)
+undo(manager)                              # undo is an edit too, so it syncs
 text_get(b)
-```
+#> [1] ""
 
-    [1] ""
-
-``` r
-# Stop syncing
-unsubscribe(sync)
+unsubscribe(sync)                          # stop syncing
 ```
 
 ## Shiny example
