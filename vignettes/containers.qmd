@@ -30,8 +30,8 @@ replica = function(doc, peer_id) {
 }
 
 sync = function(a, b) {
-  doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-  doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+  doc_import(b, doc_export_updates(a, from = doc_version(b)))
+  doc_import(a, doc_export_updates(b, from = doc_version(a)))
   invisible()
 }
 ```
@@ -61,7 +61,7 @@ a = loro_doc(peer_id = 1)
 text_insert(doc_text(a, "body"), 1, "The quick fox jumps")
 b = replica(a, 2)
 
-text_splice(doc_text(a, "body"), 1, 3, "A")
+text_replace(doc_text(a, "body"), 1, 3, "A")
 text_insert(doc_text(b, "body"), 20, " over the dog")
 
 sync(a, b)
@@ -92,8 +92,8 @@ doc = loro_doc(peer_id = 1)
 text = doc_text(doc, "body")
 text_insert(text, 1, "Read the docs today")
 
-text_mark(text, 1, 4, "bold")
-text_mark(text, 10, 4, "link", "https://loro.dev")
+text_mark(text, 1, 4, bold = TRUE)
+text_mark(text, 10, 13, link = "https://loro.dev")
 str(text_delta(text))
 ```
 
@@ -104,7 +104,7 @@ a = loro_doc(peer_id = 1)
 text_insert(doc_text(a, "body"), 1, "Hello world")
 b = replica(a, 2)
 
-text_mark(doc_text(a, "body"), 1, 5, "bold")
+text_mark(doc_text(a, "body"), 1, 5, bold = TRUE)
 text_insert(doc_text(b, "body"), 3, "XX")
 
 sync(a, b)
@@ -118,7 +118,7 @@ doc = loro_doc(peer_id = 1)
 doc_config_text_style(doc, author = "none")
 text = doc_text(doc, "body")
 text_insert(text, 1, "Reviewed")
-text_mark(text, 1, 8, "author", "cr")
+text_mark(text, 1, 8, author = "cr")
 str(text_delta(text))
 ```
 
@@ -130,13 +130,20 @@ A map holds values under string keys, like a named list. Values can be scalars, 
 doc = loro_doc(peer_id = 1)
 settings = doc_map(doc, "settings")
 
-map_set(settings, "theme", "dark")
-map_set(settings, "font_size", 12L)
-map_set(settings, "recent", c("a.qmd", "b.qmd"))
+map_set(settings, theme = "dark", font_size = 12L, recent = c("a.qmd", "b.qmd"))
 
 map_keys(settings)
 map_get(settings, "theme")
 str(container_value(settings))
+```
+
+A map handle also answers to the functions that work on a named list, so the same reads and writes can be spelled the base R way.
+
+```{r}
+settings$theme
+settings$theme = "light"
+names(settings)
+str(as.list(settings))
 ```
 
 A vector is stored as a list and comes back as one, so `recent` above reads back as a list of two strings.
@@ -145,13 +152,11 @@ Concurrent writes to different keys are both kept. Concurrent writes to the same
 
 ```{r}
 a = loro_doc(peer_id = 1)
-map_set(doc_map(a, "settings"), "theme", "light")
+map_set(doc_map(a, "settings"), theme = "light")
 b = replica(a, 2)
 
-map_set(doc_map(a, "settings"), "theme", "dark")
-map_set(doc_map(a, "settings"), "font_size", 12L)
-map_set(doc_map(b, "settings"), "theme", "sepia")
-map_set(doc_map(b, "settings"), "line_numbers", TRUE)
+map_set(doc_map(a, "settings"), theme = "dark", font_size = 12L)
+map_set(doc_map(b, "settings"), theme = "sepia", line_numbers = TRUE)
 
 sync(a, b)
 str(container_value(doc_map(a, "settings")))
@@ -168,8 +173,7 @@ A list is an ordered sequence of values, addressed by 1-based position.
 doc = loro_doc(peer_id = 1)
 items = doc_list(doc, "groceries")
 
-list_push(items, "milk")
-list_push(items, "eggs")
+list_push(items, "milk", "eggs")
 list_insert(items, 1, "bread")
 list_delete(items, 2)
 str(container_value(items))
@@ -194,7 +198,7 @@ A plain list has no way to move or replace an element. You can imitate a move by
 ```{r}
 a = loro_doc(peer_id = 1)
 tasks = doc_list(a, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 b = replica(a, 2)
 
 move_by_copy = function(list, from, to) {
@@ -218,7 +222,7 @@ A movable list supports everything a list does, plus two operations that merge c
 ```{r}
 doc = loro_doc(peer_id = 1)
 tasks = doc_movable_list(doc, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 
 list_move(tasks, 3, 1)
 list_set(tasks, 2, "write docs")
@@ -230,7 +234,7 @@ Repeating the concurrent move from the previous section with a movable list leav
 ```{r}
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 b = replica(a, 2)
 
 list_move(doc_movable_list(a, "tasks"), 3, 1)
@@ -245,7 +249,7 @@ A move and an edit to the same element also combine: if one replica reorders a t
 ```{r}
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 b = replica(a, 2)
 
 list_move(doc_movable_list(a, "tasks"), 1, 3)
@@ -277,12 +281,12 @@ Compare that with keeping the count as a number in a map. Each replica reads the
 
 ```{r}
 a = loro_doc(peer_id = 1)
-map_set(doc_map(a, "tally"), "votes", 0)
+map_set(doc_map(a, "tally"), votes = 0)
 b = replica(a, 2)
 
 add_votes = function(doc, n) {
   tally = doc_map(doc, "tally")
-  map_set(tally, "votes", map_get(tally, "votes") + n)
+  tally$votes = tally$votes + n
 }
 add_votes(a, 3)
 add_votes(b, 4)
@@ -300,9 +304,7 @@ doc = loro_doc(peer_id = 1)
 outline = doc_tree(doc, "outline")
 
 add_section = function(tree, title, parent = NULL) {
-  node = tree_create(tree, parent = parent)
-  map_set(tree_meta(tree, node), "title", title)
-  node
+  tree_create(tree, parent = parent, meta = list(title = title))
 }
 
 intro = add_section(outline, "Introduction")
@@ -355,7 +357,7 @@ Edits to a node's metadata are independent of moves, because the metadata is an 
 
 ```{r}
 tree_move(tree_a, methods)
-map_set(tree_meta(tree_b, methods), "title", "Approach")
+map_set(tree_meta(tree_b, methods), title = "Approach")
 
 sync(a, b)
 show_outline(tree_a)
@@ -370,15 +372,14 @@ Maps, lists, movable lists, and tree metadata can hold child containers as well 
 ```{r}
 doc = loro_doc(peer_id = 1)
 note = doc_map(doc, "note")
-map_set(note, "title", "Trip planning")
+map_set(note, title = "Trip planning")
 
 body = map_set_container(note, "body", "text")
 text_insert(body, 1, "Flights are booked.")
 
 todo = map_set_container(note, "todo", "movable_list")
 item = list_push_container(todo, "map")
-map_set(item, "label", "Book hotel")
-map_set(item, "done", FALSE)
+map_set(item, label = "Book hotel", done = FALSE)
 
 likes = map_set_container(note, "likes", "counter")
 counter_increment(likes)
@@ -386,12 +387,12 @@ counter_increment(likes)
 str(doc_value(doc))
 ```
 
-Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path. Positions inside a path string are 0-based, following Loro's path syntax.
+Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path.
 
 ```{r}
 class(map_get(note, "body"))[1]
 text_get(map_get(note, "body"))
-doc_get_path(doc, "note/todo/0/label")
+doc_get(doc, "note", "todo", 1, "label")
 ```
 
 The difference between a plain value and a child container is the unit of merging. Below, the same data is stored twice: once as a plain nested list under one key, and once as a child map. Two replicas then change different fields.
@@ -399,19 +400,18 @@ The difference between a plain value and a child container is the unit of mergin
 ```{r}
 a = loro_doc(peer_id = 1)
 root = doc_map(a, "root")
-map_set(root, "plain", list(label = "Book hotel", done = FALSE))
+map_set(root, plain = list(label = "Book hotel", done = FALSE))
 child = map_set_container(root, "child", "map")
-map_set(child, "label", "Book hotel")
-map_set(child, "done", FALSE)
+map_set(child, label = "Book hotel", done = FALSE)
 b = replica(a, 2)
 
 root_a = doc_map(a, "root")
-map_set(root_a, "plain", list(label = "Book hotel", done = TRUE))
-map_set(map_get(root_a, "child"), "done", TRUE)
+map_set(root_a, plain = list(label = "Book hotel", done = TRUE))
+root_a$child$done = TRUE
 
 root_b = doc_map(b, "root")
-map_set(root_b, "plain", list(label = "Book a hotel in Lisbon", done = FALSE))
-map_set(map_get(root_b, "child"), "label", "Book a hotel in Lisbon")
+map_set(root_b, plain = list(label = "Book a hotel in Lisbon", done = FALSE))
+root_b$child$label = "Book a hotel in Lisbon"
 
 sync(a, b)
 str(container_value(doc_map(a, "root")))

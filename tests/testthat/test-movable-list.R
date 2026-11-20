@@ -50,8 +50,8 @@ test_that("concurrent moves of one element leave a single copy", {
 
   list_move(items, 1, 3)
   list_move(doc_movable_list(b), 1, 2)
-  doc_import(b, doc_export(a, "updates"))
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export_updates(a))
+  doc_import(a, doc_export_updates(b))
 
   expect_identical(doc_value(a), doc_value(b))
   expect_setequal(unlist(container_value(items)), c("a", "b", "c"))
@@ -66,8 +66,8 @@ test_that("concurrent sets resolve to one value", {
 
   list_set(doc_movable_list(a), 1, "from a")
   list_set(doc_movable_list(b), 1, "from b")
-  doc_import(b, doc_export(a, "updates"))
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export_updates(a))
+  doc_import(a, doc_export_updates(b))
 
   expect_identical(doc_value(a), doc_value(b))
   expect_identical(list_length(doc_movable_list(a)), 1L)
@@ -124,12 +124,12 @@ test_that("a moved child container keeps its identity", {
   items = doc_movable_list(doc)
   list_push(items, "a")
   child = list_push_container(items, "map")
-  map_set(child, "k", 1L)
+  map_set(child, k = 1L)
 
   list_move(items, 2, 1)
   expect_identical(container_id(list_get(items, 1)), container_id(child))
   expect_false(container_is_deleted(child))
-  map_set(child, "k", 2L)
+  map_set(child, k = 2L)
   expect_identical(container_value(items), list(list(k = 2L), "a"))
 })
 
@@ -145,8 +145,8 @@ test_that("a concurrent delete and move keep the moved element", {
   list_move(other, 2, 3)
   list_set(other, 3, "B")
 
-  doc_import(b, doc_export(a, "updates"))
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export_updates(a))
+  doc_import(a, doc_export_updates(b))
   expect_identical(doc_value(a), doc_value(b))
   expect_identical(container_value(items), list("a", "c", "B"))
 })

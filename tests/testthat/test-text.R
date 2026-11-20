@@ -20,7 +20,7 @@ test_that("positions count code points", {
   text_insert(text, 3, "X")
   expect_identical(text_get(text), "héXllo \U0001F600")
 
-  text_delete(text, 8, 1)
+  text_delete(text, 8, 8)
   expect_identical(text_get(text), "héXllo ")
 })
 
@@ -41,7 +41,7 @@ test_that("invalid edits are errors", {
   expect_error(text_insert(text, 1.5, "x"), "pos")
   expect_error(text_insert(text, 1, NA_character_), "value")
   expect_error(text_insert(text, 10, "x"))
-  expect_error(text_delete(text, 2, 10))
+  expect_error(text_delete(text, 2, 11))
   expect_error(text_get(doc), "loro_text")
   expect_error(text_get(doc_map(doc, "m")), "loro_text")
   expect_identical(text_get(text), "abc")
@@ -50,31 +50,34 @@ test_that("invalid edits are errors", {
 test_that("a range of text can be read", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "Hello \U0001F600 world")
-  expect_identical(text_slice(text, 1, 5), "Hello")
-  expect_identical(text_slice(text, 7, 1), "\U0001F600")
-  expect_identical(text_slice(text, 9, 5), "world")
-  expect_identical(text_slice(text, 1, 0), "")
-  expect_error(text_slice(text, 10, 99))
-  expect_error(text_slice(text, 0, 1), "pos")
+  expect_identical(text_sub(text, 1, 5), "Hello")
+  expect_identical(text_sub(text, 7, 7), "\U0001F600")
+  expect_identical(text_sub(text, 9, 13), "world")
+  expect_identical(text_sub(text, 1, 0), "")
+  expect_error(text_sub(text, 10, 108))
+  expect_error(text_sub(text, 0, 0), "start")
+  expect_identical(text_sub(text), "Hello \U0001F600 world")
+  expect_identical(text_sub(text, 9), "world")
+  expect_identical(text_sub(text, end = 5), "Hello")
 })
 
 test_that("a range of text can be replaced", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "Hello world")
-  text_splice(text, 1, 5, "Howdy")
+  text_replace(text, 1, 5, "Howdy")
   expect_identical(text_get(text), "Howdy world")
-  text_splice(text, 6, 0, ",")
+  text_replace(text, 6, 5, ",")
   expect_identical(text_get(text), "Howdy, world")
-  text_splice(text, 6, 7, "")
+  text_replace(text, 6, 12, "")
   expect_identical(text_get(text), "Howdy")
-  expect_error(text_splice(text, 99, 1, "x"))
+  expect_error(text_replace(text, 99, 99, "x"))
   expect_identical(text_get(text), "Howdy")
 })
 
 test_that("text can be updated line by line", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "line one\nline two\nline three\n")
-  text_mark(text, 1, 8, "bold")
+  text_mark(text, 1, 8, bold = TRUE)
 
   new = "line one\nline 2\nline three\nline four\n"
   text_update(text, new, by = "line")
@@ -117,7 +120,7 @@ test_that("a converted position addresses the same character", {
   text_insert(text, 1, "\U0001F600\U0001F600x")
   utf16_offset_of_x = 4L
   pos = text_convert_pos(text, utf16_offset_of_x + 1L, "utf16", "unicode")
-  expect_identical(text_slice(text, pos, 1), "x")
+  expect_identical(text_sub(text, pos, pos), "x")
 })
 
 test_that("out of range errors name the 1-based position given", {
@@ -125,9 +128,10 @@ test_that("out of range errors name the 1-based position given", {
   text_insert(text, 1, "abc")
 
   expect_error(text_insert(text, 10, "x"), "at most 4.*not 10")
-  expect_error(text_delete(text, 2, 10), "starts at 2 and has length 10.*length 3")
-  expect_error(text_splice(text, 5, 0, "x"), "starts at 5")
-  expect_error(text_slice(text, 4, 1), "starts at 4 and has length 1")
+  expect_error(text_delete(text, 2, 11), "range is 2 to 11.*length 3")
+  expect_error(text_replace(text, 5, 4, "x"), "range is 5 to 4")
+  expect_error(text_delete(text, 3, 1), "at least 2")
+  expect_error(text_sub(text, 4, 4), "range is 4 to 4")
   expect_identical(text_get(text), "abc")
 })
 
@@ -135,15 +139,15 @@ test_that("an empty range is allowed only at a valid position", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "abc")
 
-  expect_identical(text_slice(text, 4, 0), "")
-  text_delete(text, 4, 0)
-  text_splice(text, 4, 0, "")
-  expect_identical(text_delta(text, 4, 0), list())
+  expect_identical(text_sub(text, 4, 3), "")
+  text_delete(text, 4, 3)
+  text_replace(text, 4, 3, "")
+  expect_identical(text_delta(text, 4, 3), list())
 
-  expect_error(text_slice(text, 99, 0), "starts at 99")
-  expect_error(text_delete(text, 99, 0), "starts at 99")
-  expect_error(text_delta(text, 99, 0), "starts at 99")
-  expect_error(text_splice(text, 99, 0, ""), "starts at 99")
+  expect_error(text_sub(text, 99, 98), "range is 99 to 98")
+  expect_error(text_delete(text, 99, 98), "range is 99 to 98")
+  expect_error(text_delta(text, 99, 98), "range is 99 to 98")
+  expect_error(text_replace(text, 99, 98, ""), "range is 99 to 98")
   expect_identical(text_get(text), "abc")
 })
 
@@ -151,10 +155,11 @@ test_that("range arithmetic does not overflow", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "abc")
   big = .Machine$integer.max
-  expect_no_warning(expect_error(text_slice(text, 2, big), "range"))
+  expect_no_warning(expect_error(text_sub(text, 2, big), "range"))
   expect_no_warning(expect_error(text_delete(text, 2, big), "range"))
-  expect_no_warning(expect_error(text_mark(text, 2, big, "bold"), "range"))
+  expect_no_warning(expect_error(text_mark(text, 2, big, bold = TRUE), "range"))
   expect_no_warning(expect_error(text_delta(text, 2, big), "range"))
+  expect_no_warning(expect_error(text_sub(text, 2, big + 1), "end"))
 })
 
 test_that("combining characters and joined emoji count per code point", {
@@ -162,7 +167,16 @@ test_that("combining characters and joined emoji count per code point", {
   family = "\U0001F468‍\U0001F469‍\U0001F467"
   text_insert(text, 1, paste0("é", family, "z"))
   expect_identical(text_length(text), 8L)
-  expect_identical(text_slice(text, 1, 2), "é")
-  expect_identical(text_slice(text, 3, 5), family)
-  expect_identical(text_slice(text, 8, 1), "z")
+  expect_identical(text_sub(text, 1, 2), "é")
+  expect_identical(text_sub(text, 3, 7), family)
+  expect_identical(text_sub(text, 8, 8), "z")
+})
+
+test_that("text can be appended and read with base functions", {
+  text = doc_text(loro_doc())
+  expect_identical(text_push(text, "Hello"), text)
+  text_push(text, " \U0001F600")
+  expect_identical(as.character(text), "Hello \U0001F600")
+  expect_identical(length(text), 7L)
+  expect_error(text_push(text, 1), "value")
 })

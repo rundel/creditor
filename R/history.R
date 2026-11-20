@@ -10,10 +10,10 @@
 #'   are a compact name for one point in history.
 #' * `doc_frontiers_to_version()` and `doc_version_to_frontiers()`
 #'   convert between the two kinds of version. For example, converting
-#'   a row of `doc_changes()` to a version vector lets [`doc_export()`]
+#'   a row of `doc_changes()` to a version vector lets [`doc_export_updates()`]
 #'   produce the updates made since that change.
-#' * `doc_compare_frontiers()` orders two versions: `-1` if `from` is an
-#'   ancestor of `to`, `1` if it is a descendant, `0` if they are the
+#' * `doc_compare_frontiers()` orders two versions: `-1` if `x` is an
+#'   ancestor of `y`, `1` if it is a descendant, `0` if they are the
 #'   same, and `NA` if they are concurrent (neither contains the other).
 #' * `doc_changes()` returns one row per change in the history, and
 #'   `doc_change()` the one change containing a given operation.
@@ -99,7 +99,7 @@
 #' Child containers appear by their contents.
 #'
 #' @param doc A [`loro_doc`].
-#' @param frontiers,from,to A version: frontiers from `doc_frontiers()`
+#' @param frontiers,from,to,x,y A version: frontiers from `doc_frontiers()`
 #'   or the `frontiers` column of `doc_changes()`. See [`as_frontiers()`].
 #' @param record Whether to record timestamps.
 #' @param enable Whether to allow editing while detached.
@@ -154,7 +154,7 @@ NULL
 new_frontiers = function(x) structure(x, class = "loro_frontiers")
 new_version = function(x) structure(x, class = "loro_version")
 
-check_frontiers = function(x, arg, call = sys.call(-1)) {
+check_frontiers = function(x, arg, call = rlang::caller_env()) {
   if (inherits(x, "loro_version")) {
     cli::cli_abort(
       c(
@@ -176,7 +176,7 @@ check_frontiers = function(x, arg, call = sys.call(-1)) {
   invisible(x)
 }
 
-check_version = function(x, arg, call = sys.call(-1)) {
+check_version = function(x, arg, call = rlang::caller_env()) {
   if (inherits(x, "loro_frontiers")) {
     cli::cli_abort(
       c(
@@ -307,7 +307,7 @@ changes_frame = function(changes) {
   out
 }
 
-check_peer = function(peer, call = sys.call(-1)) {
+check_peer = function(peer, call = rlang::caller_env()) {
   if (!is.character(peer) || length(peer) != 1 || is.na(peer) || !grepl("^[0-9]+$", peer)) {
     cli::cli_abort("{.arg peer} must be a peer id: a string of digits.", call = call)
   }
@@ -387,12 +387,12 @@ doc_version_to_frontiers = function(doc, version) {
 
 #' @rdname history
 #' @export
-doc_compare_frontiers = function(doc, from, to) {
+doc_compare_frontiers = function(doc, x, y) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  check_frontiers(from, "from")
-  check_frontiers(to, "to")
-  loro_doc_compare_frontiers_impl(doc@ptr, from, to)
+  check_frontiers(x, "x")
+  check_frontiers(y, "y")
+  loro_doc_compare_frontiers_impl(doc@ptr, x, y)
 }
 
 #' @rdname history
@@ -429,9 +429,7 @@ doc_detach = function(doc) {
 doc_set_detached_editing = function(doc, enable = TRUE) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  if (!is.logical(enable) || length(enable) != 1 || is.na(enable)) {
-    cli::cli_abort("{.arg enable} must be {.code TRUE} or {.code FALSE}.")
-  }
+  check_bool(enable, "enable")
   loro_doc_set_detached_editing_impl(doc@ptr, enable)
   invisible(doc)
 }
@@ -461,8 +459,7 @@ doc_diff = function(doc, from, to) {
   on.exit(deliver_events(), add = TRUE)
   check_frontiers(from, "from")
   check_frontiers(to, "to")
-  diff = loro_doc_diff_impl(doc@ptr, from, to)
-  diff
+  loro_doc_diff_impl(doc@ptr, from, to)
 }
 
 #' @rdname history
@@ -484,9 +481,7 @@ doc_apply_diff = function(doc, from, to, source = doc) {
 doc_record_timestamps = function(doc, record = TRUE) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  if (!is.logical(record) || length(record) != 1 || is.na(record)) {
-    cli::cli_abort("{.arg record} must be {.code TRUE} or {.code FALSE}.")
-  }
+  check_bool(record, "record")
   loro_doc_record_timestamps_impl(doc@ptr, record)
   invisible(doc)
 }

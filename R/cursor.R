@@ -56,7 +56,7 @@ NULL
 text_cursor = function(text, pos, side = c("middle", "left", "right")) {
   check_container(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
-  side = match.arg(side)
+  side = rlang::arg_match(side)
   length = loro_text_length_impl(text@ptr)
   if (pos > length + 1L) {
     cli::cli_abort(
@@ -71,7 +71,7 @@ text_cursor = function(text, pos, side = c("middle", "left", "right")) {
 list_cursor = function(list, pos, side = c("middle", "left", "right")) {
   check_container(list, loro_list, "list")
   pos = check_count(pos, "pos", 1)
-  side = match.arg(side)
+  side = rlang::arg_match(side)
   length = loro_list_length_impl(list@ptr)
   if (pos > length + 1L) {
     cli::cli_abort(

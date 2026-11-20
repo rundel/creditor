@@ -10,8 +10,17 @@ Exploratory R bindings to the \code{loro} Rust crate. Start with
 \code{\link[=loro_doc]{loro_doc()}}, get container handles with \code{\link[=doc_text]{doc_text()}}, \code{\link[=doc_map]{doc_map()}},
 and \code{\link[=doc_list]{doc_list()}}, edit them with the \verb{text_*}, \verb{map_*}, and \verb{list_*}
 functions,
-and move changes between replicas with \code{\link[=doc_export]{doc_export()}} and
-\code{\link[=doc_import]{doc_import()}}.
+and move changes between replicas with \code{\link[=doc_export]{doc_export()}},
+\code{\link[=doc_export_updates]{doc_export_updates()}}, and \code{\link[=doc_import]{doc_import()}}.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/rundel/creditor}
+  \item \url{https://rundel.github.io/creditor/}
+  \item Report bugs at \url{https://github.com/rundel/creditor/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Colin Rundel \email{cr173@duke.edu}

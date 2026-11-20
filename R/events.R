@@ -135,7 +135,7 @@ deliver_events = function() {
   invisible()
 }
 
-check_callback = function(callback, call = sys.call(-1)) {
+check_callback = function(callback, call = rlang::caller_env()) {
   if (!is.function(callback)) {
     cli::cli_abort("{.arg callback} must be a function.", call = call)
   }

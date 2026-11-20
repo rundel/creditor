@@ -75,6 +75,11 @@ can still be read, but editing through it is an error.
 \item \code{container_id()} returns the container's unique id as a string.
 }
 
+Handles also answer to the base functions that fit them: \code{length()}
+for text, maps, and lists, \code{names()}, \code{$}, and \code{[[} for maps, \code{[[}
+for lists, \code{as.character()} for text, and \code{as.list()} for maps and
+lists.
+
 Root container names are shared across types within a document's
 value, so use distinct names for different root containers: if two
 root containers of different types have the same name, each keeps
@@ -93,7 +98,7 @@ text = doc_text(doc, "body")
 text_insert(text, 1, "Hello")
 
 meta = doc_map(doc, "meta")
-map_set(meta, "title", "Greeting")
+map_set(meta, title = "Greeting")
 
 container_value(meta)
 container_id(text)

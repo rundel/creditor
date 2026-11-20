@@ -58,10 +58,10 @@ test_that("undo works across container types", {
   map = doc_map(doc, "m")
   items = doc_list(doc, "l")
 
-  map_set(map, "k", 1L)
+  map_set(map, k = 1L)
   list_push(items, "x")
   doc_commit(doc)
-  map_set(map, "k", 2L)
+  map_set(map, k = 2L)
   list_delete(items, 1)
   doc_commit(doc)
 
@@ -116,7 +116,7 @@ test_that("undo keeps edits from other replicas", {
   text_insert(doc_text(b), 1, "REMOTE ")
   text_insert(text, 6, "!")
   doc_commit(a)
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(a, doc_export_updates(b))
   expect_identical(text_get(text), "REMOTE Hello!")
 
   undo(manager)
@@ -143,7 +143,7 @@ test_that("undo delivers events and syncs like an edit", {
 test_that("merge_interval combines nearby commits", {
   doc = loro_doc()
   text = doc_text(doc)
-  manager = doc_undo_manager(doc, merge_interval = 60000)
+  manager = doc_undo_manager(doc, merge_interval = 60)
   text_insert(text, 1, "a")
   doc_commit(doc)
   text_insert(text, 2, "b")
@@ -299,7 +299,7 @@ test_that("undoing a container deletion restores it under a new id", {
   doc = loro_doc(peer_id = 1)
   map = doc_map(doc, "m")
   child = map_set_container(map, "c", "map")
-  map_set(child, "k", 1L)
+  map_set(child, k = 1L)
   doc_commit(doc)
   manager = doc_undo_manager(doc)
 
@@ -311,7 +311,7 @@ test_that("undoing a container deletion restores it under a new id", {
   expect_identical(container_value(revived), list(k = 1L))
   expect_false(identical(container_id(revived), container_id(child)))
   expect_true(container_is_deleted(child))
-  expect_error(map_set(child, "k", 2L), "deleted")
+  expect_error(map_set(child, k = 2L), "deleted")
 })
 
 test_that("undo and redo restore nested structures", {
@@ -322,7 +322,7 @@ test_that("undo and redo restore nested structures", {
   doc_commit(doc)
   items = map_set_container(map, "items", "movable_list")
   list_push(items, 1L)
-  map_set(list_push_container(items, "map"), "x", 1)
+  map_set(list_push_container(items, "map"), x = 1)
   doc_commit(doc)
   value = doc_value(doc)
 
@@ -339,7 +339,7 @@ test_that("undo of a counter keeps remote increments", {
   doc_commit(a)
   b = doc_fork(a)
   counter_increment(doc_counter(b), 1)
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(a, doc_export_updates(b))
   expect_identical(counter_get(doc_counter(a)), 2)
 
   undo(manager)

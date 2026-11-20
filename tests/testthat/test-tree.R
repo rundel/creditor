@@ -52,7 +52,7 @@ test_that("nodes carry metadata maps", {
   o = outline()
   meta = tree_meta(o$tree, o$a)
   expect_s3_class(meta, "creditor::loro_map")
-  map_set(meta, "title", "Intro")
+  map_set(meta, title = "Intro")
   body = map_set_container(meta, "body", "text")
   text_insert(body, 1, "Hello")
 
@@ -133,8 +133,8 @@ test_that("concurrent moves converge without cycles", {
 
   tree_move(o$tree, o$a, parent = o$b)
   tree_move(other_tree, o$b, parent = o$a)
-  doc_import(other, doc_export(o$doc, "updates"))
-  doc_import(o$doc, doc_export(other, "updates"))
+  doc_import(other, doc_export_updates(o$doc))
+  doc_import(o$doc, doc_export_updates(other))
 
   mine = tree_nodes(o$tree)
   theirs = tree_nodes(other_tree)
@@ -148,10 +148,10 @@ test_that("concurrent metadata edits merge", {
   other = loro_doc(peer_id = 2)
   doc_import(other, doc_export(o$doc))
 
-  map_set(tree_meta(o$tree, o$a), "title", "Intro")
-  map_set(tree_meta(doc_tree(other, "t"), o$a), "done", TRUE)
-  doc_import(other, doc_export(o$doc, "updates"))
-  doc_import(o$doc, doc_export(other, "updates"))
+  map_set(tree_meta(o$tree, o$a), title = "Intro")
+  map_set(tree_meta(doc_tree(other, "t"), o$a), done = TRUE)
+  doc_import(other, doc_export_updates(o$doc))
+  doc_import(o$doc, doc_export_updates(other))
 
   expect_identical(
     container_value(tree_meta(o$tree, o$a)),
@@ -211,8 +211,8 @@ test_that("undoing a move restores the node in place", {
 
 test_that("undoing a delete restores the subtree under new ids", {
   o = outline()
-  map_set(tree_meta(o$tree, o$a), "title", "A")
-  map_set(tree_meta(o$tree, o$a1), "title", "A1")
+  map_set(tree_meta(o$tree, o$a), title = "A")
+  map_set(tree_meta(o$tree, o$a1), title = "A1")
   doc_commit(o$doc)
   manager = doc_undo_manager(o$doc)
   tree_delete(o$tree, o$a)
@@ -244,7 +244,7 @@ test_that("a tree can be nested and prints its nodes", {
 
 test_that("tree values use 1-based positions and NA root parents", {
   o = outline()
-  map_set(tree_meta(o$tree, o$a2), "title", "second child")
+  map_set(tree_meta(o$tree, o$a2), title = "second child")
   value = container_value(o$tree)
 
   expect_length(value, 2)
@@ -276,8 +276,8 @@ test_that("a shallow tree value gives metadata maps by id", {
 test_that("a map entry named index is not mistaken for a tree position", {
   doc = loro_doc()
   map = doc_map(doc, "m")
-  map_set(map, "index", 0L)
-  map_set(map, "node", list(id = "0@1", index = 0L, parent = NULL))
+  map_set(map, index = 0L)
+  map_set(map, node = list(id = "0@1", index = 0L, parent = NULL))
   expect_identical(
     doc_value(doc)$m,
     list(index = 0L, node = list(id = "0@1", index = 0L, parent = NULL))
@@ -299,12 +299,12 @@ test_that("nodes inside a deleted subtree cannot be moved or deleted", {
 test_that("the metadata of a deleted node can be read but not changed", {
   o = outline()
   meta = tree_meta(o$tree, o$a1)
-  map_set(meta, "x", 1L)
+  map_set(meta, x = 1L)
   tree_delete(o$tree, o$a)
 
   expect_identical(map_get(meta, "x"), 1L)
   expect_identical(map_get(tree_meta(o$tree, o$a1), "x"), 1L)
-  expect_error(map_set(meta, "y", 2L), "deleted")
+  expect_error(map_set(meta, y = 2L), "deleted")
   expect_error(tree_meta(o$tree, "5@1"), "node 5@1 does not exist")
 })
 
@@ -362,7 +362,7 @@ test_that("order holds up across many random inserts and moves", {
   expect_identical(vapply(value, `[[`, 1L, "index"), seq_along(expected))
 
   copy = loro_doc()
-  doc_import(copy, doc_export(doc, "snapshot"))
+  doc_import(copy, doc_export(doc))
   expect_identical(tree_children(doc_tree(copy, "t")), expected)
   expect_identical(tree_children(doc_tree(doc_fork(doc), "t")), expected)
 })
@@ -379,8 +379,8 @@ test_that("a concurrent delete of an ancestor and move of a descendant converge"
 
   tree_delete(tree, doomed)
   tree_move(doc_tree(b, "t"), moved, parent = keep)
-  doc_import(b, doc_export(a, "updates"))
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export_updates(a))
+  doc_import(a, doc_export_updates(b))
 
   expect_identical(doc_value(a), doc_value(b))
   expect_false(tree_contains(tree, doomed))
@@ -399,7 +399,7 @@ test_that("a very deep tree can be built and listed but not expanded", {
   expect_error(doc_value(doc), "1000 levels")
 
   copy = loro_doc()
-  doc_import(copy, doc_export(doc, "snapshot"))
+  doc_import(copy, doc_export(doc))
   expect_identical(nrow(tree_nodes(doc_tree(copy, "t"))), 1500L)
   tree_delete(tree, tree_children(tree))
   expect_identical(nrow(tree_nodes(tree)), 0L)
@@ -432,4 +432,13 @@ test_that("node ids from elsewhere and malformed ids are rejected", {
   expect_error(tree_contains(one, "99999999999999999999@1"), "not a valid node id")
   expect_error(tree_contains(one, "-1@1"), "node")
   expect_identical(tree_children(one), node)
+})
+
+test_that("a node can be created with metadata", {
+  tree = doc_tree(loro_doc())
+  node = tree_create(tree, meta = list(title = "Intro", tags = c("a", "b")))
+  expect_identical(as.list(tree_meta(tree, node)), list(tags = list("a", "b"), title = "Intro"))
+  expect_identical(length(tree_meta(tree, tree_create(tree))), 0L)
+  expect_error(tree_create(tree, meta = list(1)), "named")
+  expect_error(tree_create(tree, meta = "title"), "named list")
 })

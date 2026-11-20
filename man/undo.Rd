@@ -47,7 +47,7 @@ undo_group(manager, code)
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
 
-\item{merge_interval}{Commits made within this many milliseconds of
+\item{merge_interval}{Commits made within this many seconds of
 the previous one join its undo step. The default, \code{0}, keeps every
 commit separate.}
 

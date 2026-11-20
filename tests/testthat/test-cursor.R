@@ -22,7 +22,7 @@ test_that("a cursor survives deletion of its character", {
   text = doc_text(doc)
   text_insert(text, 1, "abcde")
   cursor = text_cursor(text, 3)
-  text_delete(text, 3, 1)
+  text_delete(text, 3, 3)
   expect_identical(text_get(text), "abde")
   expect_identical(cursor_pos(doc, cursor), 3L)
 })
@@ -73,7 +73,7 @@ test_that("a list cursor follows its element", {
 
     list_insert(items, 1, "z")
     expect_identical(cursor_pos(doc, cursor), 3L)
-    list_delete(items, 1, 2)
+    list_delete(items, 1:2)
     expect_identical(cursor_pos(doc, cursor), 1L)
     expect_identical(list_get(items, cursor_pos(doc, cursor)), "b")
 
@@ -119,7 +119,7 @@ test_that("cursors resolve sensibly after their surroundings are deleted", {
   middle = text_cursor(text, 4)
   end = text_cursor(text, 7, "right")
 
-  text_delete(text, 2, 4)
+  text_delete(text, 2, 5)
   expect_identical(cursor_pos(doc, middle), 2L)
   expect_identical(cursor_pos(doc, end), 3L)
   text_insert(text, 2, "XYZ")

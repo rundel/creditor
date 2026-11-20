@@ -9,8 +9,8 @@ test_that("entries can be set, read, and deleted", {
   expect_identical(ephemeral_values(store), structure(list(), names = character()))
   expect_null(ephemeral_get(store, "missing"))
 
-  ephemeral_set(store, "b", list(name = "B", cursor = 3L))
-  ephemeral_set(store, "a", "x")
+  ephemeral_set(store, b = list(name = "B", cursor = 3L))
+  ephemeral_set(store, a = "x")
   expect_identical(ephemeral_keys(store), c("a", "b"))
   expect_identical(ephemeral_get(store, "a"), "x")
   expect_identical(
@@ -25,8 +25,8 @@ test_that("entries can be set, read, and deleted", {
 test_that("encoded state transfers between stores", {
   a = ephemeral_store()
   b = ephemeral_store()
-  ephemeral_set(a, "one", 1L)
-  ephemeral_set(a, "two", 2L)
+  ephemeral_set(a, one = 1L)
+  ephemeral_set(a, two = 2L)
 
   ephemeral_apply(b, ephemeral_encode(a, "one"))
   expect_identical(ephemeral_keys(b), "one")
@@ -38,9 +38,9 @@ test_that("encoded state transfers between stores", {
 test_that("the last write wins on every store", {
   a = ephemeral_store()
   b = ephemeral_store()
-  ephemeral_set(a, "k", "from a")
+  ephemeral_set(a, k = "from a")
   tick()
-  ephemeral_set(b, "k", "from b")
+  ephemeral_set(b, k = "from b")
 
   from_a = ephemeral_encode(a)
   from_b = ephemeral_encode(b)
@@ -56,10 +56,10 @@ test_that("local updates drive live sync, including deletes", {
   sub = ephemeral_subscribe_local_updates(a, function(bytes) ephemeral_apply(b, bytes))
   on.exit(unsubscribe(sub))
 
-  ephemeral_set(a, "k", 1L)
+  ephemeral_set(a, k = 1L)
   expect_identical(ephemeral_get(b, "k"), 1L)
   tick()
-  ephemeral_set(a, "k", 2L)
+  ephemeral_set(a, k = 2L)
   expect_identical(ephemeral_get(b, "k"), 2L)
   tick()
   ephemeral_delete(a, "k")
@@ -73,11 +73,11 @@ test_that("subscribers see added, updated, and removed keys", {
   sub = ephemeral_subscribe(b, function(event) events[[length(events) + 1]] <<- event)
   on.exit(unsubscribe(sub))
 
-  ephemeral_set(b, "mine", TRUE)
-  ephemeral_set(a, "k", 1L)
+  ephemeral_set(b, mine = TRUE)
+  ephemeral_set(a, k = 1L)
   ephemeral_apply(b, ephemeral_encode(a))
   tick()
-  ephemeral_set(a, "k", 2L)
+  ephemeral_set(a, k = 2L)
   ephemeral_apply(b, ephemeral_encode(a))
   tick()
   ephemeral_delete(b, "k")
@@ -94,12 +94,12 @@ test_that("subscribers see added, updated, and removed keys", {
 })
 
 test_that("entries expire after the timeout", {
-  store = ephemeral_store(timeout = 50)
+  store = ephemeral_store(timeout = 0.05)
   events = list()
   sub = ephemeral_subscribe(store, function(event) events[[length(events) + 1]] <<- event)
   on.exit(unsubscribe(sub))
 
-  ephemeral_set(store, "k", 1L)
+  ephemeral_set(store, k = 1L)
   full = length(ephemeral_encode(store))
   Sys.sleep(0.25)
   expect_lt(length(ephemeral_encode(store)), full)
@@ -114,9 +114,14 @@ test_that("entries expire after the timeout", {
 test_that("ephemeral arguments are validated", {
   store = ephemeral_store()
   expect_error(ephemeral_store(timeout = 0), "timeout")
-  expect_error(ephemeral_set("x", "k", 1), "loro_ephemeral_store")
-  expect_error(ephemeral_set(store, 1, 1), "key")
-  expect_error(ephemeral_set(store, "k", factor("a")), "class")
+  expect_error(ephemeral_set("x", k = 1), "loro_ephemeral_store")
+  expect_error(ephemeral_set(store, 1), "named")
+  expect_error(ephemeral_set(store, k = 1, k = 2), "unique")
+  expect_error(ephemeral_delete(store, 1), "keys")
+  ephemeral_set(store, x = 1, y = 2, z = 3)
+  ephemeral_delete(store, "x", c("y", "z"))
+  expect_identical(ephemeral_keys(store), character())
+  expect_error(ephemeral_set(store, k = factor("a")), "class")
   expect_error(ephemeral_apply(store, "bytes"), "raw")
   expect_error(ephemeral_apply(store, as.raw(1:9)))
   expect_error(ephemeral_subscribe(store, 1), "callback")
@@ -132,9 +137,9 @@ test_that("a write in the same millisecond as the last one is not applied", {
   for (i in 1:20) {
     a = ephemeral_store()
     b = ephemeral_store()
-    ephemeral_set(a, "k", 1L)
+    ephemeral_set(a, k = 1L)
     ephemeral_apply(b, ephemeral_encode(a))
-    ephemeral_set(a, "k", 2L)
+    ephemeral_set(a, k = 2L)
     ephemeral_apply(b, ephemeral_encode(a))
     stale = stale + !identical(ephemeral_get(b, "k"), 2L)
   }
@@ -144,7 +149,7 @@ test_that("a write in the same millisecond as the last one is not applied", {
 
 test_that("damaged ephemeral bytes are clean errors", {
   store = ephemeral_store()
-  ephemeral_set(store, "k", list(a = 1L, b = "x"))
+  ephemeral_set(store, k = list(a = 1L, b = "x"))
   bytes = ephemeral_encode(store)
   other = ephemeral_store()
 
@@ -164,13 +169,11 @@ test_that("ephemeral values and keys convert like document values", {
     null = NULL, nan = NaN, inf = Inf, raw = as.raw(1:3), empty = list(),
     nested = list(x = list(1L, "two"), y = NULL), text = "héllo \U0001F600"
   )
-  for (key in names(values)) ephemeral_set(a, key, values[[key]])
-  ephemeral_set(a, "", "empty key")
-  ephemeral_set(a, "clé", TRUE)
+  for (key in names(values)) ephemeral_set(a, "{key}" := values[[key]])
+  ephemeral_set(a, "clé" = TRUE)
   ephemeral_apply(b, ephemeral_encode(a))
 
   for (key in names(values)) expect_identical(ephemeral_get(b, key), values[[key]])
-  expect_identical(ephemeral_get(b, ""), "empty key")
   expect_identical(ephemeral_get(b, "clé"), TRUE)
 
   events = 0

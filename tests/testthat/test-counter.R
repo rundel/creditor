@@ -18,8 +18,8 @@ test_that("concurrent increments add up", {
   counter_increment(doc_counter(a), 3)
   counter_increment(doc_counter(b), 4)
 
-  doc_import(b, doc_export(a, "updates"))
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export_updates(a))
+  doc_import(a, doc_export_updates(b))
   expect_identical(counter_get(doc_counter(a)), 7)
   expect_identical(counter_get(doc_counter(b)), 7)
 })

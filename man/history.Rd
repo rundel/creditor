@@ -38,7 +38,7 @@ doc_frontiers_to_version(doc, frontiers)
 
 doc_version_to_frontiers(doc, version)
 
-doc_compare_frontiers(doc, from, to)
+doc_compare_frontiers(doc, x, y)
 
 doc_checkout(doc, frontiers = NULL)
 
@@ -67,7 +67,7 @@ operation counter.}
 \item{changes}{A data frame of changes, such as rows of
 \code{doc_changes()}.}
 
-\item{frontiers, from, to}{A version: frontiers from \code{doc_frontiers()}
+\item{frontiers, from, to, x, y}{A version: frontiers from \code{doc_frontiers()}
 or the \code{frontiers} column of \code{doc_changes()}. See \code{\link[=as_frontiers]{as_frontiers()}}.}
 
 \item{version}{A version vector from \code{\link[=doc_version]{doc_version()}}.}
@@ -102,10 +102,10 @@ showing. Unlike the version vector from
 are a compact name for one point in history.
 \item \code{doc_frontiers_to_version()} and \code{doc_version_to_frontiers()}
 convert between the two kinds of version. For example, converting
-a row of \code{doc_changes()} to a version vector lets \code{\link[=doc_export]{doc_export()}}
+a row of \code{doc_changes()} to a version vector lets \code{\link[=doc_export_updates]{doc_export_updates()}}
 produce the updates made since that change.
-\item \code{doc_compare_frontiers()} orders two versions: \code{-1} if \code{from} is an
-ancestor of \code{to}, \code{1} if it is a descendant, \code{0} if they are the
+\item \code{doc_compare_frontiers()} orders two versions: \code{-1} if \code{x} is an
+ancestor of \code{y}, \code{1} if it is a descendant, \code{0} if they are the
 same, and \code{NA} if they are concurrent (neither contains the other).
 \item \code{doc_changes()} returns one row per change in the history, and
 \code{doc_change()} the one change containing a given operation.

@@ -15,13 +15,13 @@
 \alias{ephemeral_subscribe_local_updates}
 \title{Ephemeral state}
 \usage{
-ephemeral_store(timeout = 30000)
+ephemeral_store(timeout = 30)
 
-ephemeral_set(store, key, value)
+ephemeral_set(store, ...)
 
 ephemeral_get(store, key)
 
-ephemeral_delete(store, key)
+ephemeral_delete(store, ...)
 
 ephemeral_keys(store)
 
@@ -38,14 +38,16 @@ ephemeral_subscribe(store, callback)
 ephemeral_subscribe_local_updates(store, callback)
 }
 \arguments{
-\item{timeout}{Milliseconds after which an entry that has not been
+\item{timeout}{Seconds after which an entry that has not been
 updated expires.}
 
 \item{store}{An ephemeral store.}
 
-\item{key}{A string.}
+\item{...}{Plain values to store, each named with its key; see
+\code{\link[=map_set]{map_set()}}. For \code{ephemeral_delete()}, the keys to remove, as
+strings or character vectors.}
 
-\item{value}{A plain value; see the Values section of \code{\link[=map_set]{map_set()}}.}
+\item{key}{A string.}
 
 \item{bytes}{A raw vector from \code{ephemeral_encode()} or a local
 updates subscription.}
@@ -66,8 +68,9 @@ no history: each key holds only its most recent value (the last write
 wins), and entries expire when they stop being refreshed.
 \itemize{
 \item \code{ephemeral_store()} creates a store.
-\item \code{ephemeral_set()}, \code{ephemeral_get()}, and \code{ephemeral_delete()} write,
-read, and remove one key. Setting a key again refreshes it.
+\item \code{ephemeral_set()} writes values given as \code{key = value} arguments,
+\code{ephemeral_get()} reads one key, and \code{ephemeral_delete()} removes
+the keys named in \code{...}. Setting a key again refreshes it.
 \item \code{ephemeral_keys()} and \code{ephemeral_values()} list the current
 entries.
 \item \code{ephemeral_encode()} serializes one key, or every key when \code{key} is
@@ -104,7 +107,7 @@ sync = ephemeral_subscribe_local_updates(a, function(bytes) {
   ephemeral_apply(b, bytes)
 })
 
-ephemeral_set(a, "alice", list(name = "Alice", cursor = 12L))
+ephemeral_set(a, alice = list(name = "Alice", cursor = 12L))
 ephemeral_values(b)
 
 unsubscribe(sync)

@@ -7,7 +7,8 @@
 #' subtree, and concurrent moves merge without creating cycles or
 #' duplicate nodes.
 #'
-#' * `tree_create()` creates a node and returns its id.
+#' * `tree_create()` creates a node, optionally with initial metadata,
+#'   and returns its id.
 #' * `tree_move()` moves a node, with its subtree, to a new parent or
 #'   position.
 #' * `tree_delete()` deletes a node and its descendants.
@@ -37,6 +38,9 @@
 #'   `NULL` to place the node last. For a move it is the position the
 #'   node ends up at.
 #'
+#' @param meta A named list of plain values to store in the new node's
+#'   metadata map, as [`map_set()`] would.
+#'
 #' @return `tree_create()` returns the new node id. `tree_move()` and
 #'   `tree_delete()` return `tree` invisibly. `tree_meta()` returns a map
 #'   handle, `tree_children()` a character vector, `tree_nodes()` a data
@@ -46,21 +50,19 @@
 #' doc = loro_doc()
 #' tree = doc_tree(doc, "outline")
 #'
-#' intro = tree_create(tree)
-#' map_set(tree_meta(tree, intro), "title", "Introduction")
-#' methods = tree_create(tree)
-#' map_set(tree_meta(tree, methods), "title", "Methods")
-#' data = tree_create(tree, parent = intro)
-#' map_set(tree_meta(tree, data), "title", "Data")
+#' intro = tree_create(tree, meta = list(title = "Introduction"))
+#' methods = tree_create(tree, meta = list(title = "Methods"))
+#' data = tree_create(tree, parent = intro, meta = list(title = "Data"))
 #'
 #' tree_move(tree, data, parent = methods)
+#' tree_meta(tree, data)$title
 #' tree_nodes(tree)
 #' tree_children(tree, methods)
 #'
 #' @name tree
 NULL
 
-check_node = function(node, arg, call = sys.call(-1)) {
+check_node = function(node, arg, call = rlang::caller_env()) {
   if (!is.character(node) || length(node) != 1 || is.na(node) || !grepl("^[0-9]+@[0-9]+$", node)) {
     cli::cli_abort(
       "{.arg {arg}} must be a node id such as {.val 0@1}, from {.fn tree_create}.",
@@ -70,14 +72,14 @@ check_node = function(node, arg, call = sys.call(-1)) {
   node
 }
 
-check_parent = function(parent, call = sys.call(-1)) {
+check_parent = function(parent, call = rlang::caller_env()) {
   if (is.null(parent)) {
     return(NULL)
   }
   check_node(parent, "parent", call = call)
 }
 
-check_index = function(index, call = sys.call(-1)) {
+check_index = function(index, call = rlang::caller_env()) {
   if (is.null(index)) {
     return(NULL)
   }
@@ -86,9 +88,20 @@ check_index = function(index, call = sys.call(-1)) {
 
 #' @rdname tree
 #' @export
-tree_create = function(tree, parent = NULL, index = NULL) {
+tree_create = function(tree, parent = NULL, index = NULL, meta = list()) {
   check_container(tree, loro_tree, "tree")
-  loro_tree_create_impl(tree@ptr, check_parent(parent), check_index(index))
+  if (!is.list(meta) || is.object(meta)) {
+    cli::cli_abort("{.arg meta} must be a named list.")
+  }
+  meta = named_values(!!!meta)
+  node = loro_tree_create_impl(tree@ptr, check_parent(parent), check_index(index))
+  if (length(meta) > 0) {
+    map = loro_tree_meta_impl(tree@ptr, node)$ptr
+    for (key in names(meta)) {
+      loro_map_set_impl(map, key, meta[[key]])
+    }
+  }
+  node
 }
 
 #' @rdname tree

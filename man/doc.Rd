@@ -7,7 +7,7 @@
 \alias{doc_fork}
 \alias{doc_commit}
 \alias{doc_value}
-\alias{doc_get_path}
+\alias{doc_get}
 \alias{doc_jsonpath}
 \title{Document identity, replicas, and contents}
 \usage{
@@ -21,7 +21,7 @@ doc_commit(doc, message = NULL, origin = NULL, timestamp = NULL)
 
 doc_value(doc)
 
-doc_get_path(doc, path)
+doc_get(doc, ...)
 
 doc_jsonpath(doc, path)
 }
@@ -40,13 +40,17 @@ for the current version.}
 \item{timestamp}{The time to record for the commit, as a \code{POSIXct}
 or a number of seconds since 1970, or \code{NULL}.}
 
-\item{path}{A path or JSONPath expression, as a string.}
+\item{...}{The steps of a path: strings and whole numbers. These
+are \link[rlang:dyn-dots]{dynamic dots}, so a path held in a list can
+be spliced in with \verb{!!!}.}
+
+\item{path}{A JSONPath expression, as a string.}
 }
 \value{
 \code{doc_set_peer_id()} returns \code{doc} invisibly.
 \code{doc_peer_id()} returns a string, \code{doc_fork()} a new
 \code{loro_doc}, \code{doc_commit()} returns \code{doc} invisibly, and
-\code{doc_value()} a named list. \code{doc_get_path()} returns a value or
+\code{doc_value()} a named list. \code{doc_get()} returns a value or
 container handle, and \code{doc_jsonpath()} a list of them.
 }
 \description{
@@ -71,15 +75,15 @@ import, and checkout.
 \item \code{doc_value()} returns the whole document as a named list with one
 element per root container. It is an error if containers are
 nested more than 1000 levels deep.
-\item \code{doc_get_path()} returns the value at a slash-separated path such
-as \code{"note/items/1"}: a root container name, then map keys, 0-based
-list positions, or tree node ids. Containers are returned as
-handles, and \code{NULL} means nothing is there. The path syntax cannot
-express every key: a map key that contains \code{/}, or that looks like
-a number, is not reachable this way. Use \code{doc_jsonpath()} with a
-quoted key, such as \code{"$.m['a/b']"}, for those.
+\item \code{doc_get()} returns what is found by following a path into the
+document, one step per argument, as in \code{doc_get(doc, "note", "items", 2)}: the name of a root container, then a string for each
+map key or tree node id (which leads to the node's metadata map)
+and a 1-based number for each list position. Containers are
+returned as handles, and \code{NULL} means nothing is there. Unlike
+\code{\link[=doc_map]{doc_map()}} and its siblings, it never creates a container.
 \item \code{doc_jsonpath()} returns a list of everything matching a JSONPath
-expression such as \code{"$.note.items[*]"}. Loro does not support
+expression such as \code{"$.note.items[*]"}. JSONPath is its own
+language, so list positions inside it are 0-based. Loro does not support
 every JSONPath feature: a query that has to descend into a tree
 container, or that uses the \code{match()} or \code{search()} functions, is
 an error.
@@ -90,5 +94,10 @@ doc = loro_doc(peer_id = 1)
 text_insert(doc_text(doc), 1, "Hello")
 doc_peer_id(doc)
 doc_value(doc)
+
+note = doc_map(doc, "note")
+list_push(map_set_container(note, "items", "list"), "milk", "eggs")
+doc_get(doc, "note", "items", 2)
+doc_jsonpath(doc, "$.note.items[*]")
 
 }

@@ -4,13 +4,13 @@ test_that("values can be set, read, and deleted", {
   expect_identical(map_keys(map), character())
   expect_null(map_get(map, "missing"))
 
-  map_set(map, "b", 2)
-  map_set(map, "a", "one")
+  map_set(map, b = 2)
+  map_set(map, a = "one")
   expect_identical(map_keys(map), c("a", "b"))
   expect_identical(map_length(map), 2L)
   expect_identical(map_get(map, "a"), "one")
 
-  map_set(map, "a", "uno")
+  map_set(map, a = "uno")
   expect_identical(map_get(map, "a"), "uno")
 
   map_delete(map, "a")
@@ -30,16 +30,16 @@ test_that("scalar values round trip with their types", {
     big = 2^40
   )
   for (key in names(values)) {
-    map_set(map, key, values[[key]])
+    map[[key]] = values[[key]]
   }
   expect_identical(container_value(map), values[order(names(values))])
 })
 
 test_that("NULL and NA are stored as null", {
   map = doc_map(loro_doc())
-  map_set(map, "null", NULL)
-  map_set(map, "na", NA)
-  map_set(map, "na_chr", NA_character_)
+  map_set(map, null = NULL)
+  map_set(map, na = NA)
+  map_set(map, na_chr = NA_character_)
   expect_identical(map_keys(map), c("na", "na_chr", "null"))
   expect_null(map_get(map, "na"))
   expect_null(map_get(map, "na_chr"))
@@ -48,33 +48,37 @@ test_that("NULL and NA are stored as null", {
 test_that("vectors and lists become lists and maps", {
   map = doc_map(loro_doc())
 
-  map_set(map, "vec", c(1L, NA, 3L))
+  map_set(map, vec = c(1L, NA, 3L))
   expect_identical(map_get(map, "vec"), list(1L, NULL, 3L))
 
-  map_set(map, "empty", character())
+  map_set(map, empty = character())
   expect_identical(map_get(map, "empty"), list())
 
-  map_set(map, "named", c(b = "x", a = "y"))
+  map_set(map, named = c(b = "x", a = "y"))
   expect_identical(map_get(map, "named"), list(a = "y", b = "x"))
 
-  map_set(map, "nested", list(x = list(1, "two"), y = list(z = TRUE)))
+  map_set(map, nested = list(x = list(1, "two"), y = list(z = TRUE)))
   expect_identical(
     map_get(map, "nested"),
     list(x = list(1, "two"), y = list(z = TRUE))
   )
 
-  map_set(map, "one", list(1))
+  map_set(map, one = list(1))
   expect_identical(map_get(map, "one"), list(1))
 })
 
 test_that("unsupported values are errors", {
   map = doc_map(loro_doc())
-  expect_error(map_set(map, "f", factor("a")), "class")
-  expect_error(map_set(map, "d", Sys.Date()), "class")
-  expect_error(map_set(map, "fn", mean))
-  expect_error(map_set(map, "partial", list(a = 1, 2)), "names")
-  expect_error(map_set(map, "dup", list(a = 1, a = 2)), "unique")
-  expect_error(map_set(map, NA_character_, 1), "key")
+  expect_error(map_set(map, f = factor("a")), "class")
+  expect_error(map_set(map, d = Sys.Date()), "class")
+  expect_error(map_set(map, fn = mean))
+  expect_error(map_set(map, partial = list(a = 1, 2)), "names")
+  expect_error(map_set(map, dup = list(a = 1, a = 2)), "unique")
+  expect_error(map_set(map, 1), "named")
+  expect_error(map_set(map, a = 1, 2), "named")
+  expect_error(map_set(map, a = 1, a = 2), "unique")
+  expect_error(map_get(map, NA_character_), "key")
+  expect_error(map[[NA_character_]] <- 1, "single string")
   expect_identical(map_length(map), 0L)
 })
 
@@ -85,7 +89,7 @@ test_that("child containers can be created and retrieved", {
   list = map_set_container(map, "list", "list")
 
   text_insert(text, 1, "abc")
-  map_set(inner, "k", 1L)
+  map_set(inner, k = 1L)
   list_push(list, "x")
 
   expect_identical(text_get(map_get(map, "text")), "abc")
@@ -97,12 +101,12 @@ test_that("child containers can be created and retrieved", {
 test_that("concurrent writes to one key converge", {
   a = loro_doc(peer_id = 1)
   b = loro_doc(peer_id = 2)
-  map_set(doc_map(a), "k", "from a")
-  map_set(doc_map(b), "k", "from b")
-  map_set(doc_map(b), "other", 1L)
+  map_set(doc_map(a), k = "from a")
+  map_set(doc_map(b), k = "from b")
+  map_set(doc_map(b), other = 1L)
 
-  doc_import(b, doc_export(a, "updates"))
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(b, doc_export_updates(a))
+  doc_import(a, doc_export_updates(b))
 
   expect_identical(doc_value(a), doc_value(b))
   expect_true(map_get(doc_map(a), "k") %in% c("from a", "from b"))
@@ -111,7 +115,7 @@ test_that("concurrent writes to one key converge", {
 
 test_that("a map can be cleared", {
   map = doc_map(loro_doc())
-  map_set(map, "a", 1L)
+  map_set(map, a = 1L)
   map_set_container(map, "b", "text")
   map_clear(map)
   expect_identical(map_keys(map), character())
@@ -122,13 +126,13 @@ test_that("the last editor of a key is reported", {
   a = loro_doc(peer_id = 1)
   map = doc_map(a)
   expect_identical(map_last_editor(map, "k"), NA_character_)
-  map_set(map, "k", 1L)
+  map_set(map, k = 1L)
   expect_identical(map_last_editor(map, "k"), "1")
 
   b = loro_doc(peer_id = 2)
   doc_import(b, doc_export(a))
-  map_set(doc_map(b), "k", 2L)
-  doc_import(a, doc_export(b, "updates"))
+  map_set(doc_map(b), k = 2L)
+  doc_import(a, doc_export_updates(b))
   expect_identical(map_last_editor(map, "k"), "2")
 })
 
@@ -154,8 +158,8 @@ test_that("ensured containers created concurrently merge into one", {
   text_insert(map_ensure_container(doc_map(a, "m"), "body", "text"), 1, "from a ")
   text_insert(map_ensure_container(doc_map(b, "m"), "body", "text"), 1, "from b ")
 
-  doc_import(a, doc_export(b, "updates"))
-  doc_import(b, doc_export(a, "updates"))
+  doc_import(a, doc_export_updates(b))
+  doc_import(b, doc_export_updates(a))
   expect_identical(doc_value(a), doc_value(b))
   body = doc_value(a)$m$body
   expect_match(body, "from a ", fixed = TRUE)
@@ -168,15 +172,15 @@ test_that("containers set concurrently do not merge", {
   text_insert(map_set_container(doc_map(a, "m"), "body", "text"), 1, "from a ")
   text_insert(map_set_container(doc_map(b, "m"), "body", "text"), 1, "from b ")
 
-  doc_import(a, doc_export(b, "updates"))
-  doc_import(b, doc_export(a, "updates"))
+  doc_import(a, doc_export_updates(b))
+  doc_import(b, doc_export_updates(a))
   expect_identical(doc_value(a), doc_value(b))
   expect_true(doc_value(a)$m$body %in% c("from a ", "from b "))
 })
 
 test_that("ensuring a container over a conflicting entry is an error", {
   map = doc_map(loro_doc(), "m")
-  map_set(map, "plain", 1L)
+  map_set(map, plain = 1L)
   map_ensure_container(map, "body", "text")
   map_set_container(map, "regular", "text")
 
@@ -185,4 +189,90 @@ test_that("ensuring a container over a conflicting entry is an error", {
   expect_error(map_ensure_container(map, "regular", "text"))
   expect_error(map_ensure_container(map, "new", "nope"), "type")
   expect_s3_class(map_get(map, "body"), "creditor::loro_text")
+})
+
+test_that("several keys are set at once, in order", {
+  map = doc_map(loro_doc())
+  expect_identical(map_set(map, a = 1L, b = "two", c = NULL), map)
+  expect_identical(map_keys(map), c("a", "b", "c"))
+  expect_identical(map_set(map), map)
+
+  values = list(d = 4L, e = 5L)
+  key = "f"
+  map_set(map, !!!values, "{key}" := 6L)
+  expect_identical(map_get(map, "e"), 5L)
+  expect_identical(map_get(map, "f"), 6L)
+
+  expect_error(map_set(map, g = 7L, h = factor("x")), "class")
+  expect_identical(map_get(map, "g"), 7L)
+})
+
+test_that("keys can be tested for and deleted together", {
+  map = doc_map(loro_doc())
+  map_set(map, a = 1L, b = NULL, c = 3L)
+  expect_identical(map_has(map, c("a", "b", "z")), c(TRUE, TRUE, FALSE))
+  expect_identical(map_has(map, character()), logical())
+  map_delete(map, c("a", "b"))
+  expect_identical(map_keys(map), "c")
+  map_delete(map, character())
+  map_delete(map)
+  expect_identical(map_keys(map), "c")
+  map_set(map, d = 1, e = 2, f = 3)
+  map_delete(map, "c", c("d", "e"))
+  expect_identical(map_keys(map), "f")
+  expect_error(map_delete(map, 1), "keys")
+  expect_error(map_delete(map, keys = "f"), "named")
+  expect_error(map_has(map, NA_character_), "keys")
+})
+
+test_that("a map handle works with base accessors", {
+  doc = loro_doc()
+  map = doc_map(doc)
+  map$title = "Notes"
+  map[["a b"]] = 2L
+  map[[""]] = "empty"
+  expect_identical(map$title, "Notes")
+  expect_identical(map[["a b"]], 2L)
+  expect_identical(map[[""]], "empty")
+  expect_null(map$missing)
+  expect_null(map$tit)
+  expect_identical(names(map), c("", "a b", "title"))
+  expect_identical(length(map), 3L)
+  expect_identical(as.list(map), container_value(map))
+
+  body = map_set_container(map, "body", "text")
+  text_insert(body, 1, "Hello")
+  expect_s3_class(map$body, "creditor::loro_text")
+  expect_identical(text_get(map[["body"]]), "Hello")
+
+  map_set(map, gone = 1L, also = 2L, null = NULL)
+  map$title = NULL
+  map[["gone"]] = NULL
+  map$absent = NULL
+  expect_identical(map_has(map, c("title", "gone", "absent", "null")), c(FALSE, FALSE, FALSE, TRUE))
+  map_delete(map, "also", "null")
+  expect_error(map[[1]], "single string")
+  expect_error(map$f <- factor("a"), "class")
+  expect_identical(doc_value(doc)$map$`a b`, 2L)
+})
+
+test_that("assignment reaches through child containers", {
+  doc = loro_doc()
+  root = doc_map(doc, "root")
+  child = map_set_container(root, "child", "map")
+  items = map_set_container(child, "items", "movable_list")
+  list_push(items, "a")
+  id = container_id(child)
+
+  root$child$done = TRUE
+  root[["child"]][["label"]] = "x"
+  root$child$items[[1]] = "b"
+  expect_identical(as.list(root), list(child = list(done = TRUE, items = list("b"), label = "x")))
+  expect_identical(container_id(root$child), id)
+
+  other = doc_map(doc, "other")
+  expect_error(root$child <- other, "cannot be stored")
+  expect_error(root$new <- other, "cannot be stored")
+  expect_error(items[[1]] <- other, "cannot be stored")
+  expect_error(map_set(root, k = other), "class")
 })

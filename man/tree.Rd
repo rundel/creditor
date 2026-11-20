@@ -11,7 +11,7 @@
 \alias{tree_contains}
 \title{Trees}
 \usage{
-tree_create(tree, parent = NULL, index = NULL)
+tree_create(tree, parent = NULL, index = NULL, meta = list())
 
 tree_move(tree, node, parent = NULL, index = NULL)
 
@@ -34,6 +34,9 @@ tree_contains(tree, node)
 \code{NULL} to place the node last. For a move it is the position the
 node ends up at.}
 
+\item{meta}{A named list of plain values to store in the new node's
+metadata map, as \code{\link[=map_set]{map_set()}} would.}
+
 \item{node}{A node id.}
 }
 \value{
@@ -49,7 +52,8 @@ metadata map for its contents. Moving a node carries its whole
 subtree, and concurrent moves merge without creating cycles or
 duplicate nodes.
 \itemize{
-\item \code{tree_create()} creates a node and returns its id.
+\item \code{tree_create()} creates a node, optionally with initial metadata,
+and returns its id.
 \item \code{tree_move()} moves a node, with its subtree, to a new parent or
 position.
 \item \code{tree_delete()} deletes a node and its descendants.
@@ -77,14 +81,12 @@ to anything. Undoing a move, and \code{\link[=doc_checkout]{doc_checkout()}}, ke
 doc = loro_doc()
 tree = doc_tree(doc, "outline")
 
-intro = tree_create(tree)
-map_set(tree_meta(tree, intro), "title", "Introduction")
-methods = tree_create(tree)
-map_set(tree_meta(tree, methods), "title", "Methods")
-data = tree_create(tree, parent = intro)
-map_set(tree_meta(tree, data), "title", "Data")
+intro = tree_create(tree, meta = list(title = "Introduction"))
+methods = tree_create(tree, meta = list(title = "Methods"))
+data = tree_create(tree, parent = intro, meta = list(title = "Data"))
 
 tree_move(tree, data, parent = methods)
+tree_meta(tree, data)$title
 tree_nodes(tree)
 tree_children(tree, methods)
 

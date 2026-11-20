@@ -33,8 +33,8 @@ doc_import(b, doc_export(a))
 text_insert(doc_text(a), 6, " world")
 text_insert(doc_text(b), 1, ">> ")
 
-doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+doc_import(b, doc_export_updates(a, from = doc_version(b)))
+doc_import(a, doc_export_updates(b, from = doc_version(a)))
 
 text_get(doc_text(a))
 #> [1] ">> Hello world"
@@ -47,11 +47,10 @@ Containers nest: a map or list can hold plain values or child containers, each o
 ```r
 doc = loro_doc()
 note = doc_map(doc, "note")
-map_set(note, "title", "Groceries")
+map_set(note, title = "Groceries")
 
 items = map_set_container(note, "items", "list")
-list_push(items, "milk")
-list_push(items, "eggs")
+list_push(items, "milk", "eggs")
 
 body = map_set_container(note, "body", "text")
 text_insert(body, 1, "Buy before Friday")
@@ -72,7 +71,7 @@ Text can carry marks, and a cursor keeps pointing at the same character as the t
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello world")
-text_mark(text, 1, 5, "bold")
+text_mark(text, 1, 5, bold = TRUE)
 cursor = text_cursor(text, 7)
 
 text_update(text, "Hello brave new world")

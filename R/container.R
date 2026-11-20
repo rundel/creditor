@@ -27,7 +27,30 @@ container_from_ref = function(x) {
   )
 }
 
-check_container = function(x, class, arg, call = sys.call(-1)) {
+# A nested assignment such as `map$child$key = value` ends by assigning
+# the child handle back to the key it was read from. That step must be a
+# no-op: the edit has already been made through the handle.
+is_same_child = function(value, current) {
+  if (!S7::S7_inherits(value, loro_container)) {
+    return(FALSE)
+  }
+  current = container_from_ref(current)
+  if (
+    !S7::S7_inherits(current, loro_container) ||
+      loro_container_id_impl(current@ptr) != loro_container_id_impl(value@ptr)
+  ) {
+    cli::cli_abort(
+      c(
+        "A container handle cannot be stored as a value.",
+        i = "Create a child container with {.fn map_set_container} or {.fn list_insert_container}."
+      ),
+      call = rlang::caller_env()
+    )
+  }
+  TRUE
+}
+
+check_container = function(x, class, arg, call = rlang::caller_env()) {
   if (!S7::S7_inherits(x, class)) {
     cli::cli_abort(
       "{.arg {arg}} must be a {.cls {class@name}}, not {.obj_type_friendly {x}}.",
@@ -66,6 +89,11 @@ check_container = function(x, class, arg, call = sys.call(-1)) {
 #'   can still be read, but editing through it is an error.
 #' * `container_id()` returns the container's unique id as a string.
 #'
+#' Handles also answer to the base functions that fit them: `length()`
+#' for text, maps, and lists, `names()`, `$`, and `[[` for maps, `[[`
+#' for lists, `as.character()` for text, and `as.list()` for maps and
+#' lists.
+#'
 #' Root container names are shared across types within a document's
 #' value, so use distinct names for different root containers: if two
 #' root containers of different types have the same name, each keeps
@@ -95,7 +123,7 @@ check_container = function(x, class, arg, call = sys.call(-1)) {
 #' text_insert(text, 1, "Hello")
 #'
 #' meta = doc_map(doc, "meta")
-#' map_set(meta, "title", "Greeting")
+#' map_set(meta, title = "Greeting")
 #'
 #' container_value(meta)
 #' container_id(text)
@@ -152,9 +180,7 @@ doc_tree = function(doc, name = "tree") {
 #' @export
 container_value = function(x, deep = TRUE) {
   check_container(x, loro_container, "x")
-  if (!is.logical(deep) || length(deep) != 1 || is.na(deep)) {
-    cli::cli_abort("{.arg deep} must be {.code TRUE} or {.code FALSE}.")
-  }
+  check_bool(deep, "deep")
   loro_container_value_impl(x@ptr, deep)
 }
 

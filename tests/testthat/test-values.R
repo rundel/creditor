@@ -6,13 +6,13 @@ test_that("strings in another encoding are stored as UTF-8", {
   map = doc_map(doc, "m")
   text = doc_text(doc, "t")
 
-  map_set(map, "value", latin1())
-  map_set(map, "named", stats::setNames(list(1L), latin1()))
-  map_set(map, "nested", list(list(latin1())))
-  map_set(map, latin1(), TRUE)
+  map_set(map, value = latin1())
+  map_set(map, named = stats::setNames(list(1L), latin1()))
+  map_set(map, nested = list(list(latin1())))
+  map_set(map, "{latin1()}" := TRUE)
   text_insert(text, 1, latin1())
   text_apply_delta(text, list(list(insert = latin1())))
-  text_mark(text, 1, 2, "link", latin1())
+  text_mark(text, 1, 2, link = latin1())
 
   expect_identical(map_get(map, "value"), "café")
   expect_identical(names(map_get(map, "named")), "café")
@@ -22,7 +22,7 @@ test_that("strings in another encoding are stored as UTF-8", {
   expect_identical(text_delta(text)[[1]]$attributes$link, "café")
 
   copy = loro_doc()
-  doc_import(copy, doc_export(doc, "snapshot"))
+  doc_import(copy, doc_export(doc))
   expect_identical(doc_value(copy), doc_value(doc))
 })
 
@@ -34,35 +34,38 @@ test_that("strings that are not valid UTF-8 are rejected everywhere", {
   bytes = "abc"
   Encoding(bytes) = "bytes"
 
-  expect_error(map_set(map, "k", invalid()), "UTF-8")
-  expect_error(map_set(map, "k", list(a = list(invalid()))), "UTF-8")
-  expect_error(map_set(map, "k", stats::setNames(list(1), invalid())), "UTF-8")
-  expect_error(map_set(map, invalid(), 1), "UTF-8")
+  expect_error(map_set(map, k = invalid()), "UTF-8")
+  expect_error(map_set(map, k = list(a = list(invalid()))), "UTF-8")
+  expect_error(map_set(map, k = stats::setNames(list(1), invalid())), "UTF-8")
+  key = invalid()
+  expect_error(map[[key]] <- 1, "UTF-8")
+  bad = stats::setNames(list(1), invalid())
+  expect_error(do.call(map_set, c(list(map), bad)), "UTF-8")
   expect_error(list_push(doc_list(doc, "l"), invalid()), "UTF-8")
   expect_error(text_insert(text, 1, invalid()), "UTF-8")
   expect_error(text_update(text, invalid()), "UTF-8")
   expect_error(text_apply_delta(text, list(list(insert = invalid()))), "UTF-8")
-  expect_error(text_mark(text, 1, 1, "link", invalid()), "UTF-8")
-  expect_error(ephemeral_set(ephemeral_store(), "k", invalid()), "UTF-8")
+  expect_error(text_mark(text, 1, 1, link = invalid()), "UTF-8")
+  expect_error(ephemeral_set(ephemeral_store(), k = invalid()), "UTF-8")
   expect_error(doc_commit(doc, message = invalid()), "UTF-8")
   expect_error(doc_undo_manager(doc, exclude_origins = invalid()), "UTF-8")
 
   expect_identical(map_keys(map), character())
   expect_identical(text_get(text), "abc")
-  expect_type(doc_export(doc, "snapshot"), "raw")
+  expect_type(doc_export(doc), "raw")
 })
 
 test_that("a name that is the string NA is a valid name", {
   map = doc_map(loro_doc())
-  map_set(map, "NA", 1L)
-  map_set(map, "list", list("NA" = 1L))
-  map_set(map, "vector", c("NA" = 1L, b = 2L))
+  map_set(map, "NA" = 1L)
+  map_set(map, list = list("NA" = 1L))
+  map_set(map, vector = c("NA" = 1L, b = 2L))
   expect_identical(map_get(map, "NA"), 1L)
   expect_identical(map_get(map, "list"), list("NA" = 1L))
   expect_identical(map_get(map, "vector"), list("NA" = 1L, b = 2L))
 
-  expect_error(map_set(map, "x", stats::setNames(list(1, 2), c("a", NA))), "names")
-  expect_error(map_set(map, "x", list(a = 1, 2)), "names")
+  expect_error(map_set(map, x = stats::setNames(list(1, 2), c("a", NA))), "names")
+  expect_error(map_set(map, x = list(a = 1, 2)), "names")
 })
 
 test_that("nesting is limited instead of overflowing the stack", {
@@ -73,10 +76,10 @@ test_that("nesting is limited instead of overflowing the stack", {
     x
   }
 
-  map_set(map, "ok", nested(999))
+  map_set(map, ok = nested(999))
   expect_identical(map_get(map, "ok"), nested(999))
-  expect_error(map_set(map, "deep", nested(1001)), "1000 levels")
-  expect_error(map_set(map, "deeper", nested(30000)), "1000 levels")
+  expect_error(map_set(map, deep = nested(1001)), "1000 levels")
+  expect_error(map_set(map, deeper = nested(30000)), "1000 levels")
   expect_identical(map_keys(map), "ok")
 })
 
@@ -93,15 +96,15 @@ test_that("numbers keep their value and type at the boundaries", {
     inf = Inf,
     neg_inf = -Inf
   )
-  for (key in names(values)) map_set(map, key, values[[key]])
+  for (key in names(values)) map_set(map, "{key}" := values[[key]])
 
   expect_identical(container_value(map), values[order(names(values))])
   expect_type(map_get(map, "int_max"), "integer")
   expect_type(map_get(map, "past_int"), "double")
 
-  map_set(map, "neg_zero", -0)
+  map_set(map, neg_zero = -0)
   expect_identical(1 / map_get(map, "neg_zero"), -Inf)
-  map_set(map, "mixed", c(NaN, NA, 1))
+  map_set(map, mixed = c(NaN, NA, 1))
   expect_identical(map_get(map, "mixed"), list(NaN, NULL, 1))
 })
 
@@ -125,38 +128,38 @@ test_that("integers outside R's range are read as doubles", {
 test_that("empty vectors and nulls convert predictably", {
   map = doc_map(loro_doc())
   for (empty in list(logical(), integer(), numeric(), character(), list())) {
-    map_set(map, "v", empty)
+    map_set(map, v = empty)
     expect_identical(map_get(map, "v"), list())
   }
-  map_set(map, "v", raw())
+  map_set(map, v = raw())
   expect_identical(map_get(map, "v"), raw())
 
   for (missing in list(NULL, NA, NA_integer_, NA_real_, NA_character_)) {
-    map_set(map, "v", missing)
+    map_set(map, v = missing)
     expect_null(map_get(map, "v"))
     expect_identical(map_keys(map), "v")
   }
 
   nested = list(NULL, list(NULL), list(a = NULL), raw(), as.raw(0))
-  map_set(map, "v", nested)
+  map_set(map, v = nested)
   expect_identical(map_get(map, "v"), nested)
 })
 
 test_that("an empty named list is stored as an empty list", {
   map = doc_map(loro_doc())
-  map_set(map, "v", stats::setNames(list(), character()))
+  map_set(map, v = stats::setNames(list(), character()))
   expect_identical(map_get(map, "v"), list())
 })
 
 test_that("names on raw vectors and other attributes are dropped", {
   map = doc_map(loro_doc())
-  map_set(map, "raw", c(a = as.raw(1)))
+  map_set(map, raw = c(a = as.raw(1)))
   expect_identical(map_get(map, "raw"), as.raw(1))
-  map_set(map, "matrix", matrix(1:4, 2))
+  map_set(map, matrix = matrix(1:4, 2))
   expect_identical(map_get(map, "matrix"), list(1L, 2L, 3L, 4L))
-  expect_error(map_set(map, "x", 1i), "can be stored")
-  expect_error(map_set(map, "x", quote(a)), "can be stored")
-  expect_error(map_set(map, "x", list(1, list(mean))), "can be stored")
+  expect_error(map_set(map, x = 1i), "can be stored")
+  expect_error(map_set(map, x = quote(a)), "can be stored")
+  expect_error(map_set(map, x = list(1, list(mean))), "can be stored")
   expect_identical(map_keys(map), c("matrix", "raw"))
 })
 
@@ -164,16 +167,16 @@ test_that("unusual keys and long strings round trip", {
   doc = loro_doc(peer_id = 1)
   map = doc_map(doc, "m")
   keys = c("a b", "é", "\U0001F600", "a.b", "$x", "a/b", "")
-  for (key in keys) map_set(map, key, key)
+  for (key in keys) map[[key]] = key
   for (key in keys) expect_identical(map_get(map, key), key)
 
   special = "line\nbreak\ttab \"quote\" back\\slash cid:root-x:Map"
-  map_set(map, "special", special)
+  map_set(map, special = special)
   long = strrep("abcdefghij", 100000)
-  map_set(map, "long", long)
+  map_set(map, long = long)
 
   copy = loro_doc()
-  doc_import(copy, doc_export(doc, "snapshot"))
+  doc_import(copy, doc_export(doc))
   expect_identical(map_get(doc_map(copy, "m"), "special"), special)
   expect_identical(map_get(doc_map(copy, "m"), "long"), long)
   expect_identical(map_get(doc_map(copy, "m"), ""), "")
@@ -182,7 +185,7 @@ test_that("unusual keys and long strings round trip", {
 test_that("map keys are in byte order", {
   map = doc_map(loro_doc())
   keys = c("b", "B", "a", "_z", "10", "9")
-  for (key in keys) map_set(map, key, 1L)
+  for (key in keys) map[[key]] = 1L
   expect_identical(map_keys(map), sort(keys, method = "radix"))
   expect_identical(names(container_value(map)), sort(keys, method = "radix"))
 })

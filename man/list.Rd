@@ -16,9 +16,9 @@
 \alias{list_clear}
 \title{Edit lists}
 \usage{
-list_insert(list, pos, value)
+list_insert(list, pos, ...)
 
-list_push(list, value)
+list_push(list, ...)
 
 list_insert_container(list, pos, type)
 
@@ -26,7 +26,7 @@ list_push_container(list, type)
 
 list_get(list, pos)
 
-list_delete(list, pos, len = 1)
+list_delete(list, pos)
 
 list_length(list)
 
@@ -45,16 +45,20 @@ list_clear(list)
 or a parent container. \code{list_move()}, \code{list_set()}, and
 \code{list_set_container()} need a movable list.}
 
-\item{pos}{A 1-based position.}
+\item{pos}{A 1-based position. For \code{list_delete()}, a vector of
+positions such as \code{2:4}.}
 
-\item{value}{A plain value.}
+\item{...}{Plain values to add, one element each. They must not be
+named; to store a map as one element, pass a named list. These are
+\link[rlang:dyn-dots]{dynamic dots}, so a list of elements can be
+spliced in with \verb{!!!}.}
 
 \item{type}{Type of the child container: \code{"text"}, \code{"map"},
 \code{"list"}, \code{"movable_list"}, \code{"counter"}, or \code{"tree"}.}
 
-\item{len}{Number of elements to delete.}
-
 \item{from, to}{1-based positions.}
+
+\item{value}{A plain value.}
 }
 \value{
 \code{list_insert()}, \code{list_push()}, \code{list_delete()},
@@ -70,19 +74,26 @@ A list is an ordered sequence of values. Positions are 1-based.
 Concurrent insertions at the same position are all kept, in the same
 order on every replica.
 \itemize{
-\item \code{list_insert()} inserts a plain value before the element currently
-at \code{pos}, and \code{list_push()} appends one.
+\item \code{list_insert()} inserts plain values before the element currently
+at \code{pos}, and \code{list_push()} appends them. Each argument in \code{...}
+becomes one element.
 \item \code{list_insert_container()} and \code{list_push_container()} do the same
 with a new, empty child container and return its handle.
 \item \code{list_get()} returns the element at \code{pos}, as a handle if it is a
 container.
-\item \code{list_delete()} removes \code{len} elements starting at \code{pos}, and
+\item \code{list_delete()} removes the elements at the positions \code{pos}, and
 \code{list_clear()} removes them all.
 \item \code{list_pop()} removes the last element and returns it, or returns
 \code{NULL} if the list is empty. A removed child container is returned
 as its contents.
 \item \code{list_length()} returns the number of elements.
 }
+
+A list handle also works with base functions: \code{list[[pos]]} reads
+like \code{list_get()}, \code{length()} is \code{list_length()}, and \code{as.list()} is
+\code{\link[=container_value]{container_value()}}. \code{list[[pos]] = NULL} removes an element like
+\code{list_delete()}, and for a movable list \code{list[[pos]] = value}
+replaces one like \code{list_set()}.
 
 A movable list, from \code{\link[=doc_movable_list]{doc_movable_list()}}, works with all of the
 functions above and adds two operations that merge cleanly across
@@ -103,22 +114,21 @@ Plain values are converted as described in the Values section of
 \examples{
 doc = loro_doc()
 items = doc_list(doc, "items")
-list_push(items, "b")
+list_push(items, "b", "c")
 list_insert(items, 1, "a")
 
 item = list_push_container(items, "map")
-map_set(item, "done", FALSE)
+map_set(item, done = FALSE)
 
 list_get(items, 1)
-list_delete(items, 2)
-container_value(items)
+items[[2]]
+list_delete(items, 2:3)
+as.list(items)
 
 tasks = doc_movable_list(doc, "tasks")
-list_push(tasks, "write")
-list_push(tasks, "test")
-list_push(tasks, "ship")
+list_push(tasks, "write", "test", "ship")
 list_move(tasks, 3, 1)
 list_set(tasks, 2, "write docs")
-container_value(tasks)
+as.list(tasks)
 
 }

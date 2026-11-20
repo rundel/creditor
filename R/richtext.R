@@ -3,16 +3,16 @@
 #' @description
 #' Marks attach a key and value (a style such as `bold = TRUE`, or
 #' data such as a link target) to a range of text. They merge across
-#' replicas like any other edit. As elsewhere, positions and lengths
-#' count Unicode code points and are 1-based.
+#' replicas like any other edit. As elsewhere, positions count Unicode
+#' code points and are 1-based, and a range runs from `start` to `end`.
 #'
-#' * `text_mark()` marks `len` characters starting at `pos` with
-#'   `key = value`.
-#' * `text_unmark()` removes the mark `key` from that range.
+#' * `text_mark()` marks the characters from `start` to `end` with the
+#'   marks given as `key = value` arguments.
+#' * `text_unmark()` removes the marks named in `keys` from that range.
 #' * `text_delta()` returns the text as a list of runs, each a list
 #'   with a string `insert` and, for marked runs, a named list
-#'   `attributes`. This is the Quill delta format. With `pos` and `len`
-#'   it covers only that range.
+#'   `attributes`. This is the Quill delta format. With `start` and
+#'   `end` it covers only that range.
 #' * `text_apply_delta()` edits the text with a list of delta ops.
 #'   Each op is a list with exactly one of `retain` (keep that many
 #'   characters), `insert` (a string), or `delete` (remove that many
@@ -41,19 +41,19 @@
 #' synchronized, so every replica should configure a key the same way.
 #'
 #' @param text A text handle, from [`doc_text()`] or a parent container.
-#' @param pos A 1-based character position.
-#' @param len Number of characters to mark, unmark, or return. For
-#'   `text_delta()`, `pos` and `len` are optional and must be given
-#'   together.
-#' @param key Name of the mark. It must not contain `":"`.
-#' @param value A plain value for the mark; see the Values section of
-#'   [`map_set()`]. `NULL` and `NA` remove the mark, as `text_unmark()`
-#'   does.
+#' @param start,end 1-based positions of the first and last characters
+#'   of the range. For `text_delta()` they default to the whole text.
+#' @param ... For `text_mark()`, the marks to apply, each a plain value
+#'   (see the Values section of [`map_set()`]) named with its key, for
+#'   example `bold = TRUE` or `link = "https://loro.dev"`. A key must
+#'   not contain `":"`, and a value of `NULL` or `NA` removes the mark,
+#'   as `text_unmark()` does. For `doc_config_text_style()`, strings
+#'   giving the expand behavior of each key, for example
+#'   `comment = "none"`. Both are [dynamic dots][rlang::dyn-dots].
+#' @param keys A character vector of mark names.
 #' @param delta A list of delta ops.
 #' @param doc A [`loro_doc`].
-#' @param ... Named strings giving the expand behavior for each key,
-#'   for example `comment = "none"`.
-#' @param default Expand behavior for keys that are not configured, or
+#' @param .default Expand behavior for keys that are not configured, or
 #'   `NULL` to reject them.
 #'
 #' @return `text_mark()`, `text_unmark()`, and `text_apply_delta()`
@@ -64,8 +64,9 @@
 #' doc = loro_doc()
 #' text = doc_text(doc)
 #' text_insert(text, 1, "Hello world")
-#' text_mark(text, 1, 5, "bold")
-#' text_mark(text, 7, 5, "link", "https://loro.dev")
+#' text_mark(text, 1, 5, bold = TRUE)
+#' text_mark(text, 7, 11, link = "https://loro.dev", italic = TRUE)
+#' text_unmark(text, 7, 11, "italic")
 #' str(text_delta(text))
 #'
 #' text_apply_delta(text, list(
@@ -76,22 +77,29 @@
 #' text_get(text)
 #'
 #' doc_config_text_style(doc, author = "none")
-#' text_mark(text, 1, 5, "author", "cr")
+#' text_mark(text, 1, 5, author = "cr")
 #'
 #' @name richtext
 NULL
 
 expand_types = c("after", "before", "both", "none")
 
-check_key = function(key, call = sys.call(-1)) {
-  key = check_string(key, "key", call = call)
-  if (grepl(":", key, fixed = TRUE)) {
-    cli::cli_abort("{.arg key} must not contain {.val :}.", call = call)
+check_mark_keys = function(keys, call = rlang::caller_env()) {
+  if (any(grepl(":", keys, fixed = TRUE))) {
+    cli::cli_abort("Mark keys must not contain {.val :}.", call = call)
   }
-  key
+  keys
 }
 
-with_style_hint = function(expr, key = NULL, call = sys.call(-1)) {
+check_mark_range = function(start, end, size, call = rlang::caller_env()) {
+  range = check_range(start, end, size, "text", call = call)
+  if (range$len == 0L) {
+    cli::cli_abort("{.arg start} and {.arg end} must cover at least one character.", call = call)
+  }
+  range
+}
+
+with_style_hint = function(expr, key = NULL, call = rlang::caller_env()) {
   tryCatch(
     expr,
     error = function(cnd) {
@@ -116,42 +124,42 @@ with_style_hint = function(expr, key = NULL, call = sys.call(-1)) {
 
 #' @rdname richtext
 #' @export
-text_mark = function(text, pos, len, key, value = TRUE) {
+text_mark = function(text, start, end, ...) {
   check_container(text, loro_text, "text")
-  pos = check_count(pos, "pos", 1)
-  len = check_count(len, "len", 1)
-  key = check_key(key)
-  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
-  with_style_hint(loro_text_mark_impl(text@ptr, pos - 1L, pos - 1L + len, key, value), key)
+  marks = named_values(..., .what = "a mark key")
+  check_mark_keys(names(marks))
+  range = check_mark_range(start, end, loro_text_length_impl(text@ptr))
+  for (key in names(marks)) {
+    with_style_hint(
+      loro_text_mark_impl(text@ptr, range$start, range$end, key, marks[[key]]),
+      key
+    )
+  }
   invisible(text)
 }
 
 #' @rdname richtext
 #' @export
-text_unmark = function(text, pos, len, key) {
+text_unmark = function(text, start, end, keys) {
   check_container(text, loro_text, "text")
-  pos = check_count(pos, "pos", 1)
-  len = check_count(len, "len", 1)
-  key = check_key(key)
-  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
-  with_style_hint(loro_text_unmark_impl(text@ptr, pos - 1L, pos - 1L + len, key), key)
+  keys = check_mark_keys(check_strings(keys, "keys"))
+  range = check_mark_range(start, end, loro_text_length_impl(text@ptr))
+  for (key in keys) {
+    with_style_hint(loro_text_unmark_impl(text@ptr, range$start, range$end, key), key)
+  }
   invisible(text)
 }
 
 #' @rdname richtext
 #' @export
-text_delta = function(text, pos = NULL, len = NULL) {
+text_delta = function(text, start = 1, end = text_length(text)) {
   check_container(text, loro_text, "text")
-  if (is.null(pos) && is.null(len)) {
+  size = loro_text_length_impl(text@ptr)
+  range = check_range(start, end, size, "text")
+  if (range$len == size) {
     return(loro_text_delta_impl(text@ptr, NULL, NULL))
   }
-  if (is.null(pos) || is.null(len)) {
-    cli::cli_abort("{.arg pos} and {.arg len} must be given together.")
-  }
-  pos = check_count(pos, "pos", 1)
-  len = check_count(len, "len", 0)
-  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
-  loro_text_delta_impl(text@ptr, pos - 1L, pos - 1L + len)
+  loro_text_delta_impl(text@ptr, range$start, range$end)
 }
 
 #' @rdname richtext
@@ -167,31 +175,22 @@ text_apply_delta = function(text, delta) {
 
 #' @rdname richtext
 #' @export
-doc_config_text_style = function(doc, ..., default = NULL) {
+doc_config_text_style = function(doc, ..., .default = NULL) {
   check_doc(doc)
-  styles = list(...)
-  keys = names(styles)
-  if (!is.null(keys)) {
-    keys = as_utf8(keys, "...")
-  }
-  if (length(styles) > 0 && (is.null(keys) || any(keys == "") || anyDuplicated(keys) > 0)) {
-    cli::cli_abort("Arguments in {.arg ...} must be uniquely named with mark keys.")
-  }
-  if (any(grepl(":", keys, fixed = TRUE))) {
-    cli::cli_abort("Mark keys must not contain {.val :}.")
-  }
+  styles = named_values(..., .what = "a mark key")
+  keys = check_mark_keys(names(styles))
   is_expand = function(x) is.character(x) && length(x) == 1 && x %in% expand_types
   if (!all(vapply(styles, is_expand, logical(1)))) {
     cli::cli_abort("Each style must be one of {.or {.val {expand_types}}}.")
   }
-  if (!is.null(default) && !is_expand(default)) {
-    cli::cli_abort("{.arg default} must be {.code NULL} or one of {.or {.val {expand_types}}}.")
+  if (!is.null(.default) && !is_expand(.default)) {
+    cli::cli_abort("{.arg .default} must be {.code NULL} or one of {.or {.val {expand_types}}}.")
   }
   loro_doc_config_text_style_impl(
     doc@ptr,
     as.character(keys),
     as.character(unlist(styles)),
-    default
+    .default
   )
   invisible(doc)
 }

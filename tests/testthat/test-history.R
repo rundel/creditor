@@ -53,7 +53,7 @@ test_that("changes from several peers are in causal order", {
   doc_import(b, doc_export(a))
   text_insert(doc_text(b), 2, "b")
   doc_commit(b, "second")
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(a, doc_export_updates(b))
 
   changes = doc_changes(a)
   expect_identical(changes$peer, c("1", "2"))
@@ -98,7 +98,7 @@ test_that("updates imported while detached appear after returning", {
   text_insert(doc_text(other), 12, "!")
 
   doc_checkout(h$doc, h$v1)
-  doc_import(h$doc, doc_export(other, "updates"))
+  doc_import(h$doc, doc_export_updates(other))
   expect_identical(text_get(h$text), "Hello")
 
   doc_checkout(h$doc)
@@ -118,7 +118,7 @@ test_that("a fork can be taken at an earlier version", {
 
 test_that("revert restores contents and keeps history", {
   h = history_doc()
-  map_set(doc_map(h$doc, "m"), "k", 1L)
+  map_set(doc_map(h$doc, "m"), k = 1L)
   doc_commit(h$doc, "map")
   expect_identical(nrow(doc_changes(h$doc)), 3L)
 
@@ -165,15 +165,15 @@ test_that("diffs describe map, list, and mark changes", {
   map = doc_map(doc, "m")
   items = doc_list(doc, "l")
   text_insert(text, 1, "abcd")
-  map_set(map, "gone", 1L)
+  map_set(map, gone = 1L)
   list_push(items, "x")
   v1 = doc_frontiers(doc)
 
-  map_set(map, "k", "v")
+  map_set(map, k = "v")
   map_delete(map, "gone")
   list_push(items, list(1L, 2L))
   list_delete(items, 1)
-  text_mark(text, 1, 2, "bold")
+  text_mark(text, 1, 2, bold = TRUE)
   diff = doc_diff(doc, v1, doc_frontiers(doc))
 
   expect_setequal(names(diff), c("cid:root-text:Text", "cid:root-m:Map", "cid:root-l:List"))
@@ -223,7 +223,7 @@ test_that("frontiers and version vectors convert both ways", {
   expect_identical(doc_version_to_frontiers(doc, version), frontiers)
 
   since_first = doc_frontiers_to_version(doc, doc_changes(doc)$frontiers[[1]])
-  updates = doc_export(doc, "updates", from = since_first)
+  updates = doc_export_updates(doc, from = since_first)
   expect_identical(blob_metadata(updates)$changes, 1L)
 
   other = loro_doc(peer_id = 9)
@@ -242,7 +242,7 @@ test_that("versions can be ordered", {
   branch = doc_fork(h$doc, at = h$v1)
   text_insert(doc_text(branch), 1, "B")
   side = doc_frontiers(branch)
-  doc_import(h$doc, doc_export(branch, "updates"))
+  doc_import(h$doc, doc_export_updates(branch))
   expect_identical(doc_compare_frontiers(h$doc, h$v2, side), NA_integer_)
   expect_identical(doc_compare_frontiers(h$doc, h$v1, side), -1L)
 
@@ -272,7 +272,7 @@ test_that("history can be counted and looked up", {
 
 test_that("the containers touched by changes are reported", {
   h = history_doc()
-  map_set(doc_map(h$doc, "m"), "k", 1L)
+  map_set(doc_map(h$doc, "m"), k = 1L)
   doc_commit(h$doc, "map")
   changes = doc_changes(h$doc)
 
@@ -335,7 +335,7 @@ test_that("a document can be detached at its current version", {
   doc_detach(doc)
   expect_true(doc_is_detached(doc))
   expect_error(text_insert(text, 1, "x"), "detached")
-  doc_import(doc, doc_export(other, "updates"))
+  doc_import(doc, doc_export_updates(other))
   expect_identical(text_get(text), "a")
 
   doc_checkout(doc)
@@ -376,12 +376,12 @@ test_that("versions and frontiers cannot be swapped", {
   expect_error(doc_fork(h$doc, at = version), "not a version vector")
   expect_error(doc_diff(h$doc, version, frontiers), "not a version vector")
   expect_error(doc_revert_to(h$doc, version), "not a version vector")
-  expect_error(doc_export(h$doc, "shallow_snapshot", since = version), "not a version vector")
+  expect_error(doc_export_shallow(h$doc, since = version), "not a version vector")
   expect_error(doc_frontiers_to_version(h$doc, version), "not a version vector")
-  expect_error(doc_export(h$doc, "updates", from = frontiers), "not frontiers")
+  expect_error(doc_export_updates(h$doc, from = frontiers), "not frontiers")
   expect_error(doc_export_json(h$doc, from = frontiers), "not frontiers")
   expect_error(doc_version_to_frontiers(h$doc, frontiers), "not frontiers")
-  expect_error(doc_export(h$doc, "updates", from = unclass(version)), "as_version")
+  expect_error(doc_export_updates(h$doc, from = unclass(version)), "as_version")
   expect_false(doc_is_detached(h$doc))
 })
 
@@ -413,7 +413,7 @@ test_that("frontiers with two heads work everywhere", {
   doc_commit(b)
   from_a = doc_frontiers(a)
   from_b = doc_frontiers(b)
-  doc_import(a, doc_export(b, "updates"))
+  doc_import(a, doc_export_updates(b))
   merged = doc_frontiers(a)
 
   expect_gt(length(merged), length(from_a))
@@ -440,9 +440,9 @@ test_that("an empty document has a usable empty version", {
   expect_identical(doc_compare_frontiers(empty, start, start), 0L)
   expect_identical(doc_version_to_frontiers(empty, doc_version(empty)), start)
 
-  for (mode in c("snapshot", "updates", "shallow_snapshot")) {
+  for (export in list(doc_export, doc_export_updates, doc_export_shallow)) {
     other = loro_doc()
-    status = doc_import(other, doc_export(empty, mode))
+    status = doc_import(other, export(empty))
     expect_identical(nrow(status$success), 0L)
     expect_identical(nrow(doc_changes(other)), 0L)
   }
@@ -460,10 +460,10 @@ test_that("an empty document has a usable empty version", {
 test_that("a map diff separates deleted keys from keys set to NULL", {
   doc = loro_doc(peer_id = 1)
   map = doc_map(doc, "m")
-  map_set(map, "nulled", 1L)
-  map_set(map, "gone", 1L)
+  map_set(map, nulled = 1L)
+  map_set(map, gone = 1L)
   before = doc_frontiers(doc)
-  map_set(map, "nulled", NULL)
+  map_set(map, nulled = NULL)
   map_delete(map, "gone")
 
   diff = doc_diff(doc, before, doc_frontiers(doc))[["cid:root-m:Map"]]
@@ -509,12 +509,12 @@ test_that("revert and apply diff commit their changes", {
 test_that("a failed apply diff leaves the target unchanged", {
   source = loro_doc(peer_id = 1)
   before = doc_frontiers(source)
-  map_set(doc_map(source, "a"), "k", 1L)
+  map_set(doc_map(source, "a"), k = 1L)
   text_insert(doc_text(source, "t"), 1, "hello")
   doc_commit(source)
   from = doc_frontiers(source)
-  text_delete(doc_text(source, "t"), 2, 3)
-  map_set(doc_map(source, "z"), "k", 2L)
+  text_delete(doc_text(source, "t"), 2, 4)
+  map_set(doc_map(source, "z"), k = 2L)
   doc_commit(source)
 
   target = loro_doc(peer_id = 2)

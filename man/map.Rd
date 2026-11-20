@@ -4,59 +4,71 @@
 \alias{map}
 \alias{map_set}
 \alias{map_set_container}
+\alias{map_ensure_container}
 \alias{map_get}
+\alias{map_has}
 \alias{map_delete}
+\alias{map_clear}
 \alias{map_keys}
 \alias{map_length}
-\alias{map_ensure_container}
-\alias{map_clear}
 \alias{map_last_editor}
 \title{Edit maps}
 \usage{
-map_set(map, key, value)
+map_set(map, ...)
 
 map_set_container(map, key, type)
 
+map_ensure_container(map, key, type)
+
 map_get(map, key)
 
-map_delete(map, key)
+map_has(map, keys)
+
+map_delete(map, ...)
+
+map_clear(map)
 
 map_keys(map)
 
 map_length(map)
-
-map_ensure_container(map, key, type)
-
-map_clear(map)
 
 map_last_editor(map, key)
 }
 \arguments{
 \item{map}{A map handle, from \code{\link[=doc_map]{doc_map()}} or a parent container.}
 
-\item{key}{A string.}
+\item{...}{Values to store, each named with its key, for example
+\code{map_set(map, title = "Notes", done = FALSE)}; see the Values
+section. These are \link[rlang:dyn-dots]{dynamic dots}, so a named list
+can be spliced in with \verb{!!!} and a key held in a variable can be
+used with \code{"{key}" := value}. Values are stored in order, so if one
+is rejected the ones before it stay set. For \code{map_delete()}, the
+keys to remove, as strings or character vectors.}
 
-\item{value}{A plain value; see the Values section.}
+\item{key}{A string.}
 
 \item{type}{Type of the child container: \code{"text"}, \code{"map"},
 \code{"list"}, \code{"movable_list"}, \code{"counter"}, or \code{"tree"}.}
+
+\item{keys}{A character vector of keys.}
 }
 \value{
 \code{map_set()}, \code{map_delete()}, and \code{map_clear()} return \code{map}
 invisibly. \code{map_set_container()} and \code{map_ensure_container()}
 return a container handle, and \code{map_last_editor()} a string. \code{map_get()}
-returns a value or handle, \code{map_keys()} a character vector, and
-\code{map_length()} an integer.
+returns a value or handle, \code{map_has()} a logical vector, \code{map_keys()}
+a character vector, and \code{map_length()} an integer.
 }
 \description{
 A map holds values under string keys. When replicas set the same key
 concurrently, one write wins on every replica.
 \itemize{
-\item \code{map_set()} stores a plain value under \code{key}.
+\item \code{map_set()} stores plain values, given as \code{key = value} arguments.
 \item \code{map_set_container()} stores a new, empty child container under
 \code{key} and returns its handle.
 \item \code{map_get()} returns the value under \code{key}, a handle if it is a
 container, or \code{NULL} if the key is absent.
+\item \code{map_has()} reports whether each of \code{keys} is present.
 \item \code{map_ensure_container()} returns the child container under \code{key},
 creating it if the key is empty. Unlike \code{map_set_container()},
 which always makes a fresh container, the container it creates is
@@ -65,12 +77,31 @@ the same one, with all their edits merged. Use it for containers
 that are created lazily on first use. It is an error if \code{key}
 already holds a plain value, a container of another type, or a
 container made by \code{map_set_container()}.
-\item \code{map_delete()} removes \code{key}, and \code{map_clear()} removes every key.
+\item \code{map_delete()} removes the keys named in \code{...}, as in
+\code{map_delete(map, "a", "b")} or \code{map_delete(map, keys)}, and
+\code{map_clear()} removes every key.
 \item \code{map_last_editor()} returns the peer id of the replica that last
 wrote \code{key}, or \code{NA} if the key has never been written.
 \item \code{map_keys()} returns the keys in sorted order, and \code{map_length()}
 the number of entries.
 }
+
+A map handle also works with the base functions an R user would
+reach for with a named list: \code{map$key} and \code{map[[key]]} read like
+\code{map_get()}, \code{map$key = value} and \code{map[[key]] = value} write one
+key like \code{map_set()}, \code{names()} is \code{map_keys()}, \code{length()} is
+\code{map_length()}, and \code{as.list()} is \code{\link[=container_value]{container_value()}}. As with a
+list, assigning \code{NULL} removes the key: \code{map$key = NULL} is
+\code{map_delete(map, "key")}. To store a null, use
+\code{map_set(map, key = NULL)}. Assignments can reach through child
+containers, as in \code{map$child$key = value}.
+
+Loro allows the empty string as a key, and a document written by
+another Loro client may contain one. It is supported only for
+compatibility with such documents: it can be read and removed like
+any other key, but R does not allow an empty argument name, so it
+cannot be written with \code{map_set()}. Use \code{map[[""]] = value} if one
+has to be changed.
 }
 \section{Values}{
 
@@ -101,15 +132,18 @@ the order \code{sort()} gives in your locale.
 \examples{
 doc = loro_doc()
 meta = doc_map(doc, "meta")
-map_set(meta, "title", "Notes")
-map_set(meta, "tags", c("a", "b"))
+map_set(meta, title = "Notes", tags = c("a", "b"))
 
 body = map_set_container(meta, "body", "text")
 text_insert(body, 1, "Hello")
 
 map_keys(meta)
 map_get(meta, "title")
-text_get(map_get(meta, "body"))
-container_value(meta)
+meta$title
+text_get(meta$body)
+
+meta$title = "Shopping"
+map_delete(meta, "tags")
+as.list(meta)
 
 }

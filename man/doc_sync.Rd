@@ -3,6 +3,8 @@
 \name{doc_sync}
 \alias{doc_sync}
 \alias{doc_export}
+\alias{doc_export_updates}
+\alias{doc_export_shallow}
 \alias{doc_import}
 \alias{doc_version}
 \alias{doc_is_shallow}
@@ -11,12 +13,11 @@
 \alias{doc_import_json}
 \title{Synchronize documents}
 \usage{
-doc_export(
-  doc,
-  mode = c("snapshot", "updates", "shallow_snapshot"),
-  from = NULL,
-  since = NULL
-)
+doc_export(doc)
+
+doc_export_updates(doc, from = NULL)
+
+doc_export_shallow(doc, since = NULL)
 
 doc_import(doc, bytes)
 
@@ -33,20 +34,15 @@ doc_import_json(doc, json)
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
 
-\item{mode}{One of \code{"snapshot"}, \code{"updates"}, or
-\code{"shallow_snapshot"}.}
-
-\item{from}{A version returned by \code{doc_version()}, typically that of
-the replica the updates are destined for. Only used when \code{mode} is
-\code{"updates"}. For \code{doc_export_json()}, the version to start from, or
+\item{from}{A version returned by \code{doc_version()} to start from,
+typically that of the replica the updates are destined for, or
 \code{NULL} for the beginning.}
 
-\item{since}{A version from \code{\link[=doc_frontiers]{doc_frontiers()}}. Only used when \code{mode}
-is \code{"shallow_snapshot"}; \code{NULL} keeps no history before the current
-version.}
+\item{since}{A version from \code{\link[=doc_frontiers]{doc_frontiers()}}. The default, the
+latest version, keeps no earlier history at all.}
 
-\item{bytes}{A raw vector produced by \code{doc_export()}, or for
-\code{doc_import()} a list of them.}
+\item{bytes}{A raw vector produced by one of the export functions,
+or for \code{doc_import()} a list of them.}
 
 \item{to}{A version returned by \code{doc_version()} to stop at, or \code{NULL}
 for the latest.}
@@ -54,7 +50,8 @@ for the latest.}
 \item{json}{A string produced by \code{doc_export_json()}.}
 }
 \value{
-\code{doc_export()} returns a raw vector and \code{doc_version()} a
+\code{doc_export()}, \code{doc_export_updates()}, and
+\code{doc_export_shallow()} return a raw vector and \code{doc_version()} a
 version vector.
 \code{doc_import()} and \code{doc_import_json()} invisibly return an import
 status; see the Import status section. \code{doc_is_shallow()} returns a
@@ -67,23 +64,22 @@ and \code{end_timestamp}, and the versions \code{start_frontiers},
 Replicas exchange state as raw vectors, which can be written to disk
 or sent over any transport.
 \itemize{
-\item \code{doc_export()} serializes a document, in one of three modes:
-\itemize{
-\item \code{"snapshot"}: the full contents and history.
-\item \code{"updates"}: the changes made since the version \code{from}, or the
-complete history when \code{from} is \code{NULL}.
-\item \code{"shallow_snapshot"}: the contents plus only the history after
-the version \code{since}. Dropping old history can make the export
-much smaller for a document with a long history, but a document
-loaded from it cannot check out versions before \code{since} or merge
-edits that branch off before it.
-}
+\item \code{doc_export()} serializes a whole document as a snapshot: its
+contents and full history.
+\item \code{doc_export_updates()} serializes only the changes made since the
+version \code{from}, or the complete history when \code{from} is \code{NULL}.
+\item \code{doc_export_shallow()} serializes a shallow snapshot: the contents
+plus only the history after the version \code{since}. Dropping old
+history can make the export much smaller for a document with a
+long history, but a document loaded from it cannot check out
+versions before \code{since} or merge edits that branch off before it.
 \item \code{doc_import()} merges a snapshot or updates into a document.
 Importing is commutative and idempotent, so replicas that have seen
 the same updates hold the same contents. \code{bytes} may also be a list
 of raw vectors, which are imported together in one step.
 \item \code{doc_version()} returns the document's current version vector, for
-use as the \code{from} argument of a later export. See \code{\link[=as_version]{as_version()}}.
+use as the \code{from} argument of \code{doc_export_updates()}. See
+\code{\link[=as_version]{as_version()}}.
 \item \code{doc_is_shallow()} reports whether a document lacks its early
 history because it was loaded from a shallow snapshot.
 \item \code{blob_metadata()} describes an exported raw vector without
@@ -119,12 +115,12 @@ doc_import(b, doc_export(a))
 text_insert(doc_text(a), 6, " world")
 text_insert(doc_text(b), 1, ">> ")
 
-doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+doc_import(b, doc_export_updates(a, from = doc_version(b)))
+doc_import(a, doc_export_updates(b, from = doc_version(a)))
 text_get(doc_text(a))
 text_get(doc_text(b))
 
-small = doc_export(a, "shallow_snapshot")
+small = doc_export_shallow(a)
 blob_metadata(small)$mode
 
 }

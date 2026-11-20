@@ -53,7 +53,7 @@ as_peer_id = function(peer_id) {
   )
 }
 
-check_doc = function(doc, call = sys.call(-1)) {
+check_doc = function(doc, call = rlang::caller_env()) {
   if (!S7::S7_inherits(doc, loro_doc)) {
     cli::cli_abort(
       "{.arg doc} must be a {.cls loro_doc}, not {.obj_type_friendly {doc}}.",
@@ -86,15 +86,16 @@ check_doc = function(doc, call = sys.call(-1)) {
 #' * `doc_value()` returns the whole document as a named list with one
 #'   element per root container. It is an error if containers are
 #'   nested more than 1000 levels deep.
-#' * `doc_get_path()` returns the value at a slash-separated path such
-#'   as `"note/items/1"`: a root container name, then map keys, 0-based
-#'   list positions, or tree node ids. Containers are returned as
-#'   handles, and `NULL` means nothing is there. The path syntax cannot
-#'   express every key: a map key that contains `/`, or that looks like
-#'   a number, is not reachable this way. Use `doc_jsonpath()` with a
-#'   quoted key, such as `"$.m['a/b']"`, for those.
+#' * `doc_get()` returns what is found by following a path into the
+#'   document, one step per argument, as in `doc_get(doc, "note",
+#'   "items", 2)`: the name of a root container, then a string for each
+#'   map key or tree node id (which leads to the node's metadata map)
+#'   and a 1-based number for each list position. Containers are
+#'   returned as handles, and `NULL` means nothing is there. Unlike
+#'   [`doc_map()`] and its siblings, it never creates a container.
 #' * `doc_jsonpath()` returns a list of everything matching a JSONPath
-#'   expression such as `"$.note.items[*]"`. Loro does not support
+#'   expression such as `"$.note.items[*]"`. JSONPath is its own
+#'   language, so list positions inside it are 0-based. Loro does not support
 #'   every JSONPath feature: a query that has to descend into a tree
 #'   container, or that uses the `match()` or `search()` functions, is
 #'   an error.
@@ -107,12 +108,15 @@ check_doc = function(doc, call = sys.call(-1)) {
 #' @param timestamp The time to record for the commit, as a `POSIXct`
 #'   or a number of seconds since 1970, or `NULL`.
 #' @param peer_id A peer id: a whole number or a string of digits.
-#' @param path A path or JSONPath expression, as a string.
+#' @param ... The steps of a path: strings and whole numbers. These
+#'   are [dynamic dots][rlang::dyn-dots], so a path held in a list can
+#'   be spliced in with `!!!`.
+#' @param path A JSONPath expression, as a string.
 #'
 #' @return `doc_set_peer_id()` returns `doc` invisibly.
 #'   `doc_peer_id()` returns a string, `doc_fork()` a new
 #'   `loro_doc`, `doc_commit()` returns `doc` invisibly, and
-#'   `doc_value()` a named list. `doc_get_path()` returns a value or
+#'   `doc_value()` a named list. `doc_get()` returns a value or
 #'   container handle, and `doc_jsonpath()` a list of them.
 #'
 #' @examples
@@ -120,6 +124,11 @@ check_doc = function(doc, call = sys.call(-1)) {
 #' text_insert(doc_text(doc), 1, "Hello")
 #' doc_peer_id(doc)
 #' doc_value(doc)
+#'
+#' note = doc_map(doc, "note")
+#' list_push(map_set_container(note, "items", "list"), "milk", "eggs")
+#' doc_get(doc, "note", "items", 2)
+#' doc_jsonpath(doc, "$.note.items[*]")
 #'
 #' @name doc
 NULL
@@ -197,10 +206,65 @@ doc_value = function(doc) {
 
 #' @rdname doc
 #' @export
-doc_get_path = function(doc, path) {
+doc_get = function(doc, ...) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  container_from_ref(loro_doc_get_path_impl(doc@ptr, check_string(path, "path")))
+  path = unnamed_values(...)
+  is_step = function(step) {
+    length(step) == 1 && !is.na(step) &&
+      (is.character(step) || (is.numeric(step) && step == trunc(step)))
+  }
+  if (length(path) == 0 || !all(vapply(path, is_step, logical(1)))) {
+    cli::cli_abort("{.arg ...} must be one or more path steps, each a string or a whole number.")
+  }
+  root = path[[1]]
+  if (!is.character(root)) {
+    cli::cli_abort("The first path step must be the name of a root container.")
+  }
+  root = as_utf8(root, "...")
+  if (grepl("/", root, fixed = TRUE)) {
+    return(NULL)
+  }
+  at = container_from_ref(loro_doc_get_path_impl(doc@ptr, root))
+  for (step in path[-1]) {
+    at = get_step(at, step)
+    if (is.null(at)) {
+      break
+    }
+  }
+  at
+}
+
+get_step = function(x, step) {
+  if (is.character(step)) {
+    step = as_utf8(step, "...")
+    if (S7::S7_inherits(x, loro_map)) {
+      return(container_from_ref(loro_map_get_impl(x@ptr, step)))
+    }
+    if (S7::S7_inherits(x, loro_tree)) {
+      if (!grepl("^[0-9]+@[0-9]+$", step) || !loro_tree_contains_impl(x@ptr, step)) {
+        return(NULL)
+      }
+      return(container_from_ref(loro_tree_meta_impl(x@ptr, step)))
+    }
+    if (is.list(x) && !S7::S7_inherits(x) && step %in% names(x)) {
+      return(x[[step]])
+    }
+    return(NULL)
+  }
+  if (step < 1) {
+    return(NULL)
+  }
+  if (S7::S7_inherits(x, loro_list)) {
+    if (step > loro_list_length_impl(x@ptr)) {
+      return(NULL)
+    }
+    return(container_from_ref(loro_list_get_impl(x@ptr, as.integer(step) - 1L)))
+  }
+  if (is.list(x) && !S7::S7_inherits(x) && is.null(names(x)) && step <= length(x)) {
+    return(x[[step]])
+  }
+  NULL
 }
 
 #' @rdname doc
@@ -233,21 +297,22 @@ doc_jsonpath = function(doc, path) {
 #' Replicas exchange state as raw vectors, which can be written to disk
 #' or sent over any transport.
 #'
-#' * `doc_export()` serializes a document, in one of three modes:
-#'   * `"snapshot"`: the full contents and history.
-#'   * `"updates"`: the changes made since the version `from`, or the
-#'     complete history when `from` is `NULL`.
-#'   * `"shallow_snapshot"`: the contents plus only the history after
-#'     the version `since`. Dropping old history can make the export
-#'     much smaller for a document with a long history, but a document
-#'     loaded from it cannot check out versions before `since` or merge
-#'     edits that branch off before it.
+#' * `doc_export()` serializes a whole document as a snapshot: its
+#'   contents and full history.
+#' * `doc_export_updates()` serializes only the changes made since the
+#'   version `from`, or the complete history when `from` is `NULL`.
+#' * `doc_export_shallow()` serializes a shallow snapshot: the contents
+#'   plus only the history after the version `since`. Dropping old
+#'   history can make the export much smaller for a document with a
+#'   long history, but a document loaded from it cannot check out
+#'   versions before `since` or merge edits that branch off before it.
 #' * `doc_import()` merges a snapshot or updates into a document.
 #'   Importing is commutative and idempotent, so replicas that have seen
 #'   the same updates hold the same contents. `bytes` may also be a list
 #'   of raw vectors, which are imported together in one step.
 #' * `doc_version()` returns the document's current version vector, for
-#'   use as the `from` argument of a later export. See [`as_version()`].
+#'   use as the `from` argument of `doc_export_updates()`. See
+#'   [`as_version()`].
 #' * `doc_is_shallow()` reports whether a document lacks its early
 #'   history because it was loaded from a shallow snapshot.
 #' * `blob_metadata()` describes an exported raw vector without
@@ -271,22 +336,19 @@ doc_jsonpath = function(doc, path) {
 #' is still in transit.
 #'
 #' @param doc A [`loro_doc`].
-#' @param mode One of `"snapshot"`, `"updates"`, or
-#'   `"shallow_snapshot"`.
-#' @param from A version returned by `doc_version()`, typically that of
-#'   the replica the updates are destined for. Only used when `mode` is
-#'   `"updates"`. For `doc_export_json()`, the version to start from, or
+#' @param from A version returned by `doc_version()` to start from,
+#'   typically that of the replica the updates are destined for, or
 #'   `NULL` for the beginning.
-#' @param since A version from [`doc_frontiers()`]. Only used when `mode`
-#'   is `"shallow_snapshot"`; `NULL` keeps no history before the current
-#'   version.
+#' @param since A version from [`doc_frontiers()`]. The default, the
+#'   latest version, keeps no earlier history at all.
 #' @param to A version returned by `doc_version()` to stop at, or `NULL`
 #'   for the latest.
-#' @param bytes A raw vector produced by `doc_export()`, or for
-#'   `doc_import()` a list of them.
+#' @param bytes A raw vector produced by one of the export functions,
+#'   or for `doc_import()` a list of them.
 #' @param json A string produced by `doc_export_json()`.
 #'
-#' @return `doc_export()` returns a raw vector and `doc_version()` a
+#' @return `doc_export()`, `doc_export_updates()`, and
+#'   `doc_export_shallow()` return a raw vector and `doc_version()` a
 #'   version vector.
 #'   `doc_import()` and `doc_import_json()` invisibly return an import
 #'   status; see the Import status section. `doc_is_shallow()` returns a
@@ -305,12 +367,12 @@ doc_jsonpath = function(doc, path) {
 #' text_insert(doc_text(a), 6, " world")
 #' text_insert(doc_text(b), 1, ">> ")
 #'
-#' doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-#' doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+#' doc_import(b, doc_export_updates(a, from = doc_version(b)))
+#' doc_import(a, doc_export_updates(b, from = doc_version(a)))
 #' text_get(doc_text(a))
 #' text_get(doc_text(b))
 #'
-#' small = doc_export(a, "shallow_snapshot")
+#' small = doc_export_shallow(a)
 #' blob_metadata(small)$mode
 #'
 #' @name doc_sync
@@ -324,29 +386,32 @@ import_status = function(status) {
 
 #' @rdname doc_sync
 #' @export
-doc_export = function(
-  doc,
-  mode = c("snapshot", "updates", "shallow_snapshot"),
-  from = NULL,
-  since = NULL
-) {
+doc_export = function(doc) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  mode = match.arg(mode)
+  loro_doc_export_impl(doc@ptr, "snapshot", NULL, NULL)
+}
+
+#' @rdname doc_sync
+#' @export
+doc_export_updates = function(doc, from = NULL) {
+  check_doc(doc)
+  on.exit(deliver_events(), add = TRUE)
   if (!is.null(from)) {
     check_version(from, "from")
-    if (mode != "updates") {
-      cli::cli_abort("{.arg from} can only be used with {.code mode = \"updates\"}.")
-    }
   }
+  loro_doc_export_impl(doc@ptr, "updates", from, NULL)
+}
+
+#' @rdname doc_sync
+#' @export
+doc_export_shallow = function(doc, since = NULL) {
+  check_doc(doc)
+  on.exit(deliver_events(), add = TRUE)
   if (!is.null(since)) {
     check_frontiers(since, "since")
-    if (mode != "shallow_snapshot") {
-      cli::cli_abort("{.arg since} can only be used with {.code mode = \"shallow_snapshot\"}.")
-    }
   }
-  bytes = loro_doc_export_impl(doc@ptr, mode, from, since)
-  bytes
+  loro_doc_export_impl(doc@ptr, "shallow_snapshot", NULL, since)
 }
 
 #' @rdname doc_sync
@@ -360,7 +425,7 @@ doc_import = function(doc, bytes) {
     loro_doc_import_batch_impl(doc@ptr, bytes)
   } else {
     cli::cli_abort(
-      "{.arg bytes} must be a raw vector from {.fn doc_export}, or a list of them."
+      "{.arg bytes} must be a raw vector from an export function, or a list of them."
     )
   }
   invisible(import_status(status))
@@ -386,7 +451,7 @@ doc_is_shallow = function(doc) {
 #' @export
 blob_metadata = function(bytes) {
   if (!is.raw(bytes)) {
-    cli::cli_abort("{.arg bytes} must be a raw vector from {.fn doc_export}.")
+    cli::cli_abort("{.arg bytes} must be a raw vector from an export function.")
   }
   meta = loro_blob_metadata_impl(bytes)
   meta$start_frontiers = new_frontiers(meta$start_frontiers)

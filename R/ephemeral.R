@@ -7,8 +7,9 @@
 #' wins), and entries expire when they stop being refreshed.
 #'
 #' * `ephemeral_store()` creates a store.
-#' * `ephemeral_set()`, `ephemeral_get()`, and `ephemeral_delete()` write,
-#'   read, and remove one key. Setting a key again refreshes it.
+#' * `ephemeral_set()` writes values given as `key = value` arguments,
+#'   `ephemeral_get()` reads one key, and `ephemeral_delete()` removes
+#'   the keys named in `...`. Setting a key again refreshes it.
 #' * `ephemeral_keys()` and `ephemeral_values()` list the current
 #'   entries.
 #' * `ephemeral_encode()` serializes one key, or every key when `key` is
@@ -37,11 +38,13 @@
 #' described in [`doc_subscribe()`] and are stopped with
 #' [`unsubscribe()`].
 #'
-#' @param timeout Milliseconds after which an entry that has not been
+#' @param timeout Seconds after which an entry that has not been
 #'   updated expires.
 #' @param store An ephemeral store.
+#' @param ... Plain values to store, each named with its key; see
+#'   [`map_set()`]. For `ephemeral_delete()`, the keys to remove, as
+#'   strings or character vectors.
 #' @param key A string.
-#' @param value A plain value; see the Values section of [`map_set()`].
 #' @param bytes A raw vector from `ephemeral_encode()` or a local
 #'   updates subscription.
 #' @param callback A function of one argument.
@@ -59,7 +62,7 @@
 #'   ephemeral_apply(b, bytes)
 #' })
 #'
-#' ephemeral_set(a, "alice", list(name = "Alice", cursor = 12L))
+#' ephemeral_set(a, alice = list(name = "Alice", cursor = 12L))
 #' ephemeral_values(b)
 #'
 #' unsubscribe(sync)
@@ -73,7 +76,7 @@ loro_ephemeral_store = S7::new_class(
   properties = list(ptr = S7::class_any)
 )
 
-check_store = function(store, call = sys.call(-1)) {
+check_store = function(store, call = rlang::caller_env()) {
   if (!S7::S7_inherits(store, loro_ephemeral_store)) {
     cli::cli_abort(
       "{.arg store} must be a {.cls loro_ephemeral_store}, not {.obj_type_friendly {store}}.",
@@ -85,17 +88,20 @@ check_store = function(store, call = sys.call(-1)) {
 
 #' @rdname ephemeral
 #' @export
-ephemeral_store = function(timeout = 30000) {
-  timeout = check_count(timeout, "timeout", 1)
-  loro_ephemeral_store(ptr = loro_ephemeral_new_impl(as.numeric(timeout)))
+ephemeral_store = function(timeout = 30) {
+  timeout = check_seconds(timeout, "timeout", 0.001)
+  loro_ephemeral_store(ptr = loro_ephemeral_new_impl(timeout))
 }
 
 #' @rdname ephemeral
 #' @export
-ephemeral_set = function(store, key, value) {
+ephemeral_set = function(store, ...) {
   check_store(store)
-  loro_ephemeral_set_impl(store@ptr, check_string(key, "key"), value)
-  deliver_events()
+  on.exit(deliver_events(), add = TRUE)
+  values = named_values(...)
+  for (key in names(values)) {
+    loro_ephemeral_set_impl(store@ptr, key, values[[key]])
+  }
   invisible(store)
 }
 
@@ -108,10 +114,12 @@ ephemeral_get = function(store, key) {
 
 #' @rdname ephemeral
 #' @export
-ephemeral_delete = function(store, key) {
+ephemeral_delete = function(store, ...) {
   check_store(store)
-  loro_ephemeral_delete_impl(store@ptr, check_string(key, "key"))
-  deliver_events()
+  on.exit(deliver_events(), add = TRUE)
+  for (key in key_dots(...)) {
+    loro_ephemeral_delete_impl(store@ptr, key)
+  }
   invisible(store)
 }
 

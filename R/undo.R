@@ -37,7 +37,7 @@
 #' `merge_interval` are combined into one step.
 #'
 #' @param doc A [`loro_doc`].
-#' @param merge_interval Commits made within this many milliseconds of
+#' @param merge_interval Commits made within this many seconds of
 #'   the previous one join its undo step. The default, `0`, keeps every
 #'   commit separate.
 #' @param max_steps Maximum number of undo steps to keep.
@@ -78,7 +78,7 @@ loro_undo_manager = S7::new_class(
   properties = list(ptr = S7::class_any, doc = S7::class_any)
 )
 
-check_manager = function(manager, call = sys.call(-1)) {
+check_manager = function(manager, call = rlang::caller_env()) {
   if (!S7::S7_inherits(manager, loro_undo_manager)) {
     cli::cli_abort(
       "{.arg manager} must be a {.cls loro_undo_manager}, not {.obj_type_friendly {manager}}.",
@@ -97,7 +97,7 @@ doc_undo_manager = function(
   exclude_origins = character()
 ) {
   check_doc(doc)
-  merge_interval = check_count(merge_interval, "merge_interval", 0)
+  merge_interval = check_seconds(merge_interval, "merge_interval", 0)
   max_steps = check_count(max_steps, "max_steps", 1)
   if (!is.character(exclude_origins) || anyNA(exclude_origins) || any(exclude_origins == "")) {
     cli::cli_abort("{.arg exclude_origins} must be a character vector of non-empty strings.")
@@ -106,7 +106,7 @@ doc_undo_manager = function(
     doc = doc@ptr,
     ptr = loro_undo_new_impl(
       doc@ptr,
-      as.numeric(merge_interval),
+      merge_interval,
       max_steps,
       as_utf8(exclude_origins, "exclude_origins")
     )

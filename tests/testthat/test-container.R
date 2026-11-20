@@ -56,10 +56,10 @@ test_that("nested containers sync and merge", {
 
   text_insert(body, 6, " world")
   text_insert(body_b, 1, ">> ")
-  map_set(doc_map(b, "root"), "seen", TRUE)
+  map_set(doc_map(b, "root"), seen = TRUE)
 
-  doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-  doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+  doc_import(b, doc_export_updates(a, from = doc_version(b)))
+  doc_import(a, doc_export_updates(b, from = doc_version(a)))
 
   expect_identical(text_get(body), ">> Hello world")
   expect_identical(doc_value(a), doc_value(b))
@@ -70,7 +70,7 @@ test_that("handles are type checked", {
   doc = loro_doc()
   expect_error(container_value(doc), "loro_container")
   expect_error(container_id("x"), "loro_container")
-  expect_error(map_set(doc_text(doc), "k", 1), "loro_map")
+  expect_error(map_set(doc_text(doc), k = 1), "loro_map")
   expect_error(list_push(doc_map(doc), 1), "loro_list")
   expect_error(doc_map(doc, 1), "name")
 })
@@ -96,7 +96,7 @@ test_that("a handle reports when its container has been deleted", {
   expect_false(container_is_deleted(child))
   expect_false(container_is_deleted(map))
 
-  map_set(map, "c", 1L)
+  map_set(map, c = 1L)
   expect_true(container_is_deleted(child))
   expect_identical(text_get(child), "x")
   expect_error(text_insert(child, 1, "y"), "deleted")
@@ -111,7 +111,7 @@ test_that("a handle reports when its container has been deleted", {
 test_that("a shallow value shows child containers by id", {
   doc = loro_doc(peer_id = 1)
   map = doc_map(doc, "m")
-  map_set(map, "v", 1L)
+  map_set(map, v = 1L)
   text = map_set_container(map, "t", "text")
   text_insert(text, 1, "hi")
   items = doc_list(doc, "l")
@@ -151,7 +151,7 @@ test_that("every child type can be created under every parent type", {
   }
 
   copy = loro_doc()
-  doc_import(copy, doc_export(doc, "snapshot"))
+  doc_import(copy, doc_export(doc))
   expect_identical(doc_value(copy), doc_value(doc))
 })
 
@@ -166,14 +166,14 @@ test_that("edits through any handle to a deleted container are errors", {
   child_tree = map_set_container(parent, "tree", "tree")
   list_push(child_list, "x")
   list_push(child_movable, "x")
-  map_set(child_map, "k", 1L)
+  map_set(child_map, k = 1L)
 
   map_delete(root, "parent")
   for (handle in list(parent, child_map, child_list, child_movable, child_counter, child_tree)) {
     expect_true(container_is_deleted(handle))
   }
 
-  expect_error(map_set(child_map, "k", 2L), "deleted")
+  expect_error(map_set(child_map, k = 2L), "deleted")
   expect_error(map_set_container(child_map, "c", "text"), "deleted")
   expect_error(map_delete(child_map, "k"), "deleted")
   expect_error(map_clear(child_map), "deleted")
@@ -210,7 +210,7 @@ test_that("root containers of different types can share a name", {
   items = doc_list(doc, "x")
   list_push(items, "item")
   map = doc_map(doc, "x")
-  map_set(map, "k", 1L)
+  map_set(map, k = 1L)
 
   expect_identical(container_value(items), list("item"))
   expect_identical(container_value(map), list(k = 1L))

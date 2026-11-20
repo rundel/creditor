@@ -78,7 +78,7 @@ test_that("a container subscription only sees its own changes", {
   doc_commit(doc)
   expect_length(seen$get(), 0)
 
-  map_set(map, "k", 1L)
+  map_set(map, k = 1L)
   doc_commit(doc)
   text_insert(child, 1, "nested")
   doc_commit(doc)
@@ -97,7 +97,7 @@ test_that("local updates can drive live sync", {
   doc_commit(a)
   expect_identical(text_get(doc_text(b)), "Hello")
 
-  map_set(doc_map(a), "k", TRUE)
+  map_set(doc_map(a), k = TRUE)
   doc_commit(a)
   expect_identical(doc_value(b), doc_value(a))
 })
@@ -168,7 +168,7 @@ test_that("a callback can edit the document", {
   sub = doc_subscribe(doc, function(event) {
     calls <<- calls + 1
     if (calls == 1) {
-      map_set(map, "seen", TRUE)
+      map_set(map, seen = TRUE)
       doc_commit(doc)
     }
   })
@@ -253,7 +253,7 @@ test_that("a first-commit callback can record the author", {
   doc = loro_doc(peer_id = 5)
   authors = doc_map(doc, "authors")
   sub = doc_subscribe_first_commit(doc, function(peer) {
-    map_set(authors, peer, "Colin")
+    authors[[peer]] = "Colin"
     doc_commit(doc)
   })
   on.exit(unsubscribe(sub))
@@ -267,7 +267,7 @@ test_that("every function that can commit delivers the events it causes", {
   committing = list(
     doc_commit = function(doc, v) doc_commit(doc),
     doc_export = function(doc, v) doc_export(doc),
-    doc_export_updates = function(doc, v) doc_export(doc, "updates"),
+    doc_export_updates = function(doc, v) doc_export_updates(doc),
     doc_export_json = function(doc, v) doc_export_json(doc),
     doc_import = function(doc, v) doc_import(doc, doc_export(loro_doc())),
     doc_fork = function(doc, v) doc_fork(doc),
@@ -284,7 +284,7 @@ test_that("every function that can commit delivers the events it causes", {
     doc_frontiers = function(doc, v) doc_frontiers(doc),
     doc_version = function(doc, v) doc_version(doc),
     doc_value = function(doc, v) doc_value(doc),
-    doc_get_path = function(doc, v) doc_get_path(doc, "t"),
+    doc_get_path = function(doc, v) doc_get(doc, "t"),
     doc_jsonpath = function(doc, v) doc_jsonpath(doc, "$.t"),
     doc_compare_frontiers = function(doc, v) doc_compare_frontiers(doc, v, v),
     doc_frontiers_to_version = function(doc, v) doc_frontiers_to_version(doc, v),
@@ -475,10 +475,10 @@ test_that("event diffs describe each container type", {
   last = function() events[[length(events)]]$diff
 
   map = doc_map(doc, "m")
-  map_set(map, "a", 1L)
-  map_set(map, "b", 2L)
+  map_set(map, a = 1L)
+  map_set(map, b = 2L)
   doc_commit(doc)
-  map_set(map, "a", NULL)
+  map_set(map, a = NULL)
   map_delete(map, "b")
   doc_commit(doc)
   expect_identical(

@@ -3,10 +3,11 @@
 \name{text}
 \alias{text}
 \alias{text_insert}
+\alias{text_push}
 \alias{text_delete}
 \alias{text_update}
-\alias{text_splice}
-\alias{text_slice}
+\alias{text_replace}
+\alias{text_sub}
 \alias{text_get}
 \alias{text_length}
 \alias{text_convert_pos}
@@ -14,13 +15,15 @@
 \usage{
 text_insert(text, pos, value)
 
-text_delete(text, pos, len)
+text_push(text, value)
+
+text_delete(text, start, end)
 
 text_update(text, value, by = c("char", "line"))
 
-text_splice(text, pos, len, value)
+text_replace(text, start, end, value)
 
-text_slice(text, pos, len)
+text_sub(text, start = 1, end = text_length(text))
 
 text_get(text)
 
@@ -41,7 +44,8 @@ text_convert_pos(
 \item{value}{A string: the text to insert, or the new contents for
 \code{text_update()}.}
 
-\item{len}{Number of characters to delete, replace, or return.}
+\item{start, end}{1-based positions of the first and last characters
+of a range. For \code{text_sub()} they default to the whole text.}
 
 \item{by}{Whether \code{text_update()} compares the old and new text
 character by character (\code{"char"}) or line by line (\code{"line"}).}
@@ -51,29 +55,34 @@ used everywhere else in this package), \code{"utf16"} (UTF-16 code
 units), or \code{"utf8"} (bytes).}
 }
 \value{
-\code{text_insert()}, \code{text_delete()}, \code{text_splice()}, and
-\code{text_update()} return \code{text} invisibly, \code{text_slice()} a string, \code{text_convert_pos()} an integer,
-\code{text_get()} a string, and \code{text_length()} an integer.
+\code{text_insert()}, \code{text_push()}, \code{text_delete()},
+\code{text_replace()}, and \code{text_update()} return \code{text} invisibly.
+\code{text_sub()} and \code{text_get()} return a string, and
+\code{text_convert_pos()} and \code{text_length()} an integer.
 }
 \description{
-Positions and lengths count Unicode code points and are 1-based,
-matching \code{\link[=substr]{substr()}}.
+Positions count Unicode code points and are 1-based, and a range of
+text is given by the positions of its first and last characters,
+\code{start} and \code{end}, as in \code{\link[=substr]{substr()}}. An empty range has
+\code{end = start - 1}.
 \itemize{
 \item \code{text_insert()} inserts \code{value} before the character currently at
-\code{pos}; \code{pos = text_length(text) + 1} appends.
-\item \code{text_delete()} removes \code{len} characters starting at \code{pos}.
-\item \code{text_splice()} replaces \code{len} characters starting at \code{pos} with
-\code{value}, as a deletion followed by an insertion.
+\code{pos}; \code{text_push()} appends it to the end.
+\item \code{text_delete()} removes the characters from \code{start} to \code{end}.
+\item \code{text_replace()} replaces the characters from \code{start} to \code{end}
+with \code{value}, as a deletion followed by an insertion.
 \item \code{text_update()} changes the text to \code{value} by computing a diff
 and applying only the insertions and deletions needed, so
 concurrent edits elsewhere in the text, marks, and cursors survive.
 With \code{by = "line"} the diff treats each line as a unit, which is
 faster for long texts but replaces a line whole when any part of
 it changes.
-\item \code{text_slice()} returns \code{len} characters starting at \code{pos}.
-\item \code{text_get()} returns the current contents as a string.
+\item \code{text_sub()} returns the characters from \code{start} to \code{end}.
+\item \code{text_get()} returns the current contents as a string, as does
+\code{as.character()}.
 \item \code{text_length()} returns the number of characters, or the length
-in another \code{unit}.
+in another \code{unit}. \code{length()} of a text handle is its number of
+characters.
 \item \code{text_convert_pos()} converts a position between units, for
 exchanging positions with software that counts differently:
 JavaScript, and so browser-based editors, counts UTF-16 code
@@ -88,6 +97,8 @@ result is \code{NA} if \code{pos} is out of range.
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello world")
+text_push(text, "!")
+text_sub(text, 1, 5)
 text_delete(text, 1, 6)
 text_get(text)
 text_length(text)

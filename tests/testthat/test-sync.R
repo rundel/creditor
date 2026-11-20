@@ -28,10 +28,10 @@ test_that("updates that arrive early are pending until their dependencies do", {
   text_insert(text, 1, "a")
   doc_commit(a)
   version = doc_version(a)
-  first = doc_export(a, "updates")
+  first = doc_export_updates(a)
   text_insert(text, 2, "b")
   doc_commit(a)
-  second = doc_export(a, "updates", from = version)
+  second = doc_export_updates(a, from = version)
 
   b = loro_doc()
   status = doc_import(b, second)
@@ -51,9 +51,9 @@ test_that("a list of updates is imported together in any order", {
   text_insert(text, 1, "a")
   doc_commit(a)
   version = doc_version(a)
-  first = doc_export(a, "updates")
+  first = doc_export_updates(a)
   text_insert(text, 2, "b")
-  second = doc_export(a, "updates", from = version)
+  second = doc_export_updates(a, from = version)
 
   b = loro_doc()
   status = doc_import(b, list(second, first))
@@ -67,7 +67,7 @@ test_that("a list of updates is imported together in any order", {
 test_that("a shallow snapshot keeps contents but drops old history", {
   doc = long_history()
   full = doc_export(doc)
-  shallow = doc_export(doc, "shallow_snapshot")
+  shallow = doc_export_shallow(doc)
   expect_lt(length(shallow), length(full) / 2)
 
   copy = loro_doc()
@@ -91,7 +91,7 @@ test_that("a shallow snapshot keeps history after `since`", {
   doc_commit(doc, "three")
 
   copy = loro_doc()
-  doc_import(copy, doc_export(doc, "shallow_snapshot", since = v2))
+  doc_import(copy, doc_export_shallow(doc, since = v2))
   expect_identical(text_get(doc_text(copy)), "one two three")
   expect_identical(doc_changes(copy)$message, c("two", "three"))
 
@@ -101,9 +101,9 @@ test_that("a shallow snapshot keeps history after `since`", {
   doc_checkout(copy)
 
   text_insert(doc_text(copy), 1, "> ")
-  doc_import(doc, doc_export(copy, "updates"))
+  doc_import(doc, doc_export_updates(copy))
   expect_identical(text_get(text), "> one two three")
-  expect_error(doc_export(doc, "shallow_snapshot", since = "v2"), "since")
+  expect_error(doc_export_shallow(doc, since = "v2"), "since")
 })
 
 test_that("blob metadata describes an export", {
@@ -127,10 +127,10 @@ test_that("blob metadata describes an export", {
   expect_s3_class(meta$end_timestamp, "POSIXct")
   expect_identical(meta$end_version, doc_version(doc))
 
-  updates = blob_metadata(doc_export(doc, "updates", from = version))
+  updates = blob_metadata(doc_export_updates(doc, from = version))
   expect_identical(updates$mode, "update")
   expect_identical(updates$start_version, version)
-  expect_identical(blob_metadata(doc_export(doc, "shallow_snapshot"))$mode, "shallow-snapshot")
+  expect_identical(blob_metadata(doc_export_shallow(doc))$mode, "shallow-snapshot")
 
   expect_error(blob_metadata(as.raw(1:30)))
   expect_error(blob_metadata("x"), "raw")
@@ -139,7 +139,7 @@ test_that("blob metadata describes an export", {
 test_that("changes round trip through JSON", {
   a = loro_doc(peer_id = 5)
   text_insert(doc_text(a), 1, "Hello")
-  map_set(doc_map(a, "m"), "k", list(1L, "two"))
+  map_set(doc_map(a, "m"), k = list(1L, "two"))
   doc_commit(a, "first")
   version = doc_version(a)
 
@@ -210,7 +210,7 @@ test_that("malformed versions are clean errors in every function", {
     expect_error(doc_compare_frontiers(doc, bad, doc_frontiers(doc)))
     expect_error(doc_frontiers_to_version(doc, bad))
   }
-  expect_error(doc_export(doc, "updates", from = as_version(raw())), "Version vector")
+  expect_error(doc_export_updates(doc, from = as_version(raw())), "Version vector")
   expect_error(doc_version_to_frontiers(doc, as_version(raw())), "Version vector")
   expect_error(doc_export_json(doc, from = as_version(raw())), "Version vector")
 
@@ -219,11 +219,12 @@ test_that("malformed versions are clean errors in every function", {
   expect_identical(text_get(doc_text(doc)), "xabc")
 })
 
-test_that("export arguments must match the mode", {
+test_that("each export function takes only its own kind of version", {
   doc = loro_doc()
   text_insert(doc_text(doc), 1, "a")
-  expect_error(doc_export(doc, "snapshot", from = doc_version(doc)), "updates")
-  expect_error(doc_export(doc, "updates", since = doc_frontiers(doc)), "shallow_snapshot")
+  expect_error(doc_export(doc, from = doc_version(doc)), "unused")
+  expect_error(doc_export_updates(doc, from = doc_frontiers(doc)), "version vector")
+  expect_error(doc_export_shallow(doc, since = doc_version(doc)), "frontiers")
 })
 
 test_that("importing known changes again reports nothing new", {
@@ -258,7 +259,7 @@ test_that("JSON updates that arrive early are pending", {
   status = doc_import_json(other, doc_export_json(doc, from = version))
   expect_identical(status$pending, data.frame(peer = "5", start = 3L, end = 5L))
   expect_identical(text_get(doc_text(other)), "")
-  doc_import(other, doc_export(doc, "updates"))
+  doc_import(other, doc_export_updates(doc))
   expect_identical(text_get(doc_text(other)), "abcde")
 })
 
@@ -284,7 +285,7 @@ test_that("JSON cannot carry very deep values, and says so", {
   nested = 1L
   for (i in 1:200) nested = list(nested)
   doc = loro_doc()
-  map_set(doc_map(doc, "m"), "k", nested)
+  map_set(doc_map(doc, "m"), k = nested)
 
   other = loro_doc()
   expect_error(doc_import_json(other, doc_export_json(doc)), "120 levels")
@@ -306,7 +307,7 @@ test_that("a shallow document refuses history before its start, and stays usable
   v3 = doc_frontiers(doc)
 
   shallow = loro_doc()
-  doc_import(shallow, doc_export(doc, "shallow_snapshot", since = v2))
+  doc_import(shallow, doc_export_shallow(doc, since = v2))
   expect_error(doc_diff(shallow, v1, v3), "shallow")
   expect_error(doc_revert_to(shallow, v1), "shallow")
   expect_error(doc_apply_diff(shallow, v1, v3), "shallow")

@@ -6,10 +6,10 @@ test_that("marks can be added and removed", {
   text_insert(text, 1, "Hello world")
   expect_identical(text_delta(text), list(plain("Hello world")))
 
-  text_mark(text, 1, 5, "bold")
+  text_mark(text, 1, 5, bold = TRUE)
   expect_identical(text_delta(text), list(marked("Hello", bold = TRUE), plain(" world")))
 
-  text_mark(text, 7, 5, "link", "https://loro.dev")
+  text_mark(text, 7, 11, link = "https://loro.dev")
   text_unmark(text, 1, 2, "bold")
   expect_identical(
     text_delta(text),
@@ -26,8 +26,8 @@ test_that("marks can be added and removed", {
 test_that("overlapping marks combine", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "abcdef")
-  text_mark(text, 1, 4, "bold")
-  text_mark(text, 3, 4, "italic")
+  text_mark(text, 1, 4, bold = TRUE)
+  text_mark(text, 3, 6, italic = TRUE)
   expect_identical(
     text_delta(text),
     list(
@@ -41,7 +41,7 @@ test_that("overlapping marks combine", {
 test_that("mark ranges count code points", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "a\U0001F600b")
-  text_mark(text, 2, 1, "bold")
+  text_mark(text, 2, 2, bold = TRUE)
   expect_identical(
     text_delta(text),
     list(plain("a"), marked("\U0001F600", bold = TRUE), plain("b"))
@@ -51,13 +51,13 @@ test_that("mark ranges count code points", {
 test_that("expand behavior follows the style configuration", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "ab")
-  text_mark(text, 1, 2, "bold")
+  text_mark(text, 1, 2, bold = TRUE)
   text_insert(text, 3, "c")
   expect_identical(text_delta(text), list(marked("abc", bold = TRUE)))
 
   text = doc_text(loro_doc())
   text_insert(text, 1, "ab")
-  text_mark(text, 1, 2, "link", "u")
+  text_mark(text, 1, 2, link = "u")
   text_insert(text, 3, "c")
   expect_identical(text_delta(text), list(marked("ab", link = "u"), plain("c")))
 })
@@ -66,19 +66,19 @@ test_that("mark keys must be configured", {
   doc = loro_doc()
   text = doc_text(doc)
   text_insert(text, 1, "abc")
-  expect_error(text_mark(text, 1, 1, "author", "x"), "doc_config_text_style")
+  expect_error(text_mark(text, 1, 1, author = "x"), "doc_config_text_style")
 
   doc_config_text_style(doc, author = "none")
-  text_mark(text, 1, 1, "author", "x")
-  text_mark(text, 2, 1, "bold")
+  text_mark(text, 1, 1, author = "x")
+  text_mark(text, 2, 2, bold = TRUE)
   expect_identical(
     text_delta(text),
     list(marked("a", author = "x"), marked("b", bold = TRUE), plain("c"))
   )
 
-  expect_error(text_mark(text, 1, 1, "other"), "doc_config_text_style")
-  doc_config_text_style(doc, default = "after")
-  text_mark(text, 3, 1, "other")
+  expect_error(text_mark(text, 1, 1, other = TRUE), "doc_config_text_style")
+  doc_config_text_style(doc, .default = "after")
+  text_mark(text, 3, 3, other = TRUE)
   expect_identical(text_delta(text)[[3]], marked("c", other = TRUE))
 })
 
@@ -87,15 +87,17 @@ test_that("style configuration is validated", {
   expect_error(doc_config_text_style(doc, "none"), "named")
   expect_error(doc_config_text_style(doc, a = "sideways"), "one of")
   expect_error(doc_config_text_style(doc, `a:b` = "none"), ":")
-  expect_error(doc_config_text_style(doc, default = "nope"), "default")
+  expect_error(doc_config_text_style(doc, .default = "nope"), "default")
 })
 
 test_that("invalid marks are errors", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "abc")
-  expect_error(text_mark(text, 1, 0, "bold"), "len")
-  expect_error(text_mark(text, 2, 10, "bold"))
-  expect_error(text_mark(text, 1, 1, "a:b"), ":")
+  expect_error(text_mark(text, 1, 0, bold = TRUE), "at least one character")
+  expect_error(text_mark(text, 1, 1, TRUE), "named")
+  expect_error(text_unmark(text, 1, 1, 1), "keys")
+  expect_error(text_mark(text, 2, 11, bold = TRUE))
+  expect_error(text_mark(text, 1, 1, "a:b" = TRUE), ":")
   expect_identical(text_delta(text), list(plain("abc")))
 })
 
@@ -123,8 +125,8 @@ test_that("a delta can be applied", {
 test_that("text_delta output rebuilds the same rich text", {
   a = doc_text(loro_doc())
   text_insert(a, 1, "Hello world")
-  text_mark(a, 1, 5, "bold")
-  text_mark(a, 4, 6, "link", "u")
+  text_mark(a, 1, 5, bold = TRUE)
+  text_mark(a, 4, 9, link = "u")
 
   b = doc_text(loro_doc())
   text_apply_delta(b, text_delta(a))
@@ -151,11 +153,11 @@ test_that("marks sync and merge with concurrent edits", {
   b = loro_doc(peer_id = 2)
   doc_import(b, doc_export(a))
 
-  text_mark(doc_text(a), 1, 5, "bold")
+  text_mark(doc_text(a), 1, 5, bold = TRUE)
   text_insert(doc_text(b), 3, "XX")
 
-  doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-  doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+  doc_import(b, doc_export_updates(a, from = doc_version(b)))
+  doc_import(a, doc_export_updates(b, from = doc_version(a)))
 
   expect_identical(text_delta(doc_text(a)), text_delta(doc_text(b)))
   expect_identical(
@@ -168,7 +170,7 @@ test_that("text_update applies a minimal diff", {
   doc = loro_doc()
   text = doc_text(doc)
   text_insert(text, 1, "Hello world")
-  text_mark(text, 7, 5, "bold")
+  text_mark(text, 7, 11, bold = TRUE)
   cursor = text_cursor(text, 7)
 
   text_update(text, "Hello brave new world")
@@ -186,18 +188,18 @@ test_that("text_update applies a minimal diff", {
 test_that("a delta can be taken for a range", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "Hello world")
-  text_mark(text, 1, 5, "bold")
+  text_mark(text, 1, 5, bold = TRUE)
 
   expect_identical(
-    text_delta(text, 4, 5),
+    text_delta(text, 4, 8),
     list(marked("lo", bold = TRUE), plain(" wo"))
   )
-  expect_identical(text_delta(text, 7, 5), list(plain("world")))
+  expect_identical(text_delta(text, 7, 11), list(plain("world")))
   expect_identical(text_delta(text, 1, 0), list())
   expect_identical(text_delta(text, 1, 11), text_delta(text))
-  expect_error(text_delta(text, 2), "together")
-  expect_error(text_delta(text, len = 2), "together")
-  expect_error(text_delta(text, 2, 99))
+  expect_identical(text_delta(text, 7), list(plain("world")))
+  expect_identical(text_delta(text, end = 2), list(marked("He", bold = TRUE)))
+  expect_error(text_delta(text, 2, 100))
 })
 
 test_that("a delta that runs past the end is rejected before anything is applied", {
@@ -245,26 +247,26 @@ test_that("ambiguous delta ops are rejected", {
 
 test_that("mark values keep their type, and NULL or NA removes the mark", {
   doc = loro_doc()
-  doc_config_text_style(doc, default = "none")
+  doc_config_text_style(doc, .default = "none")
   text = doc_text(doc)
   text_insert(text, 1, "abcd")
   value_of = function() text_delta(text)[[1]]$attributes$v
 
   for (value in list(FALSE, 3L, 2.5, "s", as.raw(1:3))) {
-    text_mark(text, 1, 4, "v", value)
+    text_mark(text, 1, 4, v = value)
     expect_identical(value_of(), value)
   }
-  text_mark(text, 1, 4, "v", c("a", "b"))
+  text_mark(text, 1, 4, v = c("a", "b"))
   expect_identical(value_of(), list("a", "b"))
-  text_mark(text, 1, 4, "v", list(a = 1, b = list("x", "y")))
+  text_mark(text, 1, 4, v = list(a = 1, b = list("x", "y")))
   expect_identical(value_of(), list(a = 1, b = list("x", "y")))
 
-  text_mark(text, 1, 4, "v", NULL)
+  text_mark(text, 1, 4, v = NULL)
   expect_identical(text_delta(text), list(plain("abcd")))
-  text_mark(text, 1, 4, "v", TRUE)
-  text_mark(text, 1, 4, "v", NA)
+  text_mark(text, 1, 4, v = TRUE)
+  text_mark(text, 1, 4, v = NA)
   expect_identical(text_delta(text), list(plain("abcd")))
-  expect_error(text_mark(text, 1, 4, "v", factor("a")), "class")
+  expect_error(text_mark(text, 1, 4, v = factor("a")), "class")
 })
 
 test_that("before and both expansion follow the configuration", {
@@ -272,9 +274,9 @@ test_that("before and both expansion follow the configuration", {
   doc_config_text_style(doc, pre = "before", around = "both", bold = "none")
   text = doc_text(doc)
   text_insert(text, 1, "ab")
-  text_mark(text, 1, 2, "pre")
-  text_mark(text, 1, 2, "around")
-  text_mark(text, 1, 2, "bold")
+  text_mark(text, 1, 2, pre = TRUE)
+  text_mark(text, 1, 2, around = TRUE)
+  text_mark(text, 1, 2, bold = TRUE)
 
   text_insert(text, 1, "L")
   text_insert(text, 4, "R")
@@ -294,11 +296,22 @@ test_that("style configuration carries over to a fork", {
   text_insert(doc_text(doc), 1, "ab")
 
   fork = doc_fork(doc)
-  text_mark(doc_text(fork), 1, 2, "note", "x")
+  text_mark(doc_text(fork), 1, 2, note = "x")
   expect_identical(text_delta(doc_text(fork)), list(marked("ab", note = "x")))
 
   fresh = loro_doc()
   doc_import(fresh, doc_export(fork))
   expect_identical(text_delta(doc_text(fresh)), list(marked("ab", note = "x")))
-  expect_error(text_mark(doc_text(fresh), 1, 1, "note", "y"), "doc_config_text_style")
+  expect_error(text_mark(doc_text(fresh), 1, 1, note = "y"), "doc_config_text_style")
+})
+
+test_that("several marks are applied and removed at once", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "Hello world")
+  text_mark(text, 1, 5, bold = TRUE, link = "https://loro.dev")
+  expect_identical(text_delta(text)[[1]]$attributes, list(bold = TRUE, link = "https://loro.dev"))
+  text_unmark(text, 1, 5, c("bold", "link"))
+  expect_identical(text_delta(text), list(list(insert = "Hello world")))
+  text_mark(text, 1, 5)
+  expect_identical(text_delta(text), list(list(insert = "Hello world")))
 })

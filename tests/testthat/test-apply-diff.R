@@ -7,7 +7,7 @@ two_versions = function() {
 
   text_insert(text, 6, " world")
   map = doc_map(doc, "m")
-  map_set(map, "k", 1L)
+  map_set(map, k = 1L)
   text_insert(map_set_container(map, "body", "text"), 1, "child")
   doc_commit(doc)
   list(doc = doc, v1 = v1, v2 = doc_frontiers(doc))
@@ -31,7 +31,7 @@ test_that("applied changes sync like ordinary edits", {
   doc_import(other, doc_export(h$doc))
 
   doc_apply_diff(h$doc, h$v2, h$v1)
-  doc_import(other, doc_export(h$doc, "updates", from = doc_version(other)))
+  doc_import(other, doc_export_updates(h$doc, from = doc_version(other)))
   expect_identical(text_get(doc_text(other)), "Hello")
 })
 

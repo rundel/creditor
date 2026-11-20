@@ -28,10 +28,10 @@ test_that("concurrent edits converge", {
 
   text_insert(doc_text(a), 6, " world")
   text_insert(doc_text(b), 1, ">> ")
-  text_delete(doc_text(b), 4, 1)
+  text_delete(doc_text(b), 4, 4)
 
-  to_b = doc_export(a, "updates", from = doc_version(b))
-  to_a = doc_export(b, "updates", from = doc_version(a))
+  to_b = doc_export_updates(a, from = doc_version(b))
+  to_a = doc_export_updates(b, from = doc_version(a))
   doc_import(b, to_b)
   doc_import(a, to_a)
 
@@ -49,8 +49,8 @@ test_that("incremental updates are smaller than the full history", {
   text_insert(doc_text(a), 1, "x")
 
   expect_lt(
-    length(doc_export(a, "updates", from = version)),
-    length(doc_export(a, "updates"))
+    length(doc_export_updates(a, from = version)),
+    length(doc_export_updates(a))
   )
 })
 
@@ -77,8 +77,8 @@ test_that("bad sync input is an error", {
   a = loro_doc()
   expect_error(doc_import(a, "abc"), "raw")
   expect_error(doc_import(a, as.raw(1:10)))
-  expect_error(doc_export(a, "updates", from = "abc"), "raw")
-  expect_error(doc_export(a, "nope"))
+  expect_error(doc_export_updates(a, from = "abc"), "raw")
+  expect_error(doc_export(a, "nope"), "unused")
 })
 
 test_that("print shows the peer and contents", {

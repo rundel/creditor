@@ -9,39 +9,37 @@
 \alias{doc_config_text_style}
 \title{Rich text}
 \usage{
-text_mark(text, pos, len, key, value = TRUE)
+text_mark(text, start, end, ...)
 
-text_unmark(text, pos, len, key)
+text_unmark(text, start, end, keys)
 
-text_delta(text, pos = NULL, len = NULL)
+text_delta(text, start = 1, end = text_length(text))
 
 text_apply_delta(text, delta)
 
-doc_config_text_style(doc, ..., default = NULL)
+doc_config_text_style(doc, ..., .default = NULL)
 }
 \arguments{
 \item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.}
 
-\item{pos}{A 1-based character position.}
+\item{start, end}{1-based positions of the first and last characters
+of the range. For \code{text_delta()} they default to the whole text.}
 
-\item{len}{Number of characters to mark, unmark, or return. For
-\code{text_delta()}, \code{pos} and \code{len} are optional and must be given
-together.}
+\item{...}{For \code{text_mark()}, the marks to apply, each a plain value
+(see the Values section of \code{\link[=map_set]{map_set()}}) named with its key, for
+example \code{bold = TRUE} or \code{link = "https://loro.dev"}. A key must
+not contain \code{":"}, and a value of \code{NULL} or \code{NA} removes the mark,
+as \code{text_unmark()} does. For \code{doc_config_text_style()}, strings
+giving the expand behavior of each key, for example
+\code{comment = "none"}. Both are \link[rlang:dyn-dots]{dynamic dots}.}
 
-\item{key}{Name of the mark. It must not contain \code{":"}.}
-
-\item{value}{A plain value for the mark; see the Values section of
-\code{\link[=map_set]{map_set()}}. \code{NULL} and \code{NA} remove the mark, as \code{text_unmark()}
-does.}
+\item{keys}{A character vector of mark names.}
 
 \item{delta}{A list of delta ops.}
 
 \item{doc}{A \code{\link{loro_doc}}.}
 
-\item{...}{Named strings giving the expand behavior for each key,
-for example \code{comment = "none"}.}
-
-\item{default}{Expand behavior for keys that are not configured, or
+\item{.default}{Expand behavior for keys that are not configured, or
 \code{NULL} to reject them.}
 }
 \value{
@@ -52,16 +50,16 @@ return \code{text} invisibly; \code{text_delta()} returns a list; and
 \description{
 Marks attach a key and value (a style such as \code{bold = TRUE}, or
 data such as a link target) to a range of text. They merge across
-replicas like any other edit. As elsewhere, positions and lengths
-count Unicode code points and are 1-based.
+replicas like any other edit. As elsewhere, positions count Unicode
+code points and are 1-based, and a range runs from \code{start} to \code{end}.
 \itemize{
-\item \code{text_mark()} marks \code{len} characters starting at \code{pos} with
-\code{key = value}.
-\item \code{text_unmark()} removes the mark \code{key} from that range.
+\item \code{text_mark()} marks the characters from \code{start} to \code{end} with the
+marks given as \code{key = value} arguments.
+\item \code{text_unmark()} removes the marks named in \code{keys} from that range.
 \item \code{text_delta()} returns the text as a list of runs, each a list
 with a string \code{insert} and, for marked runs, a named list
-\code{attributes}. This is the Quill delta format. With \code{pos} and \code{len}
-it covers only that range.
+\code{attributes}. This is the Quill delta format. With \code{start} and
+\code{end} it covers only that range.
 \item \code{text_apply_delta()} edits the text with a list of delta ops.
 Each op is a list with exactly one of \code{retain} (keep that many
 characters), \code{insert} (a string), or \code{delete} (remove that many
@@ -96,8 +94,9 @@ synchronized, so every replica should configure a key the same way.
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello world")
-text_mark(text, 1, 5, "bold")
-text_mark(text, 7, 5, "link", "https://loro.dev")
+text_mark(text, 1, 5, bold = TRUE)
+text_mark(text, 7, 11, link = "https://loro.dev", italic = TRUE)
+text_unmark(text, 7, 11, "italic")
 str(text_delta(text))
 
 text_apply_delta(text, list(
@@ -108,6 +107,6 @@ text_apply_delta(text, list(
 text_get(text)
 
 doc_config_text_style(doc, author = "none")
-text_mark(text, 1, 5, "author", "cr")
+text_mark(text, 1, 5, author = "cr")
 
 }
