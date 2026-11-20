@@ -32,6 +32,10 @@ loro_doc_fork_impl <- function(doc, at) .Call(wrap__loro_doc_fork_impl, doc, at)
 #' @noRd
 loro_doc_record_timestamps_impl <- function(doc, record) .Call(wrap__loro_doc_record_timestamps_impl, doc, record)
 
+#' The operation ids in encoded frontiers, as `counter@peer` strings.
+#' @noRd
+loro_frontiers_ids_impl <- function(frontiers) .Call(wrap__loro_frontiers_ids_impl, frontiers)
+
 #' Encoded frontiers of the version the document state is at.
 #' @noRd
 loro_doc_frontiers_impl <- function(doc) .Call(wrap__loro_doc_frontiers_impl, doc)

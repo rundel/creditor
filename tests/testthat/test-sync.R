@@ -9,7 +9,7 @@ long_history = function(n = 200) {
   doc
 }
 
-empty_range = data.frame(peer = character(), start = integer(), end = integer())
+empty_range = tibble::tibble(peer = character(), start = integer(), end = integer())
 
 test_that("import reports the operations it applied", {
   a = loro_doc(peer_id = 1)
@@ -19,7 +19,7 @@ test_that("import reports the operations it applied", {
   doc_import(b, doc_export(a))
 
   status = doc_import_status(b)
-  expect_identical(status$success, data.frame(peer = "1", start = 0L, end = 5L))
+  expect_identical(status$success, tibble::tibble(peer = "1", start = 0L, end = 5L))
   expect_identical(status$pending, empty_range)
   expect_invisible(doc_import(b, doc_export(a)))
 })
@@ -39,13 +39,13 @@ test_that("updates that arrive early are pending until their dependencies do", {
   doc_import(b, second)
   status = doc_import_status(b)
   expect_identical(status$success, empty_range)
-  expect_identical(status$pending, data.frame(peer = "5", start = 1L, end = 2L))
+  expect_identical(status$pending, tibble::tibble(peer = "5", start = 1L, end = 2L))
   expect_identical(text_get(doc_text(b)), "")
 
   doc_import(b, first)
 
   status = doc_import_status(b)
-  expect_identical(status$success, data.frame(peer = "5", start = 0L, end = 2L))
+  expect_identical(status$success, tibble::tibble(peer = "5", start = 0L, end = 2L))
   expect_identical(status$pending, empty_range)
   expect_identical(text_get(doc_text(b)), "ab")
 })
@@ -109,7 +109,7 @@ test_that("a shallow snapshot keeps history after `since`", {
   text_insert(doc_text(copy), 1, "> ")
   doc_import(doc, doc_export_updates(copy))
   expect_identical(text_get(text), "> one two three")
-  expect_error(doc_export_shallow(doc, since = "v2"), "since")
+  expect_error(doc_export_shallow(doc, since = TRUE), "since")
 })
 
 test_that("blob metadata describes an export", {
@@ -269,7 +269,7 @@ test_that("JSON updates that arrive early are pending", {
   other = loro_doc()
   doc_import_json(other, doc_export_json(doc, from = version))
   status = doc_import_status(other)
-  expect_identical(status$pending, data.frame(peer = "5", start = 3L, end = 5L))
+  expect_identical(status$pending, tibble::tibble(peer = "5", start = 3L, end = 5L))
   expect_identical(text_get(doc_text(other)), "")
   doc_import(other, doc_export_updates(doc))
   expect_identical(text_get(doc_text(other)), "abcde")

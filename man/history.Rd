@@ -68,7 +68,9 @@ operation counter.}
 \code{doc_changes()}.}
 
 \item{frontiers, from, to, x, y}{A version: frontiers from \code{doc_frontiers()}
-or the \code{frontiers} column of \code{doc_changes()}. See \code{\link[=as_frontiers]{as_frontiers()}}.}
+(see \code{\link[=as_frontiers]{as_frontiers()}}), or the version after one change, named by
+its number in \code{doc_changes()} order or by its commit message. For
+\code{doc_apply_diff()}, change numbers and messages refer to \code{source}.}
 
 \item{version}{A version vector from \code{\link[=doc_version]{doc_version()}}.}
 
@@ -87,7 +89,7 @@ invisibly, and \code{doc_is_detached_editing()} a logical.
 \code{doc_compare_frontiers()} returns an integer, \code{doc_change_count()}
 and \code{doc_op_count()} integers, and \code{doc_changed_containers()} a
 character vector. \code{doc_changes()} and \code{doc_change()} return a
-data frame, \code{doc_is_detached()} a logical, and \code{doc_diff()} a named
+tibble, \code{doc_is_detached()} a logical, and \code{doc_diff()} a named
 list. \code{doc_checkout()}, \code{doc_revert_to()},
 \code{doc_apply_diff()}, and \code{doc_record_timestamps()} return \code{doc}
 invisibly.
@@ -157,7 +159,7 @@ after returning to the latest version, so do not rely on
 
 \section{Changes}{
 
-\code{doc_changes()} returns a data frame, in causal order, with columns:
+\code{doc_changes()} returns a tibble, in causal order, with columns:
 \itemize{
 \item \code{peer}, \code{counter}: the id of the change's first operation.
 \item \code{lamport}: its logical timestamp.

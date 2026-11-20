@@ -65,7 +65,7 @@ used with \code{\link[=map_set]{map_set()}}, \code{\link[=map_get]{map_get()}}, 
 functions.
 \item \code{tree_children()} returns the ids of a node's children in order,
 or of the root nodes when \code{parent} is \code{NULL}.
-\item \code{tree_nodes()} returns a data frame of all nodes with columns
+\item \code{tree_nodes()} returns a tibble of all nodes with columns
 \code{id}, \code{parent} (\code{NA} for root nodes), and \code{index} (the 1-based
 position among siblings).
 \item \code{tree_contains()} reports whether a node exists and has not been

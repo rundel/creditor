@@ -18,7 +18,7 @@
 #'   functions.
 #' * `tree_children()` returns the ids of a node's children in order,
 #'   or of the root nodes when `parent` is `NULL`.
-#' * `tree_nodes()` returns a data frame of all nodes with columns
+#' * `tree_nodes()` returns a tibble of all nodes with columns
 #'   `id`, `parent` (`NA` for root nodes), and `index` (the 1-based
 #'   position among siblings).
 #' * `tree_contains()` reports whether a node exists and has not been
@@ -142,7 +142,7 @@ tree_children = function(tree, parent = NULL) {
 tree_nodes = function(tree) {
   ptr = container_ptr(tree, loro_tree, "tree")
   nodes = loro_tree_nodes_impl(ptr)
-  data.frame(id = nodes$id, parent = nodes$parent, index = nodes$index + 1L)
+  tibble::tibble(id = nodes$id, parent = nodes$parent, index = nodes$index + 1L)
 }
 
 #' @rdname tree

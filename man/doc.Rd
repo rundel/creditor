@@ -30,8 +30,9 @@ doc_jsonpath(doc, path)
 
 \item{peer_id}{A peer id: a whole number or a string of digits.}
 
-\item{at}{A version from \code{\link[=doc_frontiers]{doc_frontiers()}} to fork at, or \code{NULL}
-for the current version.}
+\item{at}{A version to fork at, or \code{NULL} for the current version: frontiers
+from \code{\link[=doc_frontiers]{doc_frontiers()}}, or the version after one change, named by its
+number in \code{\link[=doc_changes]{doc_changes()}} order or by its commit message.}
 
 \item{message}{A string describing the change, or \code{NULL}.}
 

@@ -242,6 +242,16 @@ fn to_frontiers(bytes: &Raw) -> Result<Frontiers> {
         .map_err(|_| Error::Other("not a valid frontiers value".to_string()))
 }
 
+/// The operation ids in encoded frontiers, as `counter@peer` strings.
+/// @noRd
+#[extendr]
+fn loro_frontiers_ids_impl(frontiers: Raw) -> Result<Vec<String>> {
+    Ok(to_frontiers(&frontiers)?
+        .iter()
+        .map(|id| id.to_string())
+        .collect())
+}
+
 /// Encoded frontiers of the version the document state is at.
 /// @noRd
 #[extendr]
@@ -1541,6 +1551,7 @@ extendr_module! {
     fn loro_doc_commit_impl;
     fn loro_doc_fork_impl;
     fn loro_doc_record_timestamps_impl;
+    fn loro_frontiers_ids_impl;
     fn loro_doc_frontiers_impl;
     fn loro_doc_checkout_impl;
     fn loro_doc_is_detached_impl;

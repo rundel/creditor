@@ -61,7 +61,7 @@
 #' `loro_doc` object and is not saved in exports.
 #'
 #' @section Changes:
-#' `doc_changes()` returns a data frame, in causal order, with columns:
+#' `doc_changes()` returns a tibble, in causal order, with columns:
 #'
 #' * `peer`, `counter`: the id of the change's first operation.
 #' * `lamport`: its logical timestamp.
@@ -100,7 +100,9 @@
 #'
 #' @param doc A [`loro_doc`].
 #' @param frontiers,from,to,x,y A version: frontiers from `doc_frontiers()`
-#'   or the `frontiers` column of `doc_changes()`. See [`as_frontiers()`].
+#'   (see [`as_frontiers()`]), or the version after one change, named by
+#'   its number in `doc_changes()` order or by its commit message. For
+#'   `doc_apply_diff()`, change numbers and messages refer to `source`.
 #' @param record Whether to record timestamps.
 #' @param enable Whether to allow editing while detached.
 #' @param version A version vector from [`doc_version()`].
@@ -118,7 +120,7 @@
 #'   `doc_compare_frontiers()` returns an integer, `doc_change_count()`
 #'   and `doc_op_count()` integers, and `doc_changed_containers()` a
 #'   character vector. `doc_changes()` and `doc_change()` return a
-#'   data frame, `doc_is_detached()` a logical, and `doc_diff()` a named
+#'   tibble, `doc_is_detached()` a logical, and `doc_diff()` a named
 #'   list. `doc_checkout()`, `doc_revert_to()`,
 #'   `doc_apply_diff()`, and `doc_record_timestamps()` return `doc`
 #'   invisibly.
@@ -154,7 +156,16 @@ NULL
 new_frontiers = function(x) structure(x, class = "loro_frontiers")
 new_version = function(x) structure(x, class = "loro_version")
 
-check_frontiers = function(x, arg, call = rlang::caller_env()) {
+# Besides frontiers, a version can be given as the number of a change in
+# doc_changes() order or as the message of a commit; both name the version
+# after that change and are resolved against `doc`'s history.
+check_frontiers = function(x, arg, doc, call = rlang::caller_env()) {
+  if (is.numeric(x) && !is.object(x)) {
+    return(change_frontiers_by_number(x, arg, doc, call))
+  }
+  if (is.character(x)) {
+    return(change_frontiers_by_message(x, arg, doc, call))
+  }
   if (inherits(x, "loro_version")) {
     cli::cli_abort(
       c(
@@ -167,13 +178,42 @@ check_frontiers = function(x, arg, call = rlang::caller_env()) {
   if (!inherits(x, "loro_frontiers")) {
     cli::cli_abort(
       c(
-        "{.arg {arg}} must be frontiers from {.fn doc_frontiers} or {.fn doc_changes}.",
+        "{.arg {arg}} must be a version: frontiers from {.fn doc_frontiers}, a change number, or a commit message.",
         i = "Use {.fn as_frontiers} to restore frontiers that were saved as a raw vector."
       ),
       call = call
     )
   }
-  invisible(x)
+  x
+}
+
+change_frontiers_by_number = function(x, arg, doc, call) {
+  changes = loro_doc_changes_impl(doc@ptr)
+  n = length(changes$frontiers)
+  if (length(x) != 1 || is.na(x) || x != trunc(x) || x < 1 || x > n) {
+    cli::cli_abort(
+      "{.arg {arg}} must be a change number from 1 to {n}, not {.val {x}}.",
+      call = call
+    )
+  }
+  new_frontiers(changes$frontiers[[x]])
+}
+
+change_frontiers_by_message = function(x, arg, doc, call) {
+  x = check_string(x, arg, call = call)
+  changes = loro_doc_changes_impl(doc@ptr)
+  match = which(!is.na(changes$message) & changes$message == x)
+  if (length(match) != 1) {
+    cli::cli_abort(
+      if (length(match) == 0) {
+        "No change has the commit message {.val {x}}."
+      } else {
+        "{length(match)} changes have the commit message {.val {x}}, so {.arg {arg}} is ambiguous."
+      },
+      call = call
+    )
+  }
+  new_frontiers(changes$frontiers[[match]])
 }
 
 check_version = function(x, arg, call = rlang::caller_env()) {
@@ -263,7 +303,19 @@ S7::method(format, S7::new_S3_class("loro_version")) = function(x, ...) {
 }
 
 S7::method(format, S7::new_S3_class("loro_frontiers")) = function(x, ...) {
-  format_bytes(x, "loro_frontiers")
+  paste0("<loro_frontiers> ", frontiers_label(x))
+}
+
+# Frontiers name operations, so they are shown as the ids of those
+# operations (`counter@peer`, like tree node ids) rather than as bytes.
+frontiers_label = function(x) {
+  ids = loro_frontiers_ids_impl(unclass(x))
+  if (length(ids) == 0) "(empty)" else paste(ids, collapse = ", ")
+}
+
+#' @exportS3Method pillar::obj_sum
+obj_sum.loro_frontiers = function(x) {
+  frontiers_label(x)
 }
 
 S7::method(print, S7::new_S3_class("loro_version")) = function(x, ...) {
@@ -272,7 +324,7 @@ S7::method(print, S7::new_S3_class("loro_version")) = function(x, ...) {
 }
 
 S7::method(print, S7::new_S3_class("loro_frontiers")) = function(x, ...) {
-  cat(format_bytes(x, "loro_frontiers"), "\n", sep = "")
+  cat(format(x), "\n", sep = "")
   invisible(x)
 }
 
@@ -295,16 +347,15 @@ doc_changes = function(doc) {
 changes_frame = function(changes) {
   timestamp = changes$timestamp
   timestamp[timestamp == 0] = NA
-  out = data.frame(
+  tibble::tibble(
     peer = changes$peer,
     counter = changes$counter,
     lamport = changes$lamport,
     length = changes$length,
     timestamp = as.POSIXct(timestamp, origin = "1970-01-01", tz = "UTC"),
-    message = changes$message
+    message = changes$message,
+    frontiers = lapply(changes$frontiers, new_frontiers)
   )
-  out$frontiers = lapply(changes$frontiers, new_frontiers)
-  out
 }
 
 check_peer = function(peer, call = rlang::caller_env()) {
@@ -372,7 +423,7 @@ doc_changed_containers = function(doc, changes) {
 doc_frontiers_to_version = function(doc, frontiers) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  check_frontiers(frontiers, "frontiers")
+  frontiers = check_frontiers(frontiers, "frontiers", doc)
   new_version(loro_doc_frontiers_to_version_impl(doc@ptr, frontiers))
 }
 
@@ -390,8 +441,8 @@ doc_version_to_frontiers = function(doc, version) {
 doc_compare_frontiers = function(doc, x, y) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  check_frontiers(x, "x")
-  check_frontiers(y, "y")
+  x = check_frontiers(x, "x", doc)
+  y = check_frontiers(y, "y", doc)
   loro_doc_compare_frontiers_impl(doc@ptr, x, y)
 }
 
@@ -401,7 +452,7 @@ doc_checkout = function(doc, frontiers = NULL) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
   if (!is.null(frontiers)) {
-    check_frontiers(frontiers, "frontiers")
+    frontiers = check_frontiers(frontiers, "frontiers", doc)
   }
   loro_doc_checkout_impl(doc@ptr, frontiers)
   invisible(doc)
@@ -447,7 +498,7 @@ doc_is_detached_editing = function(doc) {
 doc_revert_to = function(doc, frontiers) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  check_frontiers(frontiers, "frontiers")
+  frontiers = check_frontiers(frontiers, "frontiers", doc)
   loro_doc_revert_to_impl(doc@ptr, frontiers)
   invisible(doc)
 }
@@ -457,8 +508,8 @@ doc_revert_to = function(doc, frontiers) {
 doc_diff = function(doc, from, to) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  check_frontiers(from, "from")
-  check_frontiers(to, "to")
+  from = check_frontiers(from, "from", doc)
+  to = check_frontiers(to, "to", doc)
   loro_doc_diff_impl(doc@ptr, from, to)
 }
 
@@ -470,8 +521,8 @@ doc_apply_diff = function(doc, from, to, source = doc) {
   if (!S7::S7_inherits(source, loro_doc)) {
     cli::cli_abort("{.arg source} must be a {.cls loro_doc}.")
   }
-  check_frontiers(from, "from")
-  check_frontiers(to, "to")
+  from = check_frontiers(from, "from", source)
+  to = check_frontiers(to, "to", source)
   loro_doc_apply_diff_impl(doc@ptr, source@ptr, from, to)
   invisible(doc)
 }

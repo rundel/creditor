@@ -106,8 +106,9 @@ check_doc = function(doc, arg = "doc", call = rlang::caller_env()) {
 #'   an error.
 #'
 #' @param doc A [`loro_doc`].
-#' @param at A version from [`doc_frontiers()`] to fork at, or `NULL`
-#'   for the current version.
+#' @param at A version to fork at, or `NULL` for the current version: frontiers
+#'   from [`doc_frontiers()`], or the version after one change, named by its
+#'   number in [`doc_changes()`] order or by its commit message.
 #' @param message A string describing the change, or `NULL`.
 #' @param origin A string labeling the source of the commit, or `NULL`.
 #' @param timestamp The time to record for the commit, as a `POSIXct`
@@ -161,7 +162,7 @@ doc_fork = function(doc, at = NULL) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
   if (!is.null(at)) {
-    check_frontiers(at, "at")
+    at = check_frontiers(at, "at", doc)
     if (loro_doc_is_shallow_impl(doc@ptr)) {
       cli::cli_abort(
         c(
@@ -337,7 +338,7 @@ doc_jsonpath = function(doc, path) {
 #' it, or `NULL` if nothing has been imported. Like the document, it is
 #' shared by every reference to it, so it can be read from the original
 #' variable as well as from the result of a pipe. It is a list of two
-#' data frames, `success` and `pending`, each with columns `peer`,
+#' tibbles, `success` and `pending`, each with columns `peer`,
 #' `start`, and `end` giving a range of that peer's operation counters.
 #' `success` holds the operations that were applied. `pending` holds
 #' operations that arrived before the changes they depend on; they are
@@ -349,7 +350,9 @@ doc_jsonpath = function(doc, path) {
 #' @param from A version returned by `doc_version()` to start from,
 #'   typically that of the replica the updates are destined for, or
 #'   `NULL` for the beginning.
-#' @param since A version from [`doc_frontiers()`]. The default, the
+#' @param since A version: frontiers from [`doc_frontiers()`], or the version
+#'   after one change, named by its number in [`doc_changes()`] order or by
+#'   its commit message. The default, the
 #'   latest version, keeps no earlier history at all.
 #' @param to A version returned by `doc_version()` to stop at, or `NULL`
 #'   for the latest.
@@ -395,7 +398,7 @@ NULL
 
 import_status = function(status) {
   lapply(status, function(range) {
-    data.frame(peer = range$peer, start = range$start, end = range$end)
+    tibble::tibble(peer = range$peer, start = range$start, end = range$end)
   })
 }
 
@@ -424,7 +427,7 @@ doc_export_shallow = function(doc, since = NULL) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
   if (!is.null(since)) {
-    check_frontiers(since, "since")
+    since = check_frontiers(since, "since", doc)
   }
   loro_doc_export_impl(doc@ptr, "shallow_snapshot", NULL, since)
 }

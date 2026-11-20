@@ -59,8 +59,8 @@ test_that("a diff that does not fit the target is an error", {
 
 test_that("apply diff arguments are validated", {
   h = two_versions()
-  expect_error(doc_apply_diff(h$doc, "v1", h$v2), "from")
-  expect_error(doc_apply_diff(h$doc, h$v1, 2), "to")
+  expect_error(doc_apply_diff(h$doc, TRUE, h$v2), "from")
+  expect_error(doc_apply_diff(h$doc, h$v1, TRUE), "to")
   expect_error(doc_apply_diff(h$doc, h$v1, h$v2, source = "doc"), "source")
   expect_error(doc_apply_diff("doc", h$v1, h$v2), "loro_doc")
 

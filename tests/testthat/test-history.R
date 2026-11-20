@@ -25,7 +25,7 @@ test_that("changes are listed with messages and frontiers", {
   h = history_doc()
   changes = doc_changes(h$doc)
 
-  expect_s3_class(changes, "data.frame")
+  expect_s3_class(changes, "tbl_df")
   expect_named(
     changes,
     c("peer", "counter", "lamport", "length", "timestamp", "message", "frontiers")
@@ -113,7 +113,7 @@ test_that("a fork can be taken at an earlier version", {
 
   text_insert(doc_text(fork), 6, "!")
   expect_identical(text_get(h$text), "Hello world")
-  expect_error(doc_fork(h$doc, at = "v1"), "at")
+  expect_error(doc_fork(h$doc, at = TRUE), "at")
 })
 
 test_that("revert restores contents and keeps history", {
@@ -193,11 +193,12 @@ test_that("diffs describe map, list, and mark changes", {
 
 test_that("invalid versions are errors", {
   h = history_doc()
-  expect_error(doc_checkout(h$doc, "v1"), "frontiers")
+  expect_error(doc_checkout(h$doc, TRUE), "frontiers")
+  expect_error(doc_checkout(h$doc, "v1"), "No change has the commit message")
   expect_error(doc_checkout(h$doc, raw()), "as_frontiers")
   expect_error(doc_checkout(h$doc, as_frontiers(raw())), "valid")
-  expect_error(doc_revert_to(h$doc, 1), "frontiers")
-  expect_error(doc_diff(h$doc, h$v1, "x"), "to")
+  expect_error(doc_revert_to(h$doc, TRUE), "frontiers")
+  expect_error(doc_diff(h$doc, h$v1, TRUE), "to")
 
   other = loro_doc(peer_id = 9)
   text_insert(doc_text(other), 1, "zzz")
@@ -229,7 +230,7 @@ test_that("frontiers and version vectors convert both ways", {
   other = loro_doc(peer_id = 9)
   text_insert(doc_text(other), 1, "z")
   expect_error(doc_frontiers_to_version(doc, doc_frontiers(other)), "not part")
-  expect_error(doc_frontiers_to_version(doc, "x"), "frontiers")
+  expect_error(doc_frontiers_to_version(doc, TRUE), "frontiers")
   expect_error(doc_version_to_frontiers(doc, "x"), "version")
 })
 
@@ -284,7 +285,7 @@ test_that("the containers touched by changes are reported", {
   )
   expect_identical(doc_changed_containers(h$doc, changes[0, ]), character())
   expect_error(doc_changed_containers(h$doc, "x"), "data frame")
-  expect_error(doc_changed_containers(h$doc, data.frame(peer = "1")), "columns")
+  expect_error(doc_changed_containers(h$doc, tibble::tibble(peer = "1")), "columns")
 })
 
 test_that("detached editing is off by default", {
@@ -394,7 +395,8 @@ test_that("saved versions can be restored", {
   expect_error(as_frontiers("x"), "raw")
   expect_error(as_version(1), "raw")
 
-  expect_match(format(frontiers), "^<loro_frontiers> [0-9a-f ]+$")
+  expect_match(format(frontiers), "^<loro_frontiers> [0-9]+@[0-9]+(, [0-9]+@[0-9]+)*$")
+  expect_identical(format(doc_frontiers(loro_doc())), "<loro_frontiers> (empty)")
   expect_match(format(version), "^<loro_version> [0-9a-f ]+$")
   expect_output(print(frontiers), "loro_frontiers")
   expect_output(print(version), "loro_version")
@@ -585,4 +587,37 @@ test_that("a fork of a detached document starts from the checked out version", {
   doc_import(copy, doc_export(h$doc))
   expect_identical(text_get(doc_text(copy)), "Hello world")
   expect_true(doc_is_detached(h$doc))
+})
+
+test_that("frontiers are shown as operation ids", {
+  doc = loro_doc(peer_id = 1) |>
+    text_insert(1, "Hello") |>
+    doc_commit()
+  expect_identical(format(doc_frontiers(doc)), "<loro_frontiers> 4@1")
+  expect_output(print(doc_changes(doc)), "<4@1>", fixed = TRUE)
+})
+
+test_that("a version can be named by change number or commit message", {
+  doc = loro_doc(peer_id = 1) |>
+    text_insert(1, "Hello") |>
+    doc_commit("greeting") |>
+    text_push(" world") |>
+    doc_commit("audience")
+
+  expect_identical(text_get(doc_fork(doc, at = 1)), "Hello")
+  expect_identical(text_get(doc_fork(doc, at = "greeting")), "Hello")
+  doc_checkout(doc, "greeting")
+  expect_identical(doc_frontiers(doc), doc_changes(doc)$frontiers[[1]])
+  doc_checkout(doc)
+  expect_identical(doc_compare_frontiers(doc, 1, "audience"), -1L)
+  expect_identical(text_get(doc), "Hello world")
+
+  expect_error(doc_checkout(doc, 3), "from 1 to 2, not 3")
+  expect_error(doc_checkout(doc, 1.5), "change number")
+  expect_error(doc_checkout(doc, "nope"), "No change has the commit message")
+  expect_error(doc_checkout(doc, c("a", "b")), "single string")
+
+  text_push(doc, "!")
+  doc_commit(doc, "greeting")
+  expect_error(doc_fork(doc, at = "greeting"), "2 changes .* ambiguous")
 })

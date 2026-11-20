@@ -41,7 +41,9 @@ doc_import_json(doc, json)
 typically that of the replica the updates are destined for, or
 \code{NULL} for the beginning.}
 
-\item{since}{A version from \code{\link[=doc_frontiers]{doc_frontiers()}}. The default, the
+\item{since}{A version: frontiers from \code{\link[=doc_frontiers]{doc_frontiers()}}, or the version
+after one change, named by its number in \code{\link[=doc_changes]{doc_changes()}} order or by
+its commit message. The default, the
 latest version, keeps no earlier history at all.}
 
 \item{bytes}{A raw vector produced by one of the export functions,
@@ -105,7 +107,7 @@ into a document is kept with it, and \code{doc_import_status()} returns
 it, or \code{NULL} if nothing has been imported. Like the document, it is
 shared by every reference to it, so it can be read from the original
 variable as well as from the result of a pipe. It is a list of two
-data frames, \code{success} and \code{pending}, each with columns \code{peer},
+tibbles, \code{success} and \code{pending}, each with columns \code{peer},
 \code{start}, and \code{end} giving a range of that peer's operation counters.
 \code{success} holds the operations that were applied. \code{pending} holds
 operations that arrived before the changes they depend on; they are

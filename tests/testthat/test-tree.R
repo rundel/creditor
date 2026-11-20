@@ -15,7 +15,7 @@ test_that("an empty tree has no nodes", {
   expect_identical(tree_children(tree), character())
   expect_identical(
     tree_nodes(tree),
-    data.frame(id = character(), parent = character(), index = integer())
+    tibble::tibble(id = character(), parent = character(), index = integer())
   )
   expect_identical(container_value(tree), list())
 })
@@ -40,7 +40,7 @@ test_that("tree_nodes lists every node with parent and position", {
   rownames(nodes) = NULL
   expect_identical(
     nodes,
-    data.frame(
+    tibble::tibble(
       id = c(o$a, o$b, o$a1, o$a2),
       parent = c(NA, NA, o$a, o$a),
       index = c(1L, 2L, 1L, 2L)

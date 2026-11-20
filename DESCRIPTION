@@ -19,7 +19,8 @@ Depends:
 Imports:
     cli,
     rlang,
-    S7
+    S7,
+    tibble
 Suggests:
     bslib,
     knitr,
