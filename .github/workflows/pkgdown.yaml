@@ -23,6 +23,8 @@ jobs:
       # An unoptimized build is enough to render the site and much faster
       # than the release profile's LTO build.
       DEBUG: 1
+      # Incremental artifacts only help local rebuilds and bloat the cache.
+      CARGO_INCREMENTAL: 0
     permissions:
       contents: write
     steps:
@@ -32,6 +34,15 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - uses: dtolnay/rust-toolchain@stable
+        id: rust
+
+      # A debug install leaves src/rust/target in place, so caching it lets
+      # cargo reuse the compiled dependencies and rebuild only creditor.
+      - uses: actions/cache@v4
+        with:
+          path: src/rust/target
+          key: pkgdown-cargo-${{ steps.rust.outputs.cachekey }}-${{ hashFiles('src/rust/Cargo.lock') }}
+          restore-keys: pkgdown-cargo-${{ steps.rust.outputs.cachekey }}-
 
       - name: Install dependencies
         run: |
