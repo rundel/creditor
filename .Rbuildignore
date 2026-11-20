@@ -12,3 +12,4 @@
 ^vignettes/.*_files$
 ^_pkgdown\.yml$
 ^pkgdown$
+^README\.qmd$

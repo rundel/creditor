@@ -66,6 +66,7 @@ R package that wraps the [`loro`](https://github.com/loro-dev/loro) Rust crate t
 
 - Rust edition 2024, rustc >= 1.85 (declared in `DESCRIPTION` via `SystemRequirements`). Bridge: `extendr-api` 0.9.
 - Crates are fetched by cargo at build time (no vendoring; not CRAN-targeted). `src/rust/Cargo.lock` is committed.
+- `README.md` is generated: edit `README.qmd` and run `quarto render README.qmd` with the current package installed, so the example output is real. It renders to GitHub markdown with `wrap: none` and `smart` off: prose is never hard wrapped, and only code comments in the chunks may be wrapped (within 100 characters).
 - Rebuild after Rust edits with `devtools::document()`; set the `DEBUG=1` environment variable for a fast unoptimized build (the release profile uses LTO and is slow).
 - [tools/config.R](tools/config.R) and [tools/msrv.R](tools/msrv.R) run at install time from `configure` to check the toolchain and template `src/Makevars{,.win}.in`. They are rextendr-generated; do not restyle or remove them.
 
