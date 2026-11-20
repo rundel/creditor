@@ -12,3 +12,5 @@ vignettes/*_files
 
 /.quarto/
 **/*.quarto_ipynb
+
+/notes/

@@ -5,8 +5,7 @@ format:
     from: markdown-smart
 knitr:
   opts_chunk:
-    collapse: true
-    comment: "#>"
+    collapse: false
 ---
 
 <!-- README.md is generated from README.qmd. Please edit that file. -->
