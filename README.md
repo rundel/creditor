@@ -131,3 +131,11 @@ text_get(doc_text(b))
 
 unsubscribe(sync)
 ```
+
+## Shiny example
+
+An example app shows two replicas of one document side by side. Each pane can be taken offline to make concurrent edits, which merge when it comes back online, and a history slider below the panes scrubs through the merged document's versions with each step's insertions and deletions highlighted.
+
+```r
+shiny::runApp(system.file("examples/sync-editors", package = "creditor"))
+```
