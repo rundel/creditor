@@ -15,7 +15,7 @@ check_string = function(x, arg, call = sys.call(-1)) {
   enc2utf8(x)
 }
 
-container_types = c("text", "map", "list", "movable_list", "counter")
+container_types = c("text", "map", "list", "movable_list", "counter", "tree")
 
 check_type = function(type, call = sys.call(-1)) {
   if (!is.character(type) || length(type) != 1 || !type %in% container_types) {

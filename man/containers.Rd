@@ -7,6 +7,7 @@
 \alias{doc_list}
 \alias{doc_movable_list}
 \alias{doc_counter}
+\alias{doc_tree}
 \alias{container_value}
 \alias{container_id}
 \title{Container handles}
@@ -21,6 +22,8 @@ doc_movable_list(doc, name = "list")
 
 doc_counter(doc, name = "counter")
 
+doc_tree(doc, name = "tree")
+
 container_value(x)
 
 container_id(x)
@@ -34,25 +37,31 @@ container_id(x)
 }
 \value{
 \code{doc_text()}, \code{doc_map()}, \code{doc_list()},
-\code{doc_movable_list()}, and \code{doc_counter()} return container handles; \code{container_value()} returns a string or list; and
+\code{doc_movable_list()}, \code{doc_counter()}, and \code{doc_tree()} return
+container handles; \code{container_value()} returns a string, number, or
+list; and
 \code{container_id()} returns a string.
 }
 \description{
 A document's data lives in containers. \code{doc_text()}, \code{doc_map()},
-\code{doc_list()}, \code{doc_movable_list()}, and \code{doc_counter()} return a
-handle to the root container with the given name, creating it on
+\code{doc_list()}, \code{doc_movable_list()}, \code{doc_counter()}, and \code{doc_tree()}
+return a handle to the root container with the given name, creating it on
 first use. Handles to nested containers come
 from \code{\link[=map_set_container]{map_set_container()}}, \code{\link[=list_insert_container]{list_insert_container()}},
 \code{\link[=map_get]{map_get()}}, and \code{\link[=list_get]{list_get()}}.
 
 A handle is a \code{loro_text}, \code{loro_map}, \code{loro_list},
-\code{loro_movable_list}, or \code{loro_counter} object. Like a
+\code{loro_movable_list}, \code{loro_counter}, or \code{loro_tree} object. Like a
 \code{\link{loro_doc}}, it has reference semantics: editing through a handle
 changes the document it belongs to.
 \itemize{
 \item \code{container_value()} returns the contents of a container: a string
 for text, a number for a counter, and a list for a map or list,
 with nested containers expanded to their contents.
+A tree is returned in Loro's own nested form, a list of root nodes
+each with \code{id}, \code{parent}, \code{meta}, \code{children}, a 0-based \code{index},
+and a \code{fractional_index}; \code{\link[=tree_nodes]{tree_nodes()}} gives a flat table with
+1-based positions.
 \item \code{container_id()} returns the container's unique id as a string.
 }
 

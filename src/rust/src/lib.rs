@@ -6,8 +6,8 @@ use loro::awareness::EphemeralStore;
 use loro::cursor::{Cursor, Side};
 use loro::{
     Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroCounter, LoroDoc, LoroList,
-    LoroMap, LoroMovableList, LoroText, StyleConfig, StyleConfigMap, UndoManager, UpdateOptions,
-    ValueOrContainer, VersionVector,
+    LoroMap, LoroMovableList, LoroText, LoroTree, StyleConfig, StyleConfigMap, TreeID,
+    TreeParentId, UndoManager, UpdateOptions, ValueOrContainer, VersionVector,
 };
 
 mod delta;
@@ -42,6 +42,7 @@ fn kind_of(container: &Container) -> Option<&'static str> {
         Container::List(_) => Some("list"),
         Container::MovableList(_) => Some("movable_list"),
         Container::Counter(_) => Some("counter"),
+        Container::Tree(_) => Some("tree"),
         _ => None,
     }
 }
@@ -69,6 +70,38 @@ fn as_movable_list(container: &Container) -> Result<&LoroMovableList> {
         Container::MovableList(list) => Ok(list),
         _ => wrong_kind("movable list"),
     }
+}
+
+fn as_tree(container: &Container) -> Result<&LoroTree> {
+    match container {
+        Container::Tree(tree) => Ok(tree),
+        _ => wrong_kind("tree"),
+    }
+}
+
+fn to_node(node: &str) -> Result<TreeID> {
+    TreeID::try_from(node).map_err(|_| Error::Other(format!("not a valid node id: {node}")))
+}
+
+fn to_parent(parent: Nullable<String>) -> Result<TreeParentId> {
+    match parent {
+        Nullable::Null => Ok(TreeParentId::Root),
+        Nullable::NotNull(parent) => Ok(TreeParentId::Node(to_node(&parent)?)),
+    }
+}
+
+/// Loro accepts a deleted node as the parent of a create or move, which
+/// puts the node in the deleted part of the tree; reject that here.
+fn to_live_parent(tree: &LoroTree, parent: Nullable<String>) -> Result<TreeParentId> {
+    let parent = to_parent(parent)?;
+    if let TreeParentId::Node(node) = parent {
+        if !tree.contains(node) || tree.is_node_deleted(&node).unwrap_or(true) {
+            return Err(Error::Other(
+                "parent node does not exist or has been deleted".to_string(),
+            ));
+        }
+    }
+    Ok(parent)
 }
 
 fn as_counter(container: &Container) -> Result<&LoroCounter> {
@@ -114,6 +147,10 @@ macro_rules! new_child {
             "counter" => {
                 let $child = LoroCounter::new();
                 Container::Counter($insert.map_err(to_r_error)?)
+            }
+            "tree" => {
+                let $child = LoroTree::new();
+                Container::Tree($insert.map_err(to_r_error)?)
             }
             _ => return Err(Error::Other(format!("unknown container type: {}", $kind))),
         }
@@ -301,6 +338,7 @@ fn loro_doc_container_impl(doc: DocPtr, name: &str, kind: &str) -> Result<Robj> 
         "list" => Container::List(doc.get_list(name)),
         "movable_list" => Container::MovableList(doc.get_movable_list(name)),
         "counter" => Container::Counter(doc.get_counter(name)),
+        "tree" => Container::Tree(doc.get_tree(name)),
         _ => return Err(Error::Other(format!("unknown container type: {kind}"))),
     };
     container_ref(container)
@@ -323,6 +361,7 @@ fn loro_container_value_impl(container: ContainerPtr) -> Result<Robj> {
         Container::List(list) => Ok(value_to_r(&list.get_deep_value())),
         Container::MovableList(list) => Ok(value_to_r(&list.get_deep_value())),
         Container::Counter(counter) => Ok(counter.get_value().into()),
+        Container::Tree(tree) => Ok(value_to_r(&tree.get_value_with_meta())),
         _ => Err(Error::Other("unsupported container type".to_string())),
     }
 }
@@ -806,6 +845,100 @@ fn loro_ephemeral_subscribe_local_updates_impl(store: EphemeralPtr) -> Subscript
     ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
 }
 
+/// Create a node under `parent` (`NULL` for a root node), at a 0-based
+/// `index` among its siblings or last when `NULL`. Returns the node id.
+/// @noRd
+#[extendr]
+fn loro_tree_create_impl(
+    tree: ContainerPtr,
+    parent: Nullable<String>,
+    index: Nullable<i32>,
+) -> Result<String> {
+    let tree = as_tree(&tree)?;
+    let parent = to_live_parent(tree, parent)?;
+    let node = match index {
+        Nullable::Null => tree.create(parent),
+        Nullable::NotNull(index) => tree.create_at(parent, to_index(index, "index")?),
+    };
+    Ok(node.map_err(to_r_error)?.to_string())
+}
+
+/// Move a node under `parent`, at a 0-based `index` or last when `NULL`.
+/// @noRd
+#[extendr]
+fn loro_tree_move_impl(
+    tree: ContainerPtr,
+    node: &str,
+    parent: Nullable<String>,
+    index: Nullable<i32>,
+) -> Result<()> {
+    let tree = as_tree(&tree)?;
+    let node = to_node(node)?;
+    let parent = to_live_parent(tree, parent)?;
+    match index {
+        Nullable::Null => tree.mov(node, parent),
+        Nullable::NotNull(index) => tree.mov_to(node, parent, to_index(index, "index")?),
+    }
+    .map_err(to_r_error)
+}
+
+/// Delete a node and its descendants.
+/// @noRd
+#[extendr]
+fn loro_tree_delete_impl(tree: ContainerPtr, node: &str) -> Result<()> {
+    as_tree(&tree)?.delete(to_node(node)?).map_err(to_r_error)
+}
+
+/// The metadata map of a node.
+/// @noRd
+#[extendr]
+fn loro_tree_meta_impl(tree: ContainerPtr, node: &str) -> Result<Robj> {
+    let meta = as_tree(&tree)?
+        .get_meta(to_node(node)?)
+        .map_err(to_r_error)?;
+    container_ref(Container::Map(meta))
+}
+
+/// Whether a node exists and has not been deleted.
+/// @noRd
+#[extendr]
+fn loro_tree_contains_impl(tree: ContainerPtr, node: &str) -> Result<bool> {
+    let tree = as_tree(&tree)?;
+    let node = to_node(node)?;
+    Ok(tree.contains(node) && !tree.is_node_deleted(&node).unwrap_or(true))
+}
+
+/// Ordered child ids of `parent` (`NULL` for the root nodes).
+/// @noRd
+#[extendr]
+fn loro_tree_children_impl(tree: ContainerPtr, parent: Nullable<String>) -> Result<Vec<String>> {
+    let tree = as_tree(&tree)?;
+    let parent = to_live_parent(tree, parent)?;
+    // Loro returns `None` both for a missing parent and for one without children.
+    let children = tree.children(parent).unwrap_or_default();
+    Ok(children.iter().map(|id| id.to_string()).collect())
+}
+
+/// Column-wise table of live nodes: `id`, `parent` (`NA` for roots), and
+/// 0-based `index` among siblings.
+/// @noRd
+#[extendr]
+fn loro_tree_nodes_impl(tree: ContainerPtr) -> Result<Robj> {
+    let nodes = as_tree(&tree)?.get_nodes(false);
+    let id: Vec<String> = nodes.iter().map(|n| n.id.to_string()).collect();
+    let parent: Vec<Rstr> = nodes
+        .iter()
+        .map(|n| history::parent_to_rstr(&n.parent))
+        .collect();
+    let index: Vec<i32> = nodes.iter().map(|n| n.index as i32).collect();
+    Ok(list!(
+        id = id,
+        parent = Strings::from_values(parent),
+        index = index
+    )
+    .into())
+}
+
 extendr_module! {
     mod creditor;
     fn loro_doc_new_impl;
@@ -874,4 +1007,11 @@ extendr_module! {
     fn loro_list_set_container_impl;
     fn loro_list_move_impl;
     fn loro_counter_increment_impl;
+    fn loro_tree_create_impl;
+    fn loro_tree_move_impl;
+    fn loro_tree_delete_impl;
+    fn loro_tree_meta_impl;
+    fn loro_tree_contains_impl;
+    fn loro_tree_children_impl;
+    fn loro_tree_nodes_impl;
 }

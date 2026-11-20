@@ -91,7 +91,12 @@ element has a \code{type} and:
 \code{insert} holding a list of new elements;
 \item for a map, \code{updated}: a named list of new values, where \code{NULL}
 marks a deleted key;
-\item for a counter, \code{increment}: the net amount added.
+\item for a counter, \code{increment}: the net amount added;
+\item for a tree, \code{diff}: a list of node changes, each with \code{node}, an
+\code{action} (\code{"create"}, \code{"move"}, or \code{"delete"}), and the \code{parent}
+and 1-based \code{index} it now has and, for moves and deletes, the
+\code{old_parent} and \code{old_index} it had (\code{NA} parents are the top
+level).
 }
 
 Child containers appear by their contents.

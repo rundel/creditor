@@ -47,7 +47,12 @@
 #'   `insert` holding a list of new elements;
 #' * for a map, `updated`: a named list of new values, where `NULL`
 #'   marks a deleted key;
-#' * for a counter, `increment`: the net amount added.
+#' * for a counter, `increment`: the net amount added;
+#' * for a tree, `diff`: a list of node changes, each with `node`, an
+#'   `action` (`"create"`, `"move"`, or `"delete"`), and the `parent`
+#'   and 1-based `index` it now has and, for moves and deletes, the
+#'   `old_parent` and `old_index` it had (`NA` parents are the top
+#'   level).
 #'
 #' Child containers appear by their contents.
 #'

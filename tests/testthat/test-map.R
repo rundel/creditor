@@ -91,7 +91,7 @@ test_that("child containers can be created and retrieved", {
   expect_identical(text_get(map_get(map, "text")), "abc")
   expect_identical(map_get(map_get(map, "map"), "k"), 1L)
   expect_identical(list_get(map_get(map, "list"), 1), "x")
-  expect_error(map_set_container(map, "bad", "tree"), "type")
+  expect_error(map_set_container(map, "bad", "nope"), "type")
 })
 
 test_that("concurrent writes to one key converge", {

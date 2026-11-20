@@ -86,7 +86,7 @@ test_that("move and set need a movable list and valid positions", {
   expect_error(list_move(items, 0, 1), "from")
   expect_error(list_move(items, 1, 5))
   expect_error(list_set(items, 3, 1))
-  expect_error(list_set_container(items, 1, "tree"), "type")
+  expect_error(list_set_container(items, 1, "nope"), "type")
 })
 
 test_that("movable lists nest and appear in diffs as lists", {

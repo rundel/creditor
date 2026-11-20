@@ -30,7 +30,7 @@
 #' @param key A string.
 #' @param value A plain value; see the Values section.
 #' @param type Type of the child container: `"text"`, `"map"`,
-#'   `"list"`, `"movable_list"`, or `"counter"`.
+#'   `"list"`, `"movable_list"`, `"counter"`, or `"tree"`.
 #'
 #' @return `map_set()` and `map_delete()` return `map` invisibly.
 #'   `map_set_container()` returns the new container handle. `map_get()`

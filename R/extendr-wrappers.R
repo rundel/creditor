@@ -273,4 +273,34 @@ loro_list_move_impl <- function(list, from, to) .Call(wrap__loro_list_move_impl,
 #' @noRd
 loro_counter_increment_impl <- function(counter, by) .Call(wrap__loro_counter_increment_impl, counter, by)
 
+#' Create a node under `parent` (`NULL` for a root node), at a 0-based
+#' `index` among its siblings or last when `NULL`. Returns the node id.
+#' @noRd
+loro_tree_create_impl <- function(tree, parent, index) .Call(wrap__loro_tree_create_impl, tree, parent, index)
+
+#' Move a node under `parent`, at a 0-based `index` or last when `NULL`.
+#' @noRd
+loro_tree_move_impl <- function(tree, node, parent, index) .Call(wrap__loro_tree_move_impl, tree, node, parent, index)
+
+#' Delete a node and its descendants.
+#' @noRd
+loro_tree_delete_impl <- function(tree, node) .Call(wrap__loro_tree_delete_impl, tree, node)
+
+#' The metadata map of a node.
+#' @noRd
+loro_tree_meta_impl <- function(tree, node) .Call(wrap__loro_tree_meta_impl, tree, node)
+
+#' Whether a node exists and has not been deleted.
+#' @noRd
+loro_tree_contains_impl <- function(tree, node) .Call(wrap__loro_tree_contains_impl, tree, node)
+
+#' Ordered child ids of `parent` (`NULL` for the root nodes).
+#' @noRd
+loro_tree_children_impl <- function(tree, parent) .Call(wrap__loro_tree_children_impl, tree, parent)
+
+#' Column-wise table of live nodes: `id`, `parent` (`NA` for roots), and
+#' 0-based `index` among siblings.
+#' @noRd
+loro_tree_nodes_impl <- function(tree) .Call(wrap__loro_tree_nodes_impl, tree)
+
 # nolint end

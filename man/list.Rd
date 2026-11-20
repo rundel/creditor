@@ -44,7 +44,7 @@ or a parent container. \code{list_move()}, \code{list_set()}, and
 \item{value}{A plain value.}
 
 \item{type}{Type of the child container: \code{"text"}, \code{"map"},
-\code{"list"}, \code{"movable_list"}, or \code{"counter"}.}
+\code{"list"}, \code{"movable_list"}, \code{"counter"}, or \code{"tree"}.}
 
 \item{len}{Number of elements to delete.}
 

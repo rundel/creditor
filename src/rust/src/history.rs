@@ -3,7 +3,10 @@ use std::ops::ControlFlow;
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use loro::event::{Diff, DiffBatch, ListDiffItem};
-use loro::{ChangeMeta, ContainerID, Frontiers, ID, LoroDoc, ValueOrContainer};
+use loro::{
+    ChangeMeta, ContainerID, Frontiers, ID, LoroDoc, TreeDiff, TreeExternalDiff, TreeParentId,
+    ValueOrContainer,
+};
 
 use crate::delta::delta_to_r;
 use crate::value_to_r::value_to_r;
@@ -25,6 +28,60 @@ fn list_diff_to_r(items: &[ListDiffItem]) -> Robj {
         })
         .collect();
     List::from_values(ops).into()
+}
+
+/// Parent of a tree node as a string id, or `NA` when it is a root (or
+/// has no live parent).
+pub fn parent_to_rstr(parent: &TreeParentId) -> Rstr {
+    match parent {
+        TreeParentId::Node(id) => Rstr::from(id.to_string()),
+        _ => Rstr::na(),
+    }
+}
+
+fn tree_diff_to_r(diff: &TreeDiff) -> Robj {
+    let items: Vec<Robj> = diff
+        .diff
+        .iter()
+        .map(|item| {
+            let node = item.target.to_string();
+            match &item.action {
+                TreeExternalDiff::Create { parent, index, .. } => list!(
+                    node = node,
+                    action = "create",
+                    parent = parent_to_rstr(parent),
+                    index = *index as i32 + 1
+                )
+                .into(),
+                TreeExternalDiff::Move {
+                    parent,
+                    index,
+                    old_parent,
+                    old_index,
+                    ..
+                } => list!(
+                    node = node,
+                    action = "move",
+                    parent = parent_to_rstr(parent),
+                    index = *index as i32 + 1,
+                    old_parent = parent_to_rstr(old_parent),
+                    old_index = *old_index as i32 + 1
+                )
+                .into(),
+                TreeExternalDiff::Delete {
+                    old_parent,
+                    old_index,
+                } => list!(
+                    node = node,
+                    action = "delete",
+                    old_parent = parent_to_rstr(old_parent),
+                    old_index = *old_index as i32 + 1
+                )
+                .into(),
+            }
+        })
+        .collect();
+    List::from_values(items).into()
 }
 
 fn typed(kind: &str, field: &str, value: Robj) -> Robj {
@@ -58,6 +115,7 @@ fn diff_to_r(diff: &Diff) -> Robj {
             };
             typed("map", "updated", updated)
         }
+        Diff::Tree(tree) => typed("tree", "diff", tree_diff_to_r(tree)),
         Diff::Counter(increment) => typed("counter", "increment", (*increment).into()),
         _ => match List::from_names_and_values(["type"], [Robj::from("unsupported")]) {
             Ok(list) => list.into(),
