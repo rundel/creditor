@@ -1,0 +1,23 @@
+Package: creditor
+Title: R Interface to the Loro CRDT Library
+Version: 0.0.0.9000
+Authors@R:
+    person("Colin", "Rundel", , "cr173@duke.edu", role = c("aut", "cre"))
+Description: Exploratory R bindings to the Loro Rust crate, a library of
+    conflict-free replicated data types (CRDTs). Create documents, edit
+    collaborative text, and exchange snapshots and updates between
+    replicas that merge without conflicts.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Config/rextendr/version: 0.5.0
+SystemRequirements: Cargo (Rust's package manager), rustc >= 1.85.0
+Depends:
+    R (>= 4.2)
+Imports:
+    cli,
+    S7
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.1

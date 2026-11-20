@@ -1,0 +1,10 @@
+^src/\.cargo$
+^src/rust/target$
+^src/Makevars$
+^src/Makevars\.win$
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.claude$
+^docs$
+^\.github$
+^CLAUDE\.md$

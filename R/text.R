@@ -1,0 +1,80 @@
+#' Edit collaborative text
+#'
+#' @description
+#' Positions and lengths count Unicode code points and are 1-based,
+#' matching [`substr()`].
+#'
+#' * `text_insert()` inserts `value` before the character currently at
+#'   `pos`; `pos = text_length(text) + 1` appends.
+#' * `text_delete()` removes `len` characters starting at `pos`.
+#' * `text_update()` changes the text to `value` by computing a diff
+#'   and applying only the insertions and deletions needed, so
+#'   concurrent edits elsewhere in the text, marks, and cursors survive.
+#' * `text_get()` returns the current contents as a string.
+#' * `text_length()` returns the number of characters.
+#'
+#' @param text A text handle, from [`doc_text()`] or a parent container.
+#' @param pos A 1-based character position.
+#' @param value A string: the text to insert, or the new contents for
+#'   `text_update()`.
+#' @param len Number of characters to delete.
+#'
+#' @return `text_insert()`, `text_delete()`, and `text_update()` return
+#'   `text` invisibly,
+#'   `text_get()` a string, and `text_length()` an integer.
+#'
+#' @examples
+#' doc = loro_doc()
+#' text = doc_text(doc)
+#' text_insert(text, 1, "Hello world")
+#' text_delete(text, 1, 6)
+#' text_get(text)
+#' text_length(text)
+#'
+#' text_update(text, "brave new world")
+#' text_get(text)
+#'
+#' @name text
+NULL
+
+#' @rdname text
+#' @export
+text_insert = function(text, pos, value) {
+  check_container(text, loro_text, "text")
+  pos = check_count(pos, "pos", 1)
+  value = check_string(value, "value")
+  loro_text_insert_impl(text@ptr, pos - 1L, value)
+  invisible(text)
+}
+
+#' @rdname text
+#' @export
+text_delete = function(text, pos, len) {
+  check_container(text, loro_text, "text")
+  pos = check_count(pos, "pos", 1)
+  len = check_count(len, "len", 0)
+  loro_text_delete_impl(text@ptr, pos - 1L, len)
+  invisible(text)
+}
+
+#' @rdname text
+#' @export
+text_update = function(text, value) {
+  check_container(text, loro_text, "text")
+  loro_text_update_impl(text@ptr, check_string(value, "value"))
+  invisible(text)
+}
+
+#' @rdname text
+#' @export
+text_get = function(text) {
+  check_container(text, loro_text, "text")
+  loro_container_value_impl(text@ptr)
+}
+
+#' @rdname text
+#' @export
+text_length = function(text) {
+  check_container(text, loro_text, "text")
+  loro_text_length_impl(text@ptr)
+}

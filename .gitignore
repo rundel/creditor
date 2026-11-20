@@ -1,0 +1,7 @@
+src/rust/vendor
+src/Makevars
+src/Makevars.win
+.Rproj.user
+.claude/settings.local.json
+docs
+.DS_Store

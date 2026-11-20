@@ -1,0 +1,40 @@
+TARGET_DIR = ./rust/target
+LIBDIR = $(TARGET_DIR)/@LIBDIR@
+STATLIB = $(LIBDIR)/libcreditor.a
+PKG_LIBS = -L$(LIBDIR) -lcreditor
+
+all: $(SHLIB) rust_clean
+
+.PHONY: $(STATLIB)
+
+$(SHLIB): $(STATLIB)
+
+CARGOTMP = $(CURDIR)/.cargo
+
+
+# RUSTFLAGS appends --print=native-static-libs to ensure that 
+# the correct linkers are used. Use this for debugging if need. 
+#
+# CRAN note: Cargo and Rustc versions are reported during
+# configure via tools/msrv.R.
+#
+# Crates are fetched online by cargo at build time; this package is not
+# CRAN-targeted and ships no vendored crates.
+$(STATLIB):
+
+	export CARGO_HOME=$(CARGOTMP) && \
+	export PATH="$(PATH):$(HOME)/.cargo/bin" && \
+	@PANIC_EXPORTS@RUSTFLAGS="$(RUSTFLAGS) --print=native-static-libs" cargo build --lib @PROFILE@ --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) @TARGET@
+
+	export CARGO_HOME=$(CARGOTMP) && \
+	export PATH="$(PATH):$(HOME)/.cargo/bin" && \
+	cargo run --bin document --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) @TARGET@
+
+	# Always clean up CARGOTMP
+	rm -Rf $(CARGOTMP);
+
+rust_clean: $(SHLIB)
+	rm -Rf $(CARGOTMP) @CLEAN_TARGET@
+
+clean:
+	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) $(TARGET_DIR)
