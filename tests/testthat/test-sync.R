@@ -171,3 +171,190 @@ test_that("invalid JSON input is an error", {
   expect_error(doc_export_json(doc, from = "x"), "from")
   expect_error(doc_export_json(doc, to = 1), "to")
 })
+
+test_that("damaged or foreign bytes are rejected without changing the document", {
+  doc = loro_doc(peer_id = 1)
+  text_insert(doc_text(doc), 1, "abc")
+  doc_commit(doc)
+  value = doc_value(doc)
+  version = doc_version(doc)
+  snapshot = doc_export(doc)
+  flipped = snapshot
+  flipped[length(flipped) %/% 2] = xor(flipped[length(flipped) %/% 2], as.raw(0xff))
+
+  for (bytes in list(raw(), as.raw(0:3), snapshot[1:(length(snapshot) %/% 2)], flipped)) {
+    expect_error(doc_import(doc, bytes))
+    expect_error(blob_metadata(bytes))
+  }
+  expect_error(doc_import(doc, list(snapshot, flipped)))
+
+  expect_identical(doc_value(doc), value)
+  expect_identical(doc_version(doc), version)
+  expect_false(doc_is_detached(doc))
+  text_insert(doc_text(doc), 1, "x")
+  expect_identical(text_get(doc_text(doc)), "xabc")
+})
+
+test_that("malformed versions are clean errors in every function", {
+  doc = loro_doc(peer_id = 1)
+  text_insert(doc_text(doc), 1, "abc")
+  doc_commit(doc)
+  empty = as_frontiers(raw())
+  absent = as_frontiers(as.raw(c(1, 1, 1)))
+
+  for (bad in list(empty, absent)) {
+    expect_error(doc_checkout(doc, bad))
+    expect_error(doc_fork(doc, at = bad))
+    expect_error(doc_revert_to(doc, bad))
+    expect_error(doc_diff(doc, bad, doc_frontiers(doc)))
+    expect_error(doc_compare_frontiers(doc, bad, doc_frontiers(doc)))
+    expect_error(doc_frontiers_to_version(doc, bad))
+  }
+  expect_error(doc_export(doc, "updates", from = as_version(raw())), "Version vector")
+  expect_error(doc_version_to_frontiers(doc, as_version(raw())), "Version vector")
+  expect_error(doc_export_json(doc, from = as_version(raw())), "Version vector")
+
+  expect_false(doc_is_detached(doc))
+  text_insert(doc_text(doc), 1, "x")
+  expect_identical(text_get(doc_text(doc)), "xabc")
+})
+
+test_that("export arguments must match the mode", {
+  doc = loro_doc()
+  text_insert(doc_text(doc), 1, "a")
+  expect_error(doc_export(doc, "snapshot", from = doc_version(doc)), "updates")
+  expect_error(doc_export(doc, "updates", since = doc_frontiers(doc)), "shallow_snapshot")
+})
+
+test_that("importing known changes again reports nothing new", {
+  doc = loro_doc(peer_id = 1)
+  text_insert(doc_text(doc), 1, "abc")
+  version = doc_version(doc)
+
+  status = doc_import(doc, doc_export(doc))
+  expect_identical(nrow(status$success), 0L)
+  expect_identical(nrow(status$pending), 0L)
+  expect_identical(doc_version(doc), version)
+
+  other = loro_doc()
+  doc_import(other, doc_export(doc))
+  status = doc_import(other, doc_export(doc))
+  expect_identical(nrow(status$success), 0L)
+  status = doc_import_json(other, doc_export_json(doc))
+  expect_identical(nrow(status$success), 0L)
+  expect_identical(text_get(doc_text(other)), "abc")
+})
+
+test_that("JSON updates that arrive early are pending", {
+  doc = loro_doc(peer_id = 5)
+  text = doc_text(doc)
+  text_insert(text, 1, "abc")
+  doc_commit(doc)
+  version = doc_version(doc)
+  text_insert(text, 4, "de")
+  doc_commit(doc)
+
+  other = loro_doc()
+  status = doc_import_json(other, doc_export_json(doc, from = version))
+  expect_identical(status$pending, data.frame(peer = "5", start = 3L, end = 5L))
+  expect_identical(text_get(doc_text(other)), "")
+  doc_import(other, doc_export(doc, "updates"))
+  expect_identical(text_get(doc_text(other)), "abcde")
+})
+
+test_that("an invalid op in JSON is rejected without a source path in the message", {
+  doc = loro_doc(peer_id = 1)
+  text_insert(doc_text(doc), 1, "xy")
+  doc_commit(doc)
+  value = doc_value(doc)
+  json = paste0(
+    '{"schema_version":1,"start_version":{},"peers":["9"],"changes":[{"id":"0@0",',
+    '"timestamp":0,"deps":[],"lamport":0,"msg":null,"ops":[',
+    '{"container":"cid:root-l:List","content":{"type":"insert","pos":5,"value":[1]},"counter":0}',
+    ']}]}'
+  )
+  error = tryCatch(doc_import_json(doc, json), error = function(e) conditionMessage(e))
+  expect_match(error, "retains 5 items")
+  expect_false(grepl(".rs:", error, fixed = TRUE))
+  expect_false(grepl("/", error, fixed = TRUE))
+  expect_identical(doc_value(doc), value)
+})
+
+test_that("JSON cannot carry very deep values, and says so", {
+  nested = 1L
+  for (i in 1:200) nested = list(nested)
+  doc = loro_doc()
+  map_set(doc_map(doc, "m"), "k", nested)
+
+  other = loro_doc()
+  expect_error(doc_import_json(other, doc_export_json(doc)), "120 levels")
+  doc_import(other, doc_export(doc))
+  expect_identical(doc_value(other), doc_value(doc))
+})
+
+test_that("a shallow document refuses history before its start, and stays usable", {
+  doc = loro_doc(peer_id = 1)
+  text = doc_text(doc)
+  text_insert(text, 1, "abc")
+  doc_commit(doc)
+  v1 = doc_frontiers(doc)
+  text_insert(text, 4, "de")
+  doc_commit(doc)
+  v2 = doc_frontiers(doc)
+  text_insert(text, 6, "fg")
+  doc_commit(doc)
+  v3 = doc_frontiers(doc)
+
+  shallow = loro_doc()
+  doc_import(shallow, doc_export(doc, "shallow_snapshot", since = v2))
+  expect_error(doc_diff(shallow, v1, v3), "shallow")
+  expect_error(doc_revert_to(shallow, v1), "shallow")
+  expect_error(doc_apply_diff(shallow, v1, v3), "shallow")
+  expect_error(doc_fork(shallow, at = v3), "shallow document cannot be forked")
+  expect_error(doc_change(shallow, "1", 0), "no change")
+
+  expect_false(doc_is_detached(shallow))
+  expect_true(doc_is_shallow(doc_fork(shallow)))
+  text_insert(doc_text(shallow), 8, "!")
+  expect_identical(text_get(doc_text(shallow)), "abcdefg!")
+})
+
+test_that("a deeply nested chain of containers is an error to read, not a crash", {
+  depth = 1500
+  ops = vapply(seq_len(depth), function(i) {
+    container = if (i == 1) "cid:root-m:Map" else paste0("cid:", i - 2, "@0:Map")
+    paste0(
+      '{"container":"', container, '","content":{"type":"insert","key":"c","value":"\U0001F99C:cid:',
+      i - 1, '@0:Map"},"counter":', i - 1, '}'
+    )
+  }, character(1))
+  json = paste0(
+    '{"schema_version":1,"start_version":{},"peers":["9"],"changes":[{"id":"0@0",',
+    '"timestamp":0,"deps":[],"lamport":0,"msg":null,"ops":[', paste(ops, collapse = ","), ']}]}'
+  )
+  doc = loro_doc()
+  doc_import_json(doc, json)
+
+  expect_error(doc_value(doc), "1000 levels")
+  expect_error(container_value(doc_map(doc, "m")), "1000 levels")
+  shallow = container_value(doc_map(doc, "m"), deep = FALSE)
+  expect_identical(shallow, list(c = "cid:0@9:Map"))
+  expect_type(doc_export(doc), "raw")
+})
+
+test_that("JSON export refuses containers it cannot carry", {
+  doc = loro_doc(peer_id = 1)
+  items = map_ensure_container(doc_map(doc, "m"), "items", "list")
+  list_push(items, "x")
+  expect_error(doc_export_json(doc), "map_ensure_container")
+
+  other = loro_doc()
+  doc_import(other, doc_export(doc))
+  expect_identical(doc_value(other), doc_value(doc))
+
+  regular = loro_doc(peer_id = 1)
+  list_push(map_set_container(doc_map(regular, "m"), "items", "list"), "x")
+  copy = loro_doc()
+  doc_import_json(copy, doc_export_json(regular))
+  expect_identical(doc_value(copy), doc_value(regular))
+})

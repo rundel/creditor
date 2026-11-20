@@ -119,3 +119,50 @@ test_that("a converted position addresses the same character", {
   pos = text_convert_pos(text, utf16_offset_of_x + 1L, "utf16", "unicode")
   expect_identical(text_slice(text, pos, 1), "x")
 })
+
+test_that("out of range errors name the 1-based position given", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "abc")
+
+  expect_error(text_insert(text, 10, "x"), "at most 4.*not 10")
+  expect_error(text_delete(text, 2, 10), "starts at 2 and has length 10.*length 3")
+  expect_error(text_splice(text, 5, 0, "x"), "starts at 5")
+  expect_error(text_slice(text, 4, 1), "starts at 4 and has length 1")
+  expect_identical(text_get(text), "abc")
+})
+
+test_that("an empty range is allowed only at a valid position", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "abc")
+
+  expect_identical(text_slice(text, 4, 0), "")
+  text_delete(text, 4, 0)
+  text_splice(text, 4, 0, "")
+  expect_identical(text_delta(text, 4, 0), list())
+
+  expect_error(text_slice(text, 99, 0), "starts at 99")
+  expect_error(text_delete(text, 99, 0), "starts at 99")
+  expect_error(text_delta(text, 99, 0), "starts at 99")
+  expect_error(text_splice(text, 99, 0, ""), "starts at 99")
+  expect_identical(text_get(text), "abc")
+})
+
+test_that("range arithmetic does not overflow", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "abc")
+  big = .Machine$integer.max
+  expect_no_warning(expect_error(text_slice(text, 2, big), "range"))
+  expect_no_warning(expect_error(text_delete(text, 2, big), "range"))
+  expect_no_warning(expect_error(text_mark(text, 2, big, "bold"), "range"))
+  expect_no_warning(expect_error(text_delta(text, 2, big), "range"))
+})
+
+test_that("combining characters and joined emoji count per code point", {
+  text = doc_text(loro_doc())
+  family = "\U0001F468‍\U0001F469‍\U0001F467"
+  text_insert(text, 1, paste0("é", family, "z"))
+  expect_identical(text_length(text), 8L)
+  expect_identical(text_slice(text, 1, 2), "é")
+  expect_identical(text_slice(text, 3, 5), family)
+  expect_identical(text_slice(text, 8, 1), "z")
+})

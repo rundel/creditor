@@ -11,7 +11,8 @@
 #' * `tree_move()` moves a node, with its subtree, to a new parent or
 #'   position.
 #' * `tree_delete()` deletes a node and its descendants.
-#' * `tree_meta()` returns the node's metadata as a map handle, to be
+#' * `tree_meta()` returns the node's metadata as a map handle (the
+#'   metadata of a deleted node can still be read, but not changed), to be
 #'   used with [`map_set()`], [`map_get()`], and the other `map_*`
 #'   functions.
 #' * `tree_children()` returns the ids of a node's children in order,
@@ -33,7 +34,8 @@
 #' @param node A node id.
 #' @param parent The id of the parent node, or `NULL` for the top level.
 #' @param index A 1-based position among the parent's children, or
-#'   `NULL` to place the node last.
+#'   `NULL` to place the node last. For a move it is the position the
+#'   node ends up at.
 #'
 #' @return `tree_create()` returns the new node id. `tree_move()` and
 #'   `tree_delete()` return `tree` invisibly. `tree_meta()` returns a map

@@ -82,7 +82,12 @@ if the document changed.
 \item \code{undo_count()} and \code{redo_count()} return the number of steps
 available.
 \item \code{undo_group()} evaluates \code{code} and records all the changes it
-makes as a single undo step.
+makes as a single undo step. Pending edits are committed when the
+group starts and when it ends, so the step contains exactly the
+edits made by \code{code}. Groups cannot be nested. If changes to the
+same container are imported from another replica while the group
+is open, Loro closes the step early and the group is recorded as
+more than one step.
 \item \code{undo_pause()} stops recording local edits as undo steps until
 \code{undo_resume()}; \code{undo_is_paused()} reports the state. Edits made
 while paused cannot be undone.
@@ -91,6 +96,11 @@ while paused cannot be undone.
 
 Checking out another version with \code{\link[=doc_checkout]{doc_checkout()}} clears the undo
 and redo history.
+
+Undoing the deletion of a child container brings back its contents
+in a new container with a new id. Handles to the old container
+remain deleted (see \code{\link[=container_is_deleted]{container_is_deleted()}}), so fetch the
+container again from its parent after an undo.
 
 Each commit is one undo step, so call \code{\link[=doc_commit]{doc_commit()}} between edits
 that should be undone separately. Commits closer together than

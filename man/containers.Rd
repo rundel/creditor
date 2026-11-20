@@ -76,7 +76,15 @@ can still be read, but editing through it is an error.
 }
 
 Root container names are shared across types within a document's
-value, so use distinct names for different root containers.
+value, so use distinct names for different root containers: if two
+root containers of different types have the same name, each keeps
+its own contents but \code{\link[=doc_value]{doc_value()}} shows only one of them.
+
+Asking for a root container creates it. Once \code{doc_map(doc, "notes")}
+has been called, \code{doc_value()} includes an empty \code{notes} entry, on
+this replica and on any that later import from it, even if nothing
+is ever stored there. Two replicas with the same edits can therefore
+differ in which empty root containers their values list.
 }
 \examples{
 doc = loro_doc()

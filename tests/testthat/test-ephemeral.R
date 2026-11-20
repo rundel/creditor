@@ -141,3 +141,41 @@ test_that("a write in the same millisecond as the last one is not applied", {
   skip_if(stale == 0L, "writes never landed in the same millisecond")
   expect_gt(stale, 0L)
 })
+
+test_that("damaged ephemeral bytes are clean errors", {
+  store = ephemeral_store()
+  ephemeral_set(store, "k", list(a = 1L, b = "x"))
+  bytes = ephemeral_encode(store)
+  other = ephemeral_store()
+
+  expect_error(ephemeral_apply(other, raw()))
+  for (n in seq_len(length(bytes) - 1)) {
+    expect_error(ephemeral_apply(other, bytes[seq_len(n)]))
+  }
+  expect_identical(ephemeral_keys(other), character())
+  ephemeral_apply(other, bytes)
+  expect_identical(ephemeral_get(other, "k"), list(a = 1L, b = "x"))
+})
+
+test_that("ephemeral values and keys convert like document values", {
+  a = ephemeral_store()
+  b = ephemeral_store()
+  values = list(
+    null = NULL, nan = NaN, inf = Inf, raw = as.raw(1:3), empty = list(),
+    nested = list(x = list(1L, "two"), y = NULL), text = "héllo \U0001F600"
+  )
+  for (key in names(values)) ephemeral_set(a, key, values[[key]])
+  ephemeral_set(a, "", "empty key")
+  ephemeral_set(a, "clé", TRUE)
+  ephemeral_apply(b, ephemeral_encode(a))
+
+  for (key in names(values)) expect_identical(ephemeral_get(b, key), values[[key]])
+  expect_identical(ephemeral_get(b, ""), "empty key")
+  expect_identical(ephemeral_get(b, "clé"), TRUE)
+
+  events = 0
+  sub = ephemeral_subscribe(a, function(event) events <<- events + 1)
+  on.exit(unsubscribe(sub))
+  ephemeral_delete(a, "never set")
+  expect_identical(events, 0)
+})

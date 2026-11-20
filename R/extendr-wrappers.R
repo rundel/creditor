@@ -282,6 +282,10 @@ loro_doc_subscribe_container_impl <- function(doc, container) .Call(wrap__loro_d
 #' @noRd
 loro_doc_subscribe_local_updates_impl <- function(doc) .Call(wrap__loro_doc_subscribe_local_updates_impl, doc)
 
+#' Whether any subscription has events waiting.
+#' @noRd
+loro_events_pending_impl <- function() .Call(wrap__loro_events_pending_impl)
+
 #' Remove and return the queued events of a subscription.
 #' @noRd
 loro_subscription_take_impl <- function(subscription) .Call(wrap__loro_subscription_take_impl, subscription)
@@ -427,7 +431,7 @@ loro_tree_move_impl <- function(tree, node, parent, index) .Call(wrap__loro_tree
 #' @noRd
 loro_tree_delete_impl <- function(tree, node) .Call(wrap__loro_tree_delete_impl, tree, node)
 
-#' The metadata map of a node.
+#' The metadata map of a node. A deleted node's metadata can still be read.
 #' @noRd
 loro_tree_meta_impl <- function(tree, node) .Call(wrap__loro_tree_meta_impl, tree, node)
 

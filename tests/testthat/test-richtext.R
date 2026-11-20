@@ -199,3 +199,106 @@ test_that("a delta can be taken for a range", {
   expect_error(text_delta(text, len = 2), "together")
   expect_error(text_delta(text, 2, 99))
 })
+
+test_that("a delta that runs past the end is rejected before anything is applied", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "ABCDE")
+  expect_error(
+    text_apply_delta(text, list(list(insert = "x"), list(delete = 99))),
+    "99 characters.*only 5"
+  )
+  expect_error(
+    text_apply_delta(text, list(list(retain = 3), list(insert = "x"), list(retain = 3))),
+    "6 characters"
+  )
+  expect_identical(text_get(text), "ABCDE")
+})
+
+test_that("an unconfigured key in a delta gives the configuration hint", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "ABCDE")
+  expect_error(
+    text_apply_delta(text, list(list(retain = 1, attributes = list(author = "a")))),
+    "author.*doc_config_text_style"
+  )
+})
+
+test_that("ambiguous delta ops are rejected", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "ABCDE")
+  expect_error(text_apply_delta(text, list(list(delete = 1, delete = 2))), "more than one")
+  expect_error(
+    text_apply_delta(text, list(list(delete = 1, attributes = list(bold = TRUE)))),
+    "cannot have"
+  )
+  expect_error(
+    text_apply_delta(text, list(list(retain = 1, attributes = list(`a:b` = TRUE)))),
+    ":"
+  )
+  expect_error(text_apply_delta(text, list(list(insert = NA_character_))), "single string")
+  expect_error(text_apply_delta(text, list(list(insert = c("a", "b")))), "single string")
+  expect_identical(text_get(text), "ABCDE")
+
+  text_apply_delta(text, list(list(retain = 0), list(delete = 0), list(insert = "")))
+  expect_identical(text_get(text), "ABCDE")
+})
+
+test_that("mark values keep their type, and NULL or NA removes the mark", {
+  doc = loro_doc()
+  doc_config_text_style(doc, default = "none")
+  text = doc_text(doc)
+  text_insert(text, 1, "abcd")
+  value_of = function() text_delta(text)[[1]]$attributes$v
+
+  for (value in list(FALSE, 3L, 2.5, "s", as.raw(1:3))) {
+    text_mark(text, 1, 4, "v", value)
+    expect_identical(value_of(), value)
+  }
+  text_mark(text, 1, 4, "v", c("a", "b"))
+  expect_identical(value_of(), list("a", "b"))
+  text_mark(text, 1, 4, "v", list(a = 1, b = list("x", "y")))
+  expect_identical(value_of(), list(a = 1, b = list("x", "y")))
+
+  text_mark(text, 1, 4, "v", NULL)
+  expect_identical(text_delta(text), list(plain("abcd")))
+  text_mark(text, 1, 4, "v", TRUE)
+  text_mark(text, 1, 4, "v", NA)
+  expect_identical(text_delta(text), list(plain("abcd")))
+  expect_error(text_mark(text, 1, 4, "v", factor("a")), "class")
+})
+
+test_that("before and both expansion follow the configuration", {
+  doc = loro_doc()
+  doc_config_text_style(doc, pre = "before", around = "both", bold = "none")
+  text = doc_text(doc)
+  text_insert(text, 1, "ab")
+  text_mark(text, 1, 2, "pre")
+  text_mark(text, 1, 2, "around")
+  text_mark(text, 1, 2, "bold")
+
+  text_insert(text, 1, "L")
+  text_insert(text, 4, "R")
+  expect_identical(
+    text_delta(text),
+    list(
+      marked("L", around = TRUE, pre = TRUE),
+      marked("ab", around = TRUE, bold = TRUE, pre = TRUE),
+      marked("R", around = TRUE)
+    )
+  )
+})
+
+test_that("style configuration carries over to a fork", {
+  doc = loro_doc()
+  doc_config_text_style(doc, note = "none")
+  text_insert(doc_text(doc), 1, "ab")
+
+  fork = doc_fork(doc)
+  text_mark(doc_text(fork), 1, 2, "note", "x")
+  expect_identical(text_delta(doc_text(fork)), list(marked("ab", note = "x")))
+
+  fresh = loro_doc()
+  doc_import(fresh, doc_export(fork))
+  expect_identical(text_delta(doc_text(fresh)), list(marked("ab", note = "x")))
+  expect_error(text_mark(doc_text(fresh), 1, 1, "note", "y"), "doc_config_text_style")
+})

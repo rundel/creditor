@@ -31,7 +31,8 @@ tree_contains(tree, node)
 \item{parent}{The id of the parent node, or \code{NULL} for the top level.}
 
 \item{index}{A 1-based position among the parent's children, or
-\code{NULL} to place the node last.}
+\code{NULL} to place the node last. For a move it is the position the
+node ends up at.}
 
 \item{node}{A node id.}
 }
@@ -52,7 +53,8 @@ duplicate nodes.
 \item \code{tree_move()} moves a node, with its subtree, to a new parent or
 position.
 \item \code{tree_delete()} deletes a node and its descendants.
-\item \code{tree_meta()} returns the node's metadata as a map handle, to be
+\item \code{tree_meta()} returns the node's metadata as a map handle (the
+metadata of a deleted node can still be read, but not changed), to be
 used with \code{\link[=map_set]{map_set()}}, \code{\link[=map_get]{map_get()}}, and the other \verb{map_*}
 functions.
 \item \code{tree_children()} returns the ids of a node's children in order,

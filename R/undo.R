@@ -13,7 +13,12 @@
 #' * `undo_count()` and `redo_count()` return the number of steps
 #'   available.
 #' * `undo_group()` evaluates `code` and records all the changes it
-#'   makes as a single undo step.
+#'   makes as a single undo step. Pending edits are committed when the
+#'   group starts and when it ends, so the step contains exactly the
+#'   edits made by `code`. Groups cannot be nested. If changes to the
+#'   same container are imported from another replica while the group
+#'   is open, Loro closes the step early and the group is recorded as
+#'   more than one step.
 #' * `undo_pause()` stops recording local edits as undo steps until
 #'   `undo_resume()`; `undo_is_paused()` reports the state. Edits made
 #'   while paused cannot be undone.
@@ -21,6 +26,11 @@
 #'
 #' Checking out another version with [`doc_checkout()`] clears the undo
 #' and redo history.
+#'
+#' Undoing the deletion of a child container brings back its contents
+#' in a new container with a new id. Handles to the old container
+#' remain deleted (see [`container_is_deleted()`]), so fetch the
+#' container again from its parent after an undo.
 #'
 #' Each commit is one undo step, so call [`doc_commit()`] between edits
 #' that should be undone separately. Commits closer together than
@@ -65,7 +75,7 @@ NULL
 loro_undo_manager = S7::new_class(
   "loro_undo_manager",
   package = "creditor",
-  properties = list(ptr = S7::class_any)
+  properties = list(ptr = S7::class_any, doc = S7::class_any)
 )
 
 check_manager = function(manager, call = sys.call(-1)) {
@@ -93,11 +103,12 @@ doc_undo_manager = function(
     cli::cli_abort("{.arg exclude_origins} must be a character vector of non-empty strings.")
   }
   loro_undo_manager(
+    doc = doc@ptr,
     ptr = loro_undo_new_impl(
       doc@ptr,
       as.numeric(merge_interval),
       max_steps,
-      enc2utf8(exclude_origins)
+      as_utf8(exclude_origins, "exclude_origins")
     )
   )
 }
@@ -151,18 +162,16 @@ undo_clear = function(manager) {
 #' @export
 undo = function(manager) {
   check_manager(manager)
-  changed = loro_undo_undo_impl(manager@ptr)
-  deliver_events()
-  changed
+  on.exit(deliver_events(), add = TRUE)
+  loro_undo_undo_impl(manager@ptr)
 }
 
 #' @rdname undo
 #' @export
 redo = function(manager) {
   check_manager(manager)
-  changed = loro_undo_redo_impl(manager@ptr)
-  deliver_events()
-  changed
+  on.exit(deliver_events(), add = TRUE)
+  loro_undo_redo_impl(manager@ptr)
 }
 
 #' @rdname undo
@@ -183,8 +192,18 @@ can_redo = function(manager) {
 #' @export
 undo_group = function(manager, code) {
   check_manager(manager)
-  loro_undo_group_impl(manager@ptr, TRUE)
+  loro_doc_commit_impl(manager@doc, NULL, NULL, NULL)
+  tryCatch(
+    loro_undo_group_impl(manager@ptr, TRUE),
+    error = function(cnd) {
+      if (!grepl("already an active undo group", conditionMessage(cnd), fixed = TRUE)) {
+        stop(cnd)
+      }
+      cli::cli_abort("Undo groups cannot be nested.", call = NULL)
+    }
+  )
   on.exit({
+    loro_doc_commit_impl(manager@doc, NULL, NULL, NULL)
     loro_undo_group_impl(manager@ptr, FALSE)
     deliver_events()
   })

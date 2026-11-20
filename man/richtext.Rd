@@ -31,7 +31,8 @@ together.}
 \item{key}{Name of the mark. It must not contain \code{":"}.}
 
 \item{value}{A plain value for the mark; see the Values section of
-\code{\link[=map_set]{map_set()}}.}
+\code{\link[=map_set]{map_set()}}. \code{NULL} and \code{NA} remove the mark, as \code{text_unmark()}
+does.}
 
 \item{delta}{A list of delta ops.}
 
@@ -66,7 +67,10 @@ Each op is a list with exactly one of \code{retain} (keep that many
 characters), \code{insert} (a string), or \code{delete} (remove that many
 characters); \code{retain} and \code{insert} may also carry \code{attributes}. An
 attribute set to \code{NULL} removes that mark. The output of
-\code{text_delta()} is itself a valid delta.
+\code{text_delta()} is itself a valid delta. A delta that reaches past
+the end of the text is rejected before anything is applied, but if
+an op fails for another reason (such as an unconfigured mark key)
+the ops before it stay applied.
 \item \code{doc_config_text_style()} declares mark keys and how each behaves
 when text is inserted at the edge of a marked range.
 }

@@ -63,6 +63,7 @@ text_insert = function(text, pos, value) {
   check_container(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
   value = check_string(value, "value")
+  check_insert_pos(pos, loro_text_length_impl(text@ptr), "text")
   loro_text_insert_impl(text@ptr, pos - 1L, value)
   invisible(text)
 }
@@ -73,6 +74,7 @@ text_delete = function(text, pos, len) {
   check_container(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
   len = check_count(len, "len", 0)
+  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
   loro_text_delete_impl(text@ptr, pos - 1L, len)
   invisible(text)
 }
@@ -92,7 +94,9 @@ text_splice = function(text, pos, len, value) {
   check_container(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
   len = check_count(len, "len", 0)
-  loro_text_splice_impl(text@ptr, pos - 1L, len, check_string(value, "value"))
+  value = check_string(value, "value")
+  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
+  loro_text_splice_impl(text@ptr, pos - 1L, len, value)
   invisible(text)
 }
 
@@ -102,6 +106,7 @@ text_slice = function(text, pos, len) {
   check_container(text, loro_text, "text")
   pos = check_count(pos, "pos", 1)
   len = check_count(len, "len", 0)
+  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
   loro_text_slice_impl(text@ptr, pos - 1L, pos - 1L + len)
 }
 

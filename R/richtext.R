@@ -18,7 +18,10 @@
 #'   characters), `insert` (a string), or `delete` (remove that many
 #'   characters); `retain` and `insert` may also carry `attributes`. An
 #'   attribute set to `NULL` removes that mark. The output of
-#'   `text_delta()` is itself a valid delta.
+#'   `text_delta()` is itself a valid delta. A delta that reaches past
+#'   the end of the text is rejected before anything is applied, but if
+#'   an op fails for another reason (such as an unconfigured mark key)
+#'   the ops before it stay applied.
 #' * `doc_config_text_style()` declares mark keys and how each behaves
 #'   when text is inserted at the edge of a marked range.
 #'
@@ -44,7 +47,8 @@
 #'   together.
 #' @param key Name of the mark. It must not contain `":"`.
 #' @param value A plain value for the mark; see the Values section of
-#'   [`map_set()`].
+#'   [`map_set()`]. `NULL` and `NA` remove the mark, as `text_unmark()`
+#'   does.
 #' @param delta A list of delta ops.
 #' @param doc A [`loro_doc`].
 #' @param ... Named strings giving the expand behavior for each key,
@@ -87,12 +91,17 @@ check_key = function(key, call = sys.call(-1)) {
   key
 }
 
-with_style_hint = function(expr, key, call = sys.call(-1)) {
+with_style_hint = function(expr, key = NULL, call = sys.call(-1)) {
   tryCatch(
     expr,
     error = function(cnd) {
-      if (!grepl("Style configuration missing", conditionMessage(cnd), fixed = TRUE)) {
+      message = conditionMessage(cnd)
+      if (!grepl("Style configuration missing", message, fixed = TRUE)) {
         stop(cnd)
+      }
+      if (is.null(key)) {
+        found = regmatches(message, regexec('InternalString\\("([^"]*)"\\)', message))[[1]]
+        key = if (length(found) == 2) found[2] else "?"
       }
       cli::cli_abort(
         c(
@@ -112,6 +121,7 @@ text_mark = function(text, pos, len, key, value = TRUE) {
   pos = check_count(pos, "pos", 1)
   len = check_count(len, "len", 1)
   key = check_key(key)
+  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
   with_style_hint(loro_text_mark_impl(text@ptr, pos - 1L, pos - 1L + len, key, value), key)
   invisible(text)
 }
@@ -123,6 +133,7 @@ text_unmark = function(text, pos, len, key) {
   pos = check_count(pos, "pos", 1)
   len = check_count(len, "len", 1)
   key = check_key(key)
+  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
   with_style_hint(loro_text_unmark_impl(text@ptr, pos - 1L, pos - 1L + len, key), key)
   invisible(text)
 }
@@ -139,6 +150,7 @@ text_delta = function(text, pos = NULL, len = NULL) {
   }
   pos = check_count(pos, "pos", 1)
   len = check_count(len, "len", 0)
+  check_span(pos, len, loro_text_length_impl(text@ptr), "text")
   loro_text_delta_impl(text@ptr, pos - 1L, pos - 1L + len)
 }
 
@@ -149,7 +161,7 @@ text_apply_delta = function(text, delta) {
   if (!is.list(delta) || is.object(delta)) {
     cli::cli_abort("{.arg delta} must be a list of delta ops.")
   }
-  loro_text_apply_delta_impl(text@ptr, delta)
+  with_style_hint(loro_text_apply_delta_impl(text@ptr, delta))
   invisible(text)
 }
 
@@ -159,6 +171,9 @@ doc_config_text_style = function(doc, ..., default = NULL) {
   check_doc(doc)
   styles = list(...)
   keys = names(styles)
+  if (!is.null(keys)) {
+    keys = as_utf8(keys, "...")
+  }
   if (length(styles) > 0 && (is.null(keys) || any(keys == "") || anyDuplicated(keys) > 0)) {
     cli::cli_abort("Arguments in {.arg ...} must be uniquely named with mark keys.")
   }

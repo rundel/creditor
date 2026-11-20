@@ -30,7 +30,21 @@ fn to_r_error<E: std::fmt::Display>(e: E) -> Error {
         Some((head, _)) => head.to_string(),
         None => message,
     };
-    Error::Other(message)
+    Error::Other(strip_source_location(message))
+}
+
+/// Remove a trailing ` at /path/to/file.rs:LINE:COL` that Loro appends to
+/// some messages, keeping any closing parenthesis after it.
+fn strip_source_location(message: String) -> String {
+    let Some(start) = message.rfind(" at /") else {
+        return message;
+    };
+    let tail = &message[start..];
+    if !tail.contains(".rs:") {
+        return message;
+    }
+    let closing = if tail.ends_with(')') { ")" } else { "" };
+    format!("{}{}", &message[..start], closing)
 }
 
 fn to_index(value: i32, what: &str) -> Result<usize> {
@@ -176,7 +190,7 @@ fn value_or_container_to_r(item: ValueOrContainer) -> Result<Robj> {
         ValueOrContainer::Container(container) if kind_of(&container).is_some() => {
             container_ref(container)
         }
-        other => Ok(container_value::item_to_r(&other, true)),
+        other => container_value::item_to_r(&other, true),
     }
 }
 
@@ -268,7 +282,10 @@ fn loro_doc_is_detached_impl(doc: DocPtr) -> bool {
 #[extendr]
 fn loro_doc_revert_to_impl(doc: DocPtr, frontiers: Raw) -> Result<()> {
     doc.revert_to(&to_frontiers(&frontiers)?)
-        .map_err(to_r_error)
+        .map_err(to_r_error)?;
+    // Loro leaves the generated changes in the open transaction.
+    doc.commit();
+    Ok(())
 }
 
 /// Diff between two versions as a named list keyed by container id.
@@ -443,8 +460,12 @@ fn loro_doc_export_json_impl(
 #[extendr]
 fn loro_doc_import_json_impl(doc: DocPtr, json: &str) -> Result<Robj> {
     // Loro reports unparseable JSON with an unrelated error message.
-    let schema = JsonSchema::try_from(json)
-        .map_err(|_| Error::Other("json is not valid Loro JSON updates".to_string()))?;
+    let schema = JsonSchema::try_from(json).map_err(|_| {
+        Error::Other(
+            "json is not valid Loro JSON updates (values nested more than about 120 levels deep cannot be read from JSON)"
+                .to_string(),
+        )
+    })?;
     let status = doc.import_json_updates(schema).map_err(to_r_error)?;
     Ok(status_to_r(&status))
 }
@@ -478,13 +499,16 @@ fn loro_doc_apply_diff_impl(doc: DocPtr, source: DocPtr, from: Raw, to: Raw) -> 
     let batch = source
         .diff(&to_frontiers(&from)?, &to_frontiers(&to)?)
         .map_err(to_r_error)?;
-    doc.apply_diff(batch).map_err(to_r_error)
+    doc.apply_diff(batch).map_err(to_r_error)?;
+    // Loro leaves the applied changes in the open transaction.
+    doc.commit();
+    Ok(())
 }
 
 /// Deep value of the whole document as nested R lists.
 /// @noRd
 #[extendr]
-fn loro_doc_value_impl(doc: DocPtr) -> Robj {
+fn loro_doc_value_impl(doc: DocPtr) -> Result<Robj> {
     container_value::doc_to_r(&doc)
 }
 
@@ -519,7 +543,7 @@ fn loro_container_value_impl(container: ContainerPtr, deep: bool) -> Result<Robj
     if kind_of(&container).is_none() {
         return Err(Error::Other("unsupported container type".to_string()));
     }
-    Ok(container_value::container_to_r(&container, deep))
+    container_value::container_to_r(&container, deep)
 }
 
 /// Whether the container has been removed from its document.
@@ -821,7 +845,17 @@ fn loro_text_splice_impl(text: ContainerPtr, pos: i32, len: i32, value: &str) ->
 #[extendr]
 fn loro_text_apply_delta_impl(text: ContainerPtr, delta: Robj) -> Result<()> {
     let delta = delta::delta_from_r(&delta)?;
-    as_text(&text)?.apply_delta(&delta).map_err(to_r_error)
+    let text = as_text(&text)?;
+    // Loro applies ops one at a time, so a delta that runs past the end
+    // would otherwise fail part way through with earlier ops applied.
+    let span = delta::delta_span(&delta);
+    let length = text.len_unicode();
+    if span > length {
+        return Err(Error::Other(format!(
+            "delta retains and deletes {span} characters, but the text has only {length}"
+        )));
+    }
+    text.apply_delta(&delta).map_err(to_r_error)
 }
 
 /// Change the text to `value` by applying a minimal diff, computed over
@@ -878,6 +912,13 @@ fn loro_doc_subscribe_local_updates_impl(doc: DocPtr) -> SubscriptionPtr {
         true
     }));
     ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
+/// Whether any subscription has events waiting.
+/// @noRd
+#[extendr]
+fn loro_events_pending_impl() -> bool {
+    events::pending() > 0
 }
 
 /// Remove and return the queued events of a subscription.
@@ -1080,6 +1121,35 @@ fn loro_ephemeral_subscribe_local_updates_impl(store: EphemeralPtr) -> Subscript
     ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
 }
 
+fn is_live_node(tree: &LoroTree, node: TreeID) -> bool {
+    tree.contains(node) && !tree.is_node_deleted(&node).unwrap_or(true)
+}
+
+/// Loro treats a node inside a deleted subtree as still movable (moving it
+/// out revives the subtree) and deletable. Both contradict what
+/// `tree_contains()` reports, so only live nodes may be moved or deleted.
+fn to_live_node(tree: &LoroTree, node: &str) -> Result<TreeID> {
+    let id = to_node(node)?;
+    if !is_live_node(tree, id) {
+        return Err(Error::Other(format!(
+            "node {node} does not exist or has been deleted"
+        )));
+    }
+    Ok(id)
+}
+
+/// Check a 0-based sibling index, reporting it in R's 1-based terms.
+fn check_tree_index(index: usize, max: usize) -> Result<usize> {
+    if index > max {
+        return Err(Error::Other(format!(
+            "`index` must be at most {}, not {}",
+            max + 1,
+            index + 1
+        )));
+    }
+    Ok(index)
+}
+
 /// Create a node under `parent` (`NULL` for a root node), at a 0-based
 /// `index` among its siblings or last when `NULL`. Returns the node id.
 /// @noRd
@@ -1093,7 +1163,11 @@ fn loro_tree_create_impl(
     let parent = to_live_parent(tree, parent)?;
     let node = match index {
         Nullable::Null => tree.create(parent),
-        Nullable::NotNull(index) => tree.create_at(parent, to_index(index, "index")?),
+        Nullable::NotNull(index) => {
+            let siblings = tree.children_num(parent).unwrap_or(0);
+            let index = check_tree_index(to_index(index, "index")?, siblings)?;
+            tree.create_at(parent, index)
+        }
     };
     Ok(node.map_err(to_r_error)?.to_string())
 }
@@ -1108,11 +1182,22 @@ fn loro_tree_move_impl(
     index: Nullable<i32>,
 ) -> Result<()> {
     let tree = as_tree(&tree)?;
-    let node = to_node(node)?;
+    let node = to_live_node(tree, node)?;
     let parent = to_live_parent(tree, parent)?;
     match index {
         Nullable::Null => tree.mov(node, parent),
-        Nullable::NotNull(index) => tree.mov_to(node, parent, to_index(index, "index")?),
+        Nullable::NotNull(index) => {
+            let siblings = tree.children_num(parent).unwrap_or(0);
+            // Within its own parent the node is taken out before it is put
+            // back, so the last valid position is one lower.
+            let max = if tree.parent(node) == Some(parent) {
+                siblings.saturating_sub(1)
+            } else {
+                siblings
+            };
+            let index = check_tree_index(to_index(index, "index")?, max)?;
+            tree.mov_to(node, parent, index)
+        }
     }
     .map_err(to_r_error)
 }
@@ -1121,16 +1206,21 @@ fn loro_tree_move_impl(
 /// @noRd
 #[extendr]
 fn loro_tree_delete_impl(tree: ContainerPtr, node: &str) -> Result<()> {
-    as_tree(&tree)?.delete(to_node(node)?).map_err(to_r_error)
+    let tree = as_tree(&tree)?;
+    let node = to_live_node(tree, node)?;
+    tree.delete(node).map_err(to_r_error)
 }
 
-/// The metadata map of a node.
+/// The metadata map of a node. A deleted node's metadata can still be read.
 /// @noRd
 #[extendr]
 fn loro_tree_meta_impl(tree: ContainerPtr, node: &str) -> Result<Robj> {
-    let meta = as_tree(&tree)?
-        .get_meta(to_node(node)?)
-        .map_err(to_r_error)?;
+    let tree = as_tree(&tree)?;
+    let id = to_node(node)?;
+    if !tree.contains(id) {
+        return Err(Error::Other(format!("node {node} does not exist")));
+    }
+    let meta = tree.get_meta(id).map_err(to_r_error)?;
     container_ref(Container::Map(meta))
 }
 
@@ -1140,7 +1230,7 @@ fn loro_tree_meta_impl(tree: ContainerPtr, node: &str) -> Result<Robj> {
 fn loro_tree_contains_impl(tree: ContainerPtr, node: &str) -> Result<bool> {
     let tree = as_tree(&tree)?;
     let node = to_node(node)?;
-    Ok(tree.contains(node) && !tree.is_node_deleted(&node).unwrap_or(true))
+    Ok(is_live_node(tree, node))
 }
 
 /// Ordered child ids of `parent` (`NULL` for the root nodes).
@@ -1232,7 +1322,7 @@ fn loro_list_pop_impl(list: ContainerPtr) -> Result<Robj> {
     // Read before deleting: `LoroList::pop` returns a child container as
     // a bare id, after which its contents can no longer be read.
     let value = match with_list!(list, |l| l.get(len - 1)) {
-        Some(item) => container_value::item_to_r(&item, true),
+        Some(item) => container_value::item_to_r(&item, true)?,
         None => ().into(),
     };
     with_list!(list, |l| l.delete(len - 1, 1).map_err(to_r_error))?;
@@ -1496,6 +1586,7 @@ extendr_module! {
     fn loro_doc_subscribe_impl;
     fn loro_doc_subscribe_container_impl;
     fn loro_doc_subscribe_local_updates_impl;
+    fn loro_events_pending_impl;
     fn loro_subscription_take_impl;
     fn loro_subscription_cancel_impl;
     fn loro_undo_new_impl;

@@ -179,7 +179,7 @@ test_that("diffs describe map, list, and mark changes", {
   expect_setequal(names(diff), c("cid:root-text:Text", "cid:root-m:Map", "cid:root-l:List"))
   expect_identical(
     diff[["cid:root-m:Map"]],
-    list(type = "map", updated = list(gone = NULL, k = "v"))
+    list(type = "map", updated = list(k = "v"), deleted = "gone")
   )
   expect_identical(
     diff[["cid:root-l:List"]],
@@ -194,7 +194,8 @@ test_that("diffs describe map, list, and mark changes", {
 test_that("invalid versions are errors", {
   h = history_doc()
   expect_error(doc_checkout(h$doc, "v1"), "frontiers")
-  expect_error(doc_checkout(h$doc, raw()), "valid")
+  expect_error(doc_checkout(h$doc, raw()), "as_frontiers")
+  expect_error(doc_checkout(h$doc, as_frontiers(raw())), "valid")
   expect_error(doc_revert_to(h$doc, 1), "frontiers")
   expect_error(doc_diff(h$doc, h$v1, "x"), "to")
 
@@ -361,4 +362,225 @@ test_that("a commit can carry an explicit timestamp", {
   expect_error(doc_commit(doc, timestamp = "2020"), "timestamp")
   expect_error(doc_commit(doc, timestamp = -5), "timestamp")
   expect_error(doc_commit(doc, timestamp = c(1, 2)), "timestamp")
+})
+
+test_that("versions and frontiers cannot be swapped", {
+  h = history_doc()
+  version = doc_version(h$doc)
+  frontiers = doc_frontiers(h$doc)
+  expect_s3_class(version, "loro_version")
+  expect_s3_class(frontiers, "loro_frontiers")
+  expect_s3_class(doc_changes(h$doc)$frontiers[[1]], "loro_frontiers")
+
+  expect_error(doc_checkout(h$doc, version), "not a version vector")
+  expect_error(doc_fork(h$doc, at = version), "not a version vector")
+  expect_error(doc_diff(h$doc, version, frontiers), "not a version vector")
+  expect_error(doc_revert_to(h$doc, version), "not a version vector")
+  expect_error(doc_export(h$doc, "shallow_snapshot", since = version), "not a version vector")
+  expect_error(doc_frontiers_to_version(h$doc, version), "not a version vector")
+  expect_error(doc_export(h$doc, "updates", from = frontiers), "not frontiers")
+  expect_error(doc_export_json(h$doc, from = frontiers), "not frontiers")
+  expect_error(doc_version_to_frontiers(h$doc, frontiers), "not frontiers")
+  expect_error(doc_export(h$doc, "updates", from = unclass(version)), "as_version")
+  expect_false(doc_is_detached(h$doc))
+})
+
+test_that("saved versions can be restored", {
+  h = history_doc()
+  frontiers = doc_frontiers(h$doc)
+  version = doc_version(h$doc)
+  expect_identical(as_frontiers(unclass(frontiers)), frontiers)
+  expect_identical(as_version(unclass(version)), version)
+  expect_error(as_frontiers("x"), "raw")
+  expect_error(as_version(1), "raw")
+
+  expect_match(format(frontiers), "^<loro_frontiers> [0-9a-f ]+$")
+  expect_match(format(version), "^<loro_version> [0-9a-f ]+$")
+  expect_output(print(frontiers), "loro_frontiers")
+  expect_output(print(version), "loro_version")
+})
+
+test_that("frontiers with two heads work everywhere", {
+  a = loro_doc(peer_id = 1)
+  text = doc_text(a)
+  text_insert(text, 1, "base")
+  doc_commit(a)
+  b = doc_fork(a)
+  doc_set_peer_id(b, 2)
+  text_insert(text, 1, "A")
+  doc_commit(a)
+  text_insert(doc_text(b), 5, "B")
+  doc_commit(b)
+  from_a = doc_frontiers(a)
+  from_b = doc_frontiers(b)
+  doc_import(a, doc_export(b, "updates"))
+  merged = doc_frontiers(a)
+
+  expect_gt(length(merged), length(from_a))
+  expect_identical(doc_compare_frontiers(a, from_a, merged), -1L)
+  expect_identical(doc_compare_frontiers(a, merged, from_b), 1L)
+  expect_identical(doc_compare_frontiers(a, merged, merged), 0L)
+  expect_identical(doc_frontiers_to_version(a, merged), doc_version(a))
+  expect_identical(doc_version_to_frontiers(a, doc_version(a)), merged)
+
+  text_insert(text, 1, "later ")
+  doc_checkout(a, merged)
+  expect_identical(text_get(text), "AbaseB")
+  expect_identical(doc_frontiers(a), merged)
+  doc_checkout(a)
+  expect_identical(text_get(doc_text(doc_fork(a, at = merged))), "AbaseB")
+  doc_revert_to(a, merged)
+  expect_identical(text_get(text), "AbaseB")
+})
+
+test_that("an empty document has a usable empty version", {
+  empty = loro_doc()
+  start = doc_frontiers(empty)
+  expect_identical(doc_diff(empty, start, start), structure(list(), names = character()))
+  expect_identical(doc_compare_frontiers(empty, start, start), 0L)
+  expect_identical(doc_version_to_frontiers(empty, doc_version(empty)), start)
+
+  for (mode in c("snapshot", "updates", "shallow_snapshot")) {
+    other = loro_doc()
+    status = doc_import(other, doc_export(empty, mode))
+    expect_identical(nrow(status$success), 0L)
+    expect_identical(nrow(doc_changes(other)), 0L)
+  }
+  other = loro_doc()
+  doc_import_json(other, doc_export_json(empty))
+  expect_identical(blob_metadata(doc_export(empty))$changes, 0L)
+
+  h = history_doc()
+  diff = doc_diff(h$doc, start, doc_frontiers(h$doc))
+  expect_identical(diff[[1]]$delta, list(list(insert = "Hello world")))
+  doc_revert_to(h$doc, start)
+  expect_identical(text_get(h$text), "")
+})
+
+test_that("a map diff separates deleted keys from keys set to NULL", {
+  doc = loro_doc(peer_id = 1)
+  map = doc_map(doc, "m")
+  map_set(map, "nulled", 1L)
+  map_set(map, "gone", 1L)
+  before = doc_frontiers(doc)
+  map_set(map, "nulled", NULL)
+  map_delete(map, "gone")
+
+  diff = doc_diff(doc, before, doc_frontiers(doc))[["cid:root-m:Map"]]
+  expect_identical(diff, list(type = "map", updated = list(nulled = NULL), deleted = "gone"))
+  expect_identical(map_keys(map), "nulled")
+
+  back = doc_diff(doc, doc_frontiers(doc), before)[["cid:root-m:Map"]]
+  expect_identical(back$updated, list(gone = 1L, nulled = 1L))
+  expect_identical(back$deleted, character())
+})
+
+test_that("revert and apply diff commit their changes", {
+  a = loro_doc(peer_id = 1)
+  text = doc_text(a)
+  text_insert(text, 1, "abc")
+  doc_commit(a)
+  v1 = doc_frontiers(a)
+  text_insert(text, 4, "def")
+  doc_commit(a)
+  v2 = doc_frontiers(a)
+
+  b = doc_fork(a)
+  events = 0
+  live = doc_subscribe_local_updates(a, function(bytes) doc_import(b, bytes))
+  watch = doc_subscribe(a, function(event) events <<- events + 1)
+  manager = doc_undo_manager(a)
+  on.exit({
+    unsubscribe(live)
+    unsubscribe(watch)
+  })
+
+  doc_revert_to(a, v1)
+  expect_identical(text_get(doc_text(b)), "abc")
+  expect_identical(events, 1)
+  expect_identical(undo_count(manager), 1L)
+
+  doc_apply_diff(a, v1, v2)
+  expect_identical(text_get(doc_text(b)), "abcdef")
+  expect_identical(events, 2)
+  expect_identical(undo_count(manager), 2L)
+})
+
+test_that("a failed apply diff leaves the target unchanged", {
+  source = loro_doc(peer_id = 1)
+  before = doc_frontiers(source)
+  map_set(doc_map(source, "a"), "k", 1L)
+  text_insert(doc_text(source, "t"), 1, "hello")
+  doc_commit(source)
+  from = doc_frontiers(source)
+  text_delete(doc_text(source, "t"), 2, 3)
+  map_set(doc_map(source, "z"), "k", 2L)
+  doc_commit(source)
+
+  target = loro_doc(peer_id = 2)
+  text_insert(doc_text(target, "t"), 1, "x")
+  doc_commit(target)
+  value = doc_value(target)
+  version = doc_version(target)
+
+  expect_error(doc_apply_diff(target, from, doc_frontiers(source), source = source))
+  expect_identical(doc_value(target), value)
+  expect_identical(doc_version(target), version)
+})
+
+test_that("commit messages keep their text", {
+  doc = loro_doc(peer_id = 1)
+  text = doc_text(doc)
+  message = "héllo 日本 \U0001F600"
+  text_insert(text, 1, "a")
+  doc_commit(doc, message)
+  expect_identical(doc_changes(doc)$message, message)
+
+  other = loro_doc()
+  doc_import_json(other, doc_export_json(doc))
+  expect_identical(doc_changes(other)$message, message)
+
+  text_insert(text, 1, "b")
+  doc_commit(doc, "")
+  expect_identical(doc_changes(doc)$message[2], NA_character_)
+
+  doc_commit(doc, "dropped")
+  text_insert(text, 1, "c")
+  doc_commit(doc)
+  expect_false("dropped" %in% doc_changes(doc)$message)
+})
+
+test_that("changed containers rejects missing ids", {
+  h = history_doc()
+  changes = doc_changes(h$doc)
+  changes$counter[1] = NA
+  expect_error(doc_changed_containers(h$doc, changes), "missing")
+})
+
+test_that("a container's deleted status follows checkout", {
+  doc = loro_doc()
+  items = doc_movable_list(doc, "l")
+  child = list_push_container(items, "text")
+  doc_commit(doc)
+  version = doc_frontiers(doc)
+  list_set(items, 1, 1L)
+  expect_true(container_is_deleted(child))
+
+  doc_checkout(doc, version)
+  expect_false(container_is_deleted(child))
+  doc_checkout(doc)
+  expect_true(container_is_deleted(child))
+})
+
+test_that("a fork of a detached document starts from the checked out version", {
+  h = history_doc()
+  doc_checkout(h$doc, h$v1)
+  fork = doc_fork(h$doc)
+  expect_false(doc_is_detached(fork))
+  expect_identical(text_get(doc_text(fork)), "Hello")
+
+  copy = loro_doc()
+  doc_import(copy, doc_export(h$doc))
+  expect_identical(text_get(doc_text(copy)), "Hello world")
+  expect_true(doc_is_detached(h$doc))
 })

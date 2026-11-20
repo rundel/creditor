@@ -2,7 +2,7 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 use loro::{LoroValue, TextDelta};
 
-use crate::r_to_value::r_to_value;
+use crate::r_to_value::{r_to_value, utf8_strings};
 use crate::value_to_r::value_to_r;
 
 fn other<T>(msg: &str) -> Result<T> {
@@ -62,16 +62,31 @@ fn op_from_r(op: &Robj) -> Result<TextDelta> {
     let mut insert = None;
     let mut delete = None;
     let mut attributes = None;
+    let mut seen: Vec<&str> = Vec::new();
     for (name, value) in fields.iter() {
+        if seen.contains(&name) {
+            return Err(Error::Other(format!(
+                "delta op has more than one `{name}` field"
+            )));
+        }
+        seen.push(name);
         match name {
             "retain" => retain = Some(to_count(&value, "retain")?),
             "delete" => delete = Some(to_count(&value, "delete")?),
-            "insert" => match value.as_str() {
-                Some(s) => insert = Some(s.to_string()),
-                None => return other("`insert` must be a single string"),
-            },
+            "insert" => {
+                if value.rtype() != Rtype::Strings || value.len() != 1 {
+                    return other("`insert` must be a single string");
+                }
+                match utf8_strings(&value)?.pop().flatten() {
+                    Some(text) => insert = Some(text),
+                    None => return other("`insert` must be a single string"),
+                }
+            }
             "attributes" => match r_to_value(&value)? {
                 LoroValue::Map(map) => {
+                    if map.keys().any(|key| key.contains(':')) {
+                        return other("attribute names must not contain ':'");
+                    }
                     attributes = Some(map.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
                 }
                 LoroValue::List(list) if list.is_empty() => {}
@@ -88,6 +103,9 @@ fn op_from_r(op: &Robj) -> Result<TextDelta> {
     match (retain, insert, delete) {
         (Some(retain), None, None) => Ok(TextDelta::Retain { retain, attributes }),
         (None, Some(insert), None) => Ok(TextDelta::Insert { insert, attributes }),
+        (None, None, Some(_)) if attributes.is_some() => {
+            other("a `delete` op cannot have `attributes`")
+        }
         (None, None, Some(delete)) => Ok(TextDelta::Delete { delete }),
         _ => other("each delta op must have exactly one of `retain`, `insert`, or `delete`"),
     }
@@ -98,4 +116,17 @@ pub fn delta_from_r(delta: &Robj) -> Result<Vec<TextDelta>> {
         return other("delta must be a list of ops");
     };
     ops.values().map(|op| op_from_r(&op)).collect()
+}
+
+/// Number of existing characters a delta walks over (its retains and
+/// deletes), which must not exceed the length of the text it is applied to.
+pub fn delta_span(delta: &[TextDelta]) -> usize {
+    delta
+        .iter()
+        .map(|op| match op {
+            TextDelta::Retain { retain, .. } => *retain,
+            TextDelta::Delete { delete } => *delete,
+            TextDelta::Insert { .. } => 0,
+        })
+        .sum()
 }

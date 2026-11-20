@@ -54,7 +54,8 @@ for the latest.}
 \item{json}{A string produced by \code{doc_export_json()}.}
 }
 \value{
-\code{doc_export()} and \code{doc_version()} return raw vectors.
+\code{doc_export()} returns a raw vector and \code{doc_version()} a
+version vector.
 \code{doc_import()} and \code{doc_import_json()} invisibly return an import
 status; see the Import status section. \code{doc_is_shallow()} returns a
 logical, \code{doc_export_json()} a string, and \code{blob_metadata()} a list
@@ -81,15 +82,19 @@ edits that branch off before it.
 Importing is commutative and idempotent, so replicas that have seen
 the same updates hold the same contents. \code{bytes} may also be a list
 of raw vectors, which are imported together in one step.
-\item \code{doc_version()} returns the document's current version (an encoded
-version vector) for use as the \code{from} argument of a later export.
+\item \code{doc_version()} returns the document's current version vector, for
+use as the \code{from} argument of a later export. See \code{\link[=as_version]{as_version()}}.
 \item \code{doc_is_shallow()} reports whether a document lacks its early
 history because it was loaded from a shallow snapshot.
 \item \code{blob_metadata()} describes an exported raw vector without
 importing it.
 \item \code{doc_export_json()} and \code{doc_import_json()} exchange changes as
 JSON text. This is larger than the binary format but readable, and
-useful for inspection and debugging.
+useful for inspection and debugging. JSON cannot carry values
+nested more than about 120 levels deep: such a document exports,
+but the result cannot be imported again. It also cannot carry
+containers created with \code{\link[=map_ensure_container]{map_ensure_container()}}, and
+\code{doc_export_json()} refuses to export changes that create one.
 }
 }
 \section{Import status}{

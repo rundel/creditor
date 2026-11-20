@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use extendr_api::prelude::*;
@@ -14,6 +15,15 @@ use crate::history::diffs_to_r;
 /// The queue is only ever touched from R's main thread: Loro invokes
 /// subscribers synchronously on the thread that commits or imports, and
 /// this package never calls Loro from any other thread.
+/// Number of events waiting in all queues. R checks this one value before
+/// scanning its registry, so that a call which produced no events costs the
+/// same however many subscriptions exist.
+static PENDING: AtomicUsize = AtomicUsize::new(0);
+
+pub fn pending() -> usize {
+    PENDING.load(Ordering::Relaxed)
+}
+
 pub struct EventQueue(Mutex<Vec<Robj>>);
 
 unsafe impl Send for EventQueue {}
@@ -27,12 +37,17 @@ impl EventQueue {
     pub fn push(&self, event: Robj) {
         if let Ok(mut queue) = self.0.lock() {
             queue.push(event);
+            PENDING.fetch_add(1, Ordering::Relaxed);
         }
     }
 
     pub fn take(&self) -> Vec<Robj> {
         match self.0.lock() {
-            Ok(mut queue) => std::mem::take(&mut *queue),
+            Ok(mut queue) => {
+                let events = std::mem::take(&mut *queue);
+                PENDING.fetch_sub(events.len(), Ordering::Relaxed);
+                events
+            }
             Err(_) => Vec::new(),
         }
     }
@@ -88,4 +103,10 @@ pub fn ephemeral_event_to_r(event: &EphemeralStoreEvent) -> Robj {
         removed = event.removed.as_ref().clone()
     )
     .into()
+}
+
+impl Drop for EventQueue {
+    fn drop(&mut self) {
+        self.take();
+    }
 }

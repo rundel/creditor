@@ -41,7 +41,7 @@ test_that("child containers can be created and retrieved", {
 test_that("out of range positions are errors", {
   list = doc_list(loro_doc())
   list_push(list, 1)
-  expect_error(list_get(list, 2), "bounds")
+  expect_error(list_get(list, 2), "at most 1")
   expect_error(list_get(list, 0), "pos")
   expect_error(list_insert(list, 3, "x"))
   expect_error(list_delete(list, 1, 5))
@@ -82,4 +82,31 @@ test_that("elements can be popped and the list cleared", {
     list_clear(items)
     expect_identical(container_value(items), list())
   }
+})
+
+test_that("out of range errors name the 1-based position given", {
+  for (make in list(doc_list, doc_movable_list)) {
+    items = make(loro_doc())
+    list_push(items, "a")
+    list_push(items, "b")
+
+    expect_error(list_insert(items, 4, "c"), "at most 3.*not 4")
+    expect_error(list_insert_container(items, 4, "text"), "at most 3.*not 4")
+    expect_error(list_get(items, 3), "at most 2.*not 3")
+    expect_error(list_delete(items, 2, 2), "starts at 2 and has length 2.*length 2")
+    expect_error(list_delete(items, 4, 0), "starts at 4")
+
+    list_delete(items, 3, 0)
+    list_delete(items, 1, 0)
+    list_insert(items, 3, "c")
+    expect_identical(container_value(items), list("a", "b", "c"))
+  }
+})
+
+test_that("range arithmetic does not overflow", {
+  items = doc_list(loro_doc())
+  list_push(items, "a")
+  expect_error(list_delete(items, 1, .Machine$integer.max), "range")
+  expect_no_warning(try(list_delete(items, 2, .Machine$integer.max), silent = TRUE))
+  expect_identical(list_length(items), 1L)
 })

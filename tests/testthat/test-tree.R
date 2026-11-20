@@ -283,3 +283,153 @@ test_that("a map entry named index is not mistaken for a tree position", {
     list(index = 0L, node = list(id = "0@1", index = 0L, parent = NULL))
   )
 })
+
+test_that("nodes inside a deleted subtree cannot be moved or deleted", {
+  o = outline()
+  tree_delete(o$tree, o$a)
+  expect_false(tree_contains(o$tree, o$a1))
+
+  expect_error(tree_move(o$tree, o$a1), "deleted")
+  expect_error(tree_move(o$tree, o$a1, parent = o$b), "deleted")
+  expect_error(tree_delete(o$tree, o$a1), "deleted")
+  expect_identical(tree_nodes(o$tree)$id, o$b)
+  expect_false(tree_contains(o$tree, o$a1))
+})
+
+test_that("the metadata of a deleted node can be read but not changed", {
+  o = outline()
+  meta = tree_meta(o$tree, o$a1)
+  map_set(meta, "x", 1L)
+  tree_delete(o$tree, o$a)
+
+  expect_identical(map_get(meta, "x"), 1L)
+  expect_identical(map_get(tree_meta(o$tree, o$a1), "x"), 1L)
+  expect_error(map_set(meta, "y", 2L), "deleted")
+  expect_error(tree_meta(o$tree, "5@1"), "node 5@1 does not exist")
+})
+
+test_that("index errors use the 1-based position given", {
+  doc = loro_doc(peer_id = 1)
+  tree = doc_tree(doc, "t")
+  ids = vapply(1:5, function(i) tree_create(tree), character(1))
+
+  expect_error(tree_create(tree, index = 7), "at most 6, not 7")
+  expect_error(tree_move(tree, ids[1], index = 6), "at most 5, not 6")
+  expect_error(tree_move(tree, ids[2], parent = ids[1], index = 2), "at most 1, not 2")
+  expect_identical(tree_children(tree), ids)
+
+  last = tree_create(tree, index = 6)
+  expect_identical(tree_children(tree), c(ids, last))
+})
+
+test_that("a move within one parent ends at the index given", {
+  doc = loro_doc(peer_id = 1)
+  tree = doc_tree(doc, "t")
+  ids = vapply(1:5, function(i) tree_create(tree), character(1))
+
+  tree_move(tree, ids[1], index = 3)
+  expect_identical(tree_children(tree), ids[c(2, 3, 1, 4, 5)])
+  tree_move(tree, ids[1], index = 1)
+  expect_identical(tree_children(tree), ids)
+  tree_move(tree, ids[1], index = 5)
+  expect_identical(tree_children(tree), ids[c(2, 3, 4, 5, 1)])
+  tree_move(tree, ids[5], index = 2)
+  expect_identical(tree_children(tree), ids[c(2, 5, 3, 4, 1)])
+})
+
+test_that("order holds up across many random inserts and moves", {
+  set.seed(1)
+  doc = loro_doc(peer_id = 1)
+  tree = doc_tree(doc, "t")
+  expected = character()
+  for (i in 1:200) {
+    index = sample.int(length(expected) + 1, 1)
+    expected = append(expected, tree_create(tree, index = index), after = index - 1)
+  }
+  for (i in 1:200) {
+    from = sample.int(length(expected), 1)
+    to = sample.int(length(expected), 1)
+    node = expected[from]
+    tree_move(tree, node, index = to)
+    expected = append(expected[-from], node, after = to - 1)
+  }
+
+  expect_identical(tree_children(tree), expected)
+  nodes = tree_nodes(tree)
+  expect_identical(nodes$id[order(nodes$index)], expected)
+  value = container_value(tree)
+  expect_identical(vapply(value, `[[`, "", "id"), expected)
+  expect_identical(vapply(value, `[[`, 1L, "index"), seq_along(expected))
+
+  copy = loro_doc()
+  doc_import(copy, doc_export(doc, "snapshot"))
+  expect_identical(tree_children(doc_tree(copy, "t")), expected)
+  expect_identical(tree_children(doc_tree(doc_fork(doc), "t")), expected)
+})
+
+test_that("a concurrent delete of an ancestor and move of a descendant converge", {
+  a = loro_doc(peer_id = 1)
+  tree = doc_tree(a, "t")
+  root = tree_create(tree)
+  keep = tree_create(tree, parent = root)
+  doomed = tree_create(tree, parent = root)
+  moved = tree_create(tree, parent = doomed)
+  b = loro_doc(peer_id = 2)
+  doc_import(b, doc_export(a))
+
+  tree_delete(tree, doomed)
+  tree_move(doc_tree(b, "t"), moved, parent = keep)
+  doc_import(b, doc_export(a, "updates"))
+  doc_import(a, doc_export(b, "updates"))
+
+  expect_identical(doc_value(a), doc_value(b))
+  expect_false(tree_contains(tree, doomed))
+  expect_true(tree_contains(tree, moved))
+  expect_identical(tree_children(tree, keep), moved)
+})
+
+test_that("a very deep tree can be built and listed but not expanded", {
+  doc = loro_doc(peer_id = 1)
+  tree = doc_tree(doc, "t")
+  parent = NULL
+  for (i in 1:1500) parent = tree_create(tree, parent = parent)
+
+  expect_identical(nrow(tree_nodes(tree)), 1500L)
+  expect_error(container_value(tree), "1000 levels")
+  expect_error(doc_value(doc), "1000 levels")
+
+  copy = loro_doc()
+  doc_import(copy, doc_export(doc, "snapshot"))
+  expect_identical(nrow(tree_nodes(doc_tree(copy, "t"))), 1500L)
+  tree_delete(tree, tree_children(tree))
+  expect_identical(nrow(tree_nodes(tree)), 0L)
+})
+
+test_that("redoing a create brings the node back under a new id", {
+  doc = loro_doc(peer_id = 1)
+  tree = doc_tree(doc, "t")
+  manager = doc_undo_manager(doc)
+  node = tree_create(tree)
+  doc_commit(doc)
+
+  undo(manager)
+  expect_identical(tree_children(tree), character())
+  redo(manager)
+  expect_length(tree_children(tree), 1)
+  expect_false(tree_contains(tree, node))
+})
+
+test_that("node ids from elsewhere and malformed ids are rejected", {
+  doc = loro_doc(peer_id = 1)
+  one = doc_tree(doc, "one")
+  two = doc_tree(doc, "two")
+  node = tree_create(one)
+
+  expect_false(tree_contains(two, node))
+  expect_error(tree_move(two, node), "does not exist")
+  expect_error(tree_delete(two, node), "does not exist")
+  expect_error(tree_create(two, parent = node), "does not exist")
+  expect_error(tree_contains(one, "99999999999999999999@1"), "not a valid node id")
+  expect_error(tree_contains(one, "-1@1"), "node")
+  expect_identical(tree_children(one), node)
+})

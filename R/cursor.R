@@ -85,6 +85,7 @@ list_cursor = function(list, pos, side = c("middle", "left", "right")) {
 #' @export
 cursor_pos = function(doc, cursor) {
   check_doc(doc)
+  on.exit(deliver_events(), add = TRUE)
   if (!is.raw(cursor)) {
     cli::cli_abort(
       "{.arg cursor} must be a raw vector from {.fn text_cursor} or {.fn list_cursor}."

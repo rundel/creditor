@@ -27,14 +27,25 @@
 #' Plain values are converted as follows. `NULL` and `NA` become null.
 #' Length-one logical, numeric, and character vectors become scalars;
 #' other unnamed vectors and unnamed lists become lists; named vectors
-#' and named lists become maps. Raw vectors are stored as binary.
-#' Objects with a class attribute (factors, dates, data frames) are
-#' rejected.
+#' and named lists become maps. Raw vectors are stored as binary, and
+#' any names on them are dropped. Objects with a class attribute
+#' (factors, dates, data frames) are rejected, and other attributes
+#' such as `dim` are ignored.
+#'
+#' Strings are stored as UTF-8. Strings in another encoding are
+#' converted, and strings that are not valid text are rejected. Values
+#' may be nested up to 1000 levels deep.
+#'
+#' An empty vector or list is always stored as an empty list, even if
+#' it carries a `names` attribute, so an empty map cannot be written as
+#' a plain value.
 #'
 #' A plain value is stored as a single unit: concurrent changes replace
 #' it whole. To let replicas merge edits inside a value, store a child
 #' container instead. Values read back as scalars and (possibly nested)
-#' lists; map entries are returned in sorted key order.
+#' lists; map entries are returned sorted by key, comparing the keys
+#' byte by byte (as `sort(method = "radix")` does), which is not always
+#' the order `sort()` gives in your locale.
 #'
 #' @param map A map handle, from [`doc_map()`] or a parent container.
 #' @param key A string.

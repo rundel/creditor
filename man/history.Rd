@@ -67,8 +67,8 @@ operation counter.}
 \item{changes}{A data frame of changes, such as rows of
 \code{doc_changes()}.}
 
-\item{frontiers, from, to}{A version: a raw vector from
-\code{doc_frontiers()} or the \code{frontiers} column of \code{doc_changes()}.}
+\item{frontiers, from, to}{A version: frontiers from \code{doc_frontiers()}
+or the \code{frontiers} column of \code{doc_changes()}. See \code{\link[=as_frontiers]{as_frontiers()}}.}
 
 \item{version}{A version vector from \code{\link[=doc_version]{doc_version()}}.}
 
@@ -97,7 +97,7 @@ A document keeps its full editing history, so earlier versions can be
 inspected, compared, and restored.
 \itemize{
 \item \code{doc_frontiers()} returns the version the document is currently
-showing, as a raw vector. Unlike the version vector from
+showing. Unlike the version vector from
 \code{\link[=doc_version]{doc_version()}}, which is meant for synchronization, frontiers
 are a compact name for one point in history.
 \item \code{doc_frontiers_to_version()} and \code{doc_version_to_frontiers()}
@@ -125,11 +125,11 @@ edited, which starts a new branch of history from the checked-out
 version; \code{doc_is_detached_editing()} reports the setting. See the
 Detached editing section.
 \item \code{doc_revert_to()} adds new changes that restore the contents of an
-earlier version. History is kept, and the revert synchronizes to
-other replicas like any other edit.
+earlier version and commits them. History is kept, and the revert
+synchronizes to other replicas like any other edit.
 \item \code{doc_diff()} returns the differences between two versions.
 \item \code{doc_apply_diff()} takes the changes that \code{source} made between two
-of its versions and applies them to \code{doc} as new edits. With
+of its versions and applies them to \code{doc} as new, committed edits. With
 \code{source} left as \code{doc} this replays or (with the versions swapped)
 undoes a span of its own history; with another document it copies
 a span of work across without merging the two histories. The
@@ -169,9 +169,11 @@ change, suitable for \code{doc_checkout()}, \code{doc_revert_to()},
 \code{doc_diff()}, and \code{doc_fork()}.
 }
 
-Consecutive commits by one peer that carry no message may be stored
-as a single change, so rows do not correspond one-to-one with calls
-to \code{\link[=doc_commit]{doc_commit()}}.
+Consecutive commits by one peer that carry the same message, or no
+message, may be stored as a single change, so rows do not correspond
+one-to-one with calls to \code{\link[=doc_commit]{doc_commit()}}. An empty message is the
+same as no message, and a commit with nothing to commit is dropped
+along with its message.
 }
 
 \section{Diffs}{
@@ -183,8 +185,9 @@ element has a \code{type} and:
 \item for text, \code{delta}: delta ops as in \code{\link[=text_apply_delta]{text_apply_delta()}};
 \item for a list or movable list (both have type \code{"list"}), \code{delta}: ops with \code{retain} or \code{delete} counts, or
 \code{insert} holding a list of new elements;
-\item for a map, \code{updated}: a named list of new values, where \code{NULL}
-marks a deleted key;
+\item for a map, \code{updated}: a named list of the new values of keys that
+were set, and \code{deleted}: a character vector of keys that were
+removed;
 \item for a counter, \code{increment}: the net amount added;
 \item for a tree, \code{diff}: a list of node changes, each with \code{node}, an
 \code{action} (\code{"create"}, \code{"move"}, or \code{"delete"}), and the \code{parent}

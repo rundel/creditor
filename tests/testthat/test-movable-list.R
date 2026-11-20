@@ -105,3 +105,48 @@ test_that("movable lists nest and appear in diffs as lists", {
   )
   expect_s3_class(map_get(map, "items"), "creditor::loro_movable_list")
 })
+
+test_that("move and set positions are checked against the length", {
+  items = doc_movable_list(loro_doc())
+  expect_error(list_set(items, 1, "x"), "at most 0")
+  expect_error(list_set_container(items, 1, "text"), "at most 0")
+  expect_error(list_move(items, 1, 1), "`from`")
+
+  list_push(items, "a")
+  expect_error(list_move(items, 1, 2), "`to` must be at most 1")
+  expect_error(list_move(items, 2, 1), "`from` must be at most 1")
+  list_move(items, 1, 1)
+  expect_identical(container_value(items), list("a"))
+})
+
+test_that("a moved child container keeps its identity", {
+  doc = loro_doc()
+  items = doc_movable_list(doc)
+  list_push(items, "a")
+  child = list_push_container(items, "map")
+  map_set(child, "k", 1L)
+
+  list_move(items, 2, 1)
+  expect_identical(container_id(list_get(items, 1)), container_id(child))
+  expect_false(container_is_deleted(child))
+  map_set(child, "k", 2L)
+  expect_identical(container_value(items), list(list(k = 2L), "a"))
+})
+
+test_that("a concurrent delete and move keep the moved element", {
+  a = loro_doc(peer_id = 1)
+  items = doc_movable_list(a)
+  for (x in c("a", "b", "c")) list_push(items, x)
+  b = loro_doc(peer_id = 2)
+  doc_import(b, doc_export(a))
+
+  list_delete(items, 2)
+  other = doc_movable_list(b)
+  list_move(other, 2, 3)
+  list_set(other, 3, "B")
+
+  doc_import(b, doc_export(a, "updates"))
+  doc_import(a, doc_export(b, "updates"))
+  expect_identical(doc_value(a), doc_value(b))
+  expect_identical(container_value(items), list("a", "c", "B"))
+})

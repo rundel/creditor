@@ -56,3 +56,61 @@ test_that("path arguments are validated", {
   expect_error(doc_jsonpath(doc, "$$[bad"), "JSONPath")
   expect_error(doc_jsonpath("doc", "$"), "loro_doc")
 })
+
+test_that("path syntax cannot reach some keys, but JSONPath can", {
+  doc = loro_doc(peer_id = 1)
+  map = doc_map(doc, "m")
+  map_set(map, "a/b", "slash")
+  map_set(map, "0", "zero")
+  map_set(map, "", "empty")
+  map_set(map, "é", "accent")
+  map_set(map_set_container(map, "a", "map"), "b", "nested")
+
+  expect_identical(doc_get_path(doc, "m/a/b"), "nested")
+  expect_null(doc_get_path(doc, "m/0"))
+  expect_identical(doc_get_path(doc, "m/"), "empty")
+  expect_identical(doc_get_path(doc, "m/é"), "accent")
+
+  expect_identical(doc_jsonpath(doc, "$.m['a/b']"), list("slash"))
+  expect_identical(doc_jsonpath(doc, "$.m['0']"), list("zero"))
+  expect_identical(doc_jsonpath(doc, "$.m['']"), list("empty"))
+})
+
+test_that("paths index into lists and text with 0-based positions", {
+  doc = loro_doc()
+  items = doc_list(doc, "l")
+  list_push(items, "x")
+  list_push(items, "y")
+  text_insert(doc_text(doc, "t"), 1, "hi")
+  counter_increment(doc_counter(doc, "c"))
+
+  expect_identical(doc_get_path(doc, "l/1"), "y")
+  expect_null(doc_get_path(doc, "l/2"))
+  expect_null(doc_get_path(doc, "l/-1"))
+  expect_identical(doc_get_path(doc, "t/0"), "h")
+  expect_null(doc_get_path(doc, "c/0"))
+})
+
+test_that("JSONPath filters and slices work", {
+  doc = loro_doc()
+  items = doc_list(doc, "items")
+  for (qty in c(1, 2, 3)) list_push(items, list(qty = qty))
+
+  expect_identical(doc_jsonpath(doc, "$.items[?(@.qty > 1.5)]"), list(list(qty = 2), list(qty = 3)))
+  expect_identical(doc_jsonpath(doc, "$.items[-1:]"), list(list(qty = 3)))
+  expect_identical(doc_jsonpath(doc, "$.items[0,2].qty"), list(1, 3))
+})
+
+test_that("unsupported JSONPath features are reported as such", {
+  doc = loro_doc()
+  map_set(doc_map(doc, "m"), "k", 1L)
+  list_push(doc_list(doc, "l"), "xyz")
+  tree_create(doc_tree(doc, "tr"))
+
+  expect_error(doc_jsonpath(doc, "$..k"), "does not support")
+  expect_error(doc_jsonpath(doc, "$.tr[*]"), "does not support")
+  expect_error(doc_jsonpath(doc, '$.l[?match(@, "x.*")]'), "does not support")
+  expect_identical(doc_jsonpath(doc, "$.m.k"), list(1L))
+  text_insert(doc_text(doc, "t"), 1, "still usable")
+  expect_identical(text_get(doc_text(doc, "t")), "still usable")
+})

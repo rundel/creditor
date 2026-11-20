@@ -124,3 +124,97 @@ test_that("a shallow value shows child containers by id", {
   expect_identical(container_value(text, deep = FALSE), "hi")
   expect_error(container_value(map, deep = NA), "deep")
 })
+
+test_that("every child type can be created under every parent type", {
+  types = c("text", "map", "list", "movable_list", "counter", "tree")
+  doc = loro_doc(peer_id = 1)
+  map = doc_map(doc, "m")
+  plain = doc_list(doc, "l")
+  movable = doc_movable_list(doc, "ml")
+
+  for (type in types) {
+    class = paste0("creditor::loro_", type)
+    in_map = map_set_container(map, type, type)
+    in_list = list_push_container(plain, type)
+    list_push(movable, "placeholder")
+    in_movable = list_set_container(movable, list_length(movable), type)
+
+    expect_s3_class(in_map, class)
+    expect_s3_class(in_list, class)
+    expect_s3_class(in_movable, class)
+    expect_identical(container_id(map_get(map, type)), container_id(in_map))
+    expect_identical(container_id(list_get(plain, list_length(plain))), container_id(in_list))
+    expect_identical(
+      container_id(list_get(movable, list_length(movable))),
+      container_id(in_movable)
+    )
+  }
+
+  copy = loro_doc()
+  doc_import(copy, doc_export(doc, "snapshot"))
+  expect_identical(doc_value(copy), doc_value(doc))
+})
+
+test_that("edits through any handle to a deleted container are errors", {
+  doc = loro_doc()
+  root = doc_map(doc, "root")
+  parent = map_set_container(root, "parent", "map")
+  child_map = map_set_container(parent, "map", "map")
+  child_list = map_set_container(parent, "list", "list")
+  child_movable = map_set_container(parent, "movable", "movable_list")
+  child_counter = map_set_container(parent, "counter", "counter")
+  child_tree = map_set_container(parent, "tree", "tree")
+  list_push(child_list, "x")
+  list_push(child_movable, "x")
+  map_set(child_map, "k", 1L)
+
+  map_delete(root, "parent")
+  for (handle in list(parent, child_map, child_list, child_movable, child_counter, child_tree)) {
+    expect_true(container_is_deleted(handle))
+  }
+
+  expect_error(map_set(child_map, "k", 2L), "deleted")
+  expect_error(map_set_container(child_map, "c", "text"), "deleted")
+  expect_error(map_delete(child_map, "k"), "deleted")
+  expect_error(map_clear(child_map), "deleted")
+  expect_error(list_push(child_list, "y"), "deleted")
+  expect_error(list_delete(child_list, 1), "deleted")
+  expect_error(list_pop(child_list), "deleted")
+  expect_error(list_clear(child_list), "deleted")
+  expect_error(list_set(child_movable, 1, "y"), "deleted")
+  expect_error(counter_increment(child_counter), "deleted")
+  expect_error(tree_create(child_tree), "deleted")
+
+  expect_identical(map_get(child_map, "k"), 1L)
+  expect_identical(container_value(child_list), list("x"))
+})
+
+test_that("replacing or clearing a parent marks its children deleted", {
+  doc = loro_doc()
+  map = doc_map(doc, "m")
+  in_map = map_set_container(map, "a", "text")
+  map_clear(map)
+  expect_true(container_is_deleted(in_map))
+
+  movable = doc_movable_list(doc, "ml")
+  first = list_push_container(movable, "text")
+  list_set(movable, 1, "plain")
+  expect_true(container_is_deleted(first))
+  second = list_set_container(movable, 1, "map")
+  list_set_container(movable, 1, "text")
+  expect_true(container_is_deleted(second))
+})
+
+test_that("root containers of different types can share a name", {
+  doc = loro_doc(peer_id = 1)
+  items = doc_list(doc, "x")
+  list_push(items, "item")
+  map = doc_map(doc, "x")
+  map_set(map, "k", 1L)
+
+  expect_identical(container_value(items), list("item"))
+  expect_identical(container_value(map), list(k = 1L))
+  expect_false(identical(container_id(items), container_id(map)))
+  expect_length(doc_value(doc), 1)
+  expect_named(doc_value(doc), "x")
+})

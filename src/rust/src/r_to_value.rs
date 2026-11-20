@@ -12,18 +12,54 @@ fn unsupported<T>() -> Result<T> {
     other("only NULL, logical, numeric, character, raw, and list values can be stored")
 }
 
+/// Nesting allowed in a stored value. Conversion recurses, and an
+/// unbounded depth overflows the C stack, which R cannot recover from.
+const MAX_DEPTH: usize = 1000;
+
+/// Elements of a character vector as owned UTF-8 strings, `None` for `NA`.
+///
+/// extendr hands out an R string's bytes as `&str` without checking them,
+/// and Loro panics (poisoning the document) on text that is not valid
+/// UTF-8. So strings are first translated by R, which handles latin1 and
+/// native encodings, and then validated, which catches "bytes" strings
+/// and malformed input that translation leaves alone.
+pub fn utf8_strings(robj: &Robj) -> Result<Vec<Option<String>>> {
+    let translated = call!("enc2utf8", robj.clone())?;
+    let strings = Strings::try_from(translated)?;
+    strings
+        .iter()
+        .map(|x| {
+            if x.is_na() {
+                return Ok(None);
+            }
+            let unchecked: &str = x.as_ref();
+            match std::str::from_utf8(unchecked.as_bytes()) {
+                Ok(valid) => Ok(Some(valid.to_string())),
+                Err(_) => other("strings must be valid UTF-8"),
+            }
+        })
+        .collect()
+}
+
 fn names_of(robj: &Robj, len: usize) -> Result<Option<Vec<String>>> {
-    let Some(names) = robj.names() else {
+    let Some(names) = robj.get_attrib("names") else {
         return Ok(None);
     };
-    let names: Vec<String> = names.map(|n| n.to_string()).collect();
-    if names.iter().all(|n| n.is_empty()) {
+    let names = utf8_strings(&names)?;
+    if names.iter().all(|n| matches!(n.as_deref(), Some(""))) {
         return Ok(None);
     }
-    if names.len() != len || names.iter().any(|n| n.is_empty() || n == "NA") {
+    if names.len() != len {
         return other("names must be either absent or all non-empty");
     }
-    Ok(Some(names))
+    names
+        .into_iter()
+        .map(|name| match name {
+            Some(name) if !name.is_empty() => Ok(name),
+            _ => other("names must be either absent or all non-empty"),
+        })
+        .collect::<Result<Vec<String>>>()
+        .map(Some)
 }
 
 fn collect(robj: &Robj, values: Vec<LoroValue>, scalar_ok: bool) -> Result<LoroValue> {
@@ -41,6 +77,15 @@ fn collect(robj: &Robj, values: Vec<LoroValue>, scalar_ok: bool) -> Result<LoroV
 }
 
 pub fn r_to_value(robj: &Robj) -> Result<LoroValue> {
+    convert(robj, 0)
+}
+
+fn convert(robj: &Robj, depth: usize) -> Result<LoroValue> {
+    if depth > MAX_DEPTH {
+        return Err(Error::Other(format!(
+            "values nested more than {MAX_DEPTH} levels deep cannot be stored"
+        )));
+    }
     if robj.is_null() {
         return Ok(LoroValue::Null);
     }
@@ -104,15 +149,11 @@ pub fn r_to_value(robj: &Robj) -> Result<LoroValue> {
             collect(robj, values, true)
         }
         Rtype::Strings => {
-            let strings = Strings::try_from(robj.clone())?;
-            let values = strings
-                .iter()
-                .map(|x| {
-                    if x.is_na() {
-                        LoroValue::Null
-                    } else {
-                        LoroValue::from(x.as_ref())
-                    }
+            let values = utf8_strings(robj)?
+                .into_iter()
+                .map(|x| match x {
+                    Some(string) => LoroValue::from(string),
+                    None => LoroValue::Null,
                 })
                 .collect();
             collect(robj, values, true)
@@ -124,7 +165,7 @@ pub fn r_to_value(robj: &Robj) -> Result<LoroValue> {
             let list = List::try_from(robj.clone())?;
             let values = list
                 .values()
-                .map(|v| r_to_value(&v))
+                .map(|v| convert(&v, depth + 1))
                 .collect::<Result<Vec<LoroValue>>>()?;
             collect(robj, values, false)
         }

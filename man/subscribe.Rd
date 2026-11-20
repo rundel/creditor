@@ -71,11 +71,17 @@ Changes are reported when they are committed, not when each edit is
 made, so call \code{\link[=doc_commit]{doc_commit()}} to flush pending edits. Callbacks run
 after the creditor function that committed or imported the change has
 finished its work, just before it returns, so a callback can safely
-read or edit the document. An error in a callback is reported as a
-warning and does not interrupt the function that triggered it.
+read or edit the document. Events are delivered in the order they
+occurred: if a callback itself commits a change, the resulting event
+is delivered after the callbacks for the current event have run. An
+error in a callback is reported as a warning and does not interrupt
+the function that triggered it.
 
 A subscription stays active until \code{unsubscribe()} is called, even if
-the object returned here is discarded.
+the object returned here is discarded and even after its document is
+no longer referenced, so unsubscribe when you are done. A document
+that is dropped with uncommitted edits commits them as it is freed,
+which can deliver one last event to a subscription left on it.
 }
 
 \examples{

@@ -33,11 +33,17 @@
 #' made, so call [`doc_commit()`] to flush pending edits. Callbacks run
 #' after the creditor function that committed or imported the change has
 #' finished its work, just before it returns, so a callback can safely
-#' read or edit the document. An error in a callback is reported as a
-#' warning and does not interrupt the function that triggered it.
+#' read or edit the document. Events are delivered in the order they
+#' occurred: if a callback itself commits a change, the resulting event
+#' is delivered after the callbacks for the current event have run. An
+#' error in a callback is reported as a warning and does not interrupt
+#' the function that triggered it.
 #'
 #' A subscription stays active until `unsubscribe()` is called, even if
-#' the object returned here is discarded.
+#' the object returned here is discarded and even after its document is
+#' no longer referenced, so unsubscribe when you are done. A document
+#' that is dropped with uncommitted edits commits them as it is freed,
+#' which can deliver one last event to a subscription left on it.
 #'
 #' @param doc A [`loro_doc`].
 #' @param callback A function of one argument.
@@ -70,6 +76,8 @@ NULL
 the = new.env(parent = emptyenv())
 the$subscriptions = list()
 the$next_id = 0L
+the$pending = list()
+the$delivering = FALSE
 
 loro_subscription = S7::new_class(
   "loro_subscription",
@@ -84,26 +92,45 @@ register_subscription = function(ptr, callback) {
   loro_subscription(id = id)
 }
 
+# Events are moved from the Rust queues onto one R-side FIFO and delivered
+# from there. A callback that commits calls deliver_events() again; that
+# nested call only adds to the FIFO and returns, leaving the outer loop to
+# deliver in order. Delivering from inside the nested call would run the
+# new event's callbacks ahead of events that were queued before it.
+#
+# An event leaves the FIFO only when its callback is about to run, so if
+# delivery is interrupted (a warning escalated to an error, or a user
+# interrupt) the remaining events are kept for the next call.
 deliver_events = function() {
-  for (id in names(the$subscriptions)) {
-    entry = the$subscriptions[[id]]
+  if (loro_events_pending_impl()) {
+    for (id in names(the$subscriptions)) {
+      entry = the$subscriptions[[id]]
+      for (event in loro_subscription_take_impl(entry$ptr)) {
+        the$pending[[length(the$pending) + 1L]] = list(id = id, event = event)
+      }
+    }
+  }
+  if (the$delivering || length(the$pending) == 0L) {
+    return(invisible())
+  }
+  the$delivering = TRUE
+  on.exit(assign("delivering", FALSE, envir = the))
+  while (length(the$pending) > 0L) {
+    item = the$pending[[1L]]
+    the$pending[[1L]] = NULL
+    entry = the$subscriptions[[item$id]]
     if (is.null(entry)) {
       next
     }
-    for (event in loro_subscription_take_impl(entry$ptr)) {
-      if (is.null(the$subscriptions[[id]])) {
-        break
+    tryCatch(
+      entry$callback(item$event),
+      error = function(cnd) {
+        cli::cli_warn(
+          c("A subscription callback failed.", x = conditionMessage(cnd)),
+          call = NULL
+        )
       }
-      tryCatch(
-        entry$callback(event),
-        error = function(cnd) {
-          cli::cli_warn(
-            c("A subscription callback failed.", x = conditionMessage(cnd)),
-            call = NULL
-          )
-        }
-      )
-    }
+    )
   }
   invisible()
 }
@@ -163,6 +190,7 @@ unsubscribe = function(subscription) {
   if (!is.null(entry)) {
     loro_subscription_cancel_impl(entry$ptr)
     the$subscriptions[[subscription@id]] = NULL
+    the$pending = Filter(function(item) item$id != subscription@id, the$pending)
   }
   invisible()
 }

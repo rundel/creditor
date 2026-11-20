@@ -96,24 +96,28 @@ fn diff_to_r(diff: &Diff) -> Robj {
         Diff::Text(delta) => typed("text", "delta", delta_to_r(delta.clone())),
         Diff::List(items) => typed("list", "delta", list_diff_to_r(items)),
         Diff::Map(map) => {
-            let mut entries: Vec<(&str, Robj)> = map
-                .updated
-                .iter()
-                .map(|(key, value)| {
-                    let value = match value {
-                        Some(item) => item_to_r(item),
-                        None => ().into(),
-                    };
-                    (key.as_ref(), value)
-                })
-                .collect();
+            let mut entries: Vec<(&str, Robj)> = Vec::new();
+            let mut deleted: Vec<String> = Vec::new();
+            for (key, value) in map.updated.iter() {
+                match value {
+                    Some(item) => entries.push((key.as_ref(), item_to_r(item))),
+                    None => deleted.push(key.to_string()),
+                }
+            }
             entries.sort_by(|a, b| a.0.cmp(b.0));
+            deleted.sort();
             let (names, values): (Vec<&str>, Vec<Robj>) = entries.into_iter().unzip();
             let updated: Robj = match List::from_names_and_values(names, values) {
                 Ok(list) => list.into(),
                 Err(_) => ().into(),
             };
-            typed("map", "updated", updated)
+            match List::from_names_and_values(
+                ["type", "updated", "deleted"],
+                [Robj::from("map"), updated, Robj::from(deleted)],
+            ) {
+                Ok(list) => list.into(),
+                Err(_) => ().into(),
+            }
         }
         Diff::Tree(tree) => typed("tree", "diff", tree_diff_to_r(tree)),
         Diff::Counter(increment) => typed("counter", "increment", (*increment).into()),

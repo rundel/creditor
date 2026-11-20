@@ -69,13 +69,20 @@ timestamps non-decreasing, so one earlier than the latest existing
 timestamp is replaced by that latest one. Edits are also committed implicitly on export,
 import, and checkout.
 \item \code{doc_value()} returns the whole document as a named list with one
-element per root container.
+element per root container. It is an error if containers are
+nested more than 1000 levels deep.
 \item \code{doc_get_path()} returns the value at a slash-separated path such
 as \code{"note/items/1"}: a root container name, then map keys, 0-based
 list positions, or tree node ids. Containers are returned as
-handles, and \code{NULL} means nothing is there.
+handles, and \code{NULL} means nothing is there. The path syntax cannot
+express every key: a map key that contains \code{/}, or that looks like
+a number, is not reachable this way. Use \code{doc_jsonpath()} with a
+quoted key, such as \code{"$.m['a/b']"}, for those.
 \item \code{doc_jsonpath()} returns a list of everything matching a JSONPath
-expression such as \code{"$.note.items[*]"}.
+expression such as \code{"$.note.items[*]"}. Loro does not support
+every JSONPath feature: a query that has to descend into a tree
+container, or that uses the \code{match()} or \code{search()} functions, is
+an error.
 }
 }
 \examples{

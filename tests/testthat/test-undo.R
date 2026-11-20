@@ -253,3 +253,129 @@ test_that("steps can be counted, paused, and cleared", {
   expect_identical(text_get(text), "ab")
   expect_error(undo_clear("x"), "loro_undo_manager")
 })
+
+test_that("a group holds exactly the edits made inside it", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc)
+
+  text_insert(text, 1, "before ")
+  undo_group(manager, text_insert(text, 1, "X"))
+  text_insert(text, 1, "Z")
+  doc_commit(doc)
+  expect_identical(text_get(text), "ZXbefore ")
+  expect_identical(undo_count(manager), 3L)
+
+  undo(manager)
+  expect_identical(text_get(text), "Xbefore ")
+  undo(manager)
+  expect_identical(text_get(text), "before ")
+})
+
+test_that("a group delivers its events when it ends", {
+  doc = loro_doc()
+  manager = doc_undo_manager(doc)
+  seen = 0
+  sub = doc_subscribe(doc, function(event) seen <<- seen + 1)
+  on.exit(unsubscribe(sub))
+  undo_group(manager, text_insert(doc_text(doc), 1, "a"))
+  expect_identical(seen, 1)
+})
+
+test_that("groups cannot be nested", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc)
+  expect_error(
+    undo_group(manager, undo_group(manager, text_insert(text, 1, "a"))),
+    "cannot be nested"
+  )
+  text_insert(text, 1, "b")
+  doc_commit(doc)
+  expect_true(undo(manager))
+})
+
+test_that("undoing a container deletion restores it under a new id", {
+  doc = loro_doc(peer_id = 1)
+  map = doc_map(doc, "m")
+  child = map_set_container(map, "c", "map")
+  map_set(child, "k", 1L)
+  doc_commit(doc)
+  manager = doc_undo_manager(doc)
+
+  map_delete(map, "c")
+  doc_commit(doc)
+  undo(manager)
+
+  revived = map_get(map, "c")
+  expect_identical(container_value(revived), list(k = 1L))
+  expect_false(identical(container_id(revived), container_id(child)))
+  expect_true(container_is_deleted(child))
+  expect_error(map_set(child, "k", 2L), "deleted")
+})
+
+test_that("undo and redo restore nested structures", {
+  doc = loro_doc(peer_id = 1)
+  manager = doc_undo_manager(doc)
+  map = doc_map(doc, "m")
+  text_insert(map_set_container(map, "body", "text"), 1, "hello")
+  doc_commit(doc)
+  items = map_set_container(map, "items", "movable_list")
+  list_push(items, 1L)
+  map_set(list_push_container(items, "map"), "x", 1)
+  doc_commit(doc)
+  value = doc_value(doc)
+
+  undo(manager)
+  expect_identical(doc_value(doc), list(m = list(body = "hello")))
+  redo(manager)
+  expect_identical(doc_value(doc), value)
+})
+
+test_that("undo of a counter keeps remote increments", {
+  a = loro_doc(peer_id = 1)
+  manager = doc_undo_manager(a)
+  counter_increment(doc_counter(a), 1)
+  doc_commit(a)
+  b = doc_fork(a)
+  counter_increment(doc_counter(b), 1)
+  doc_import(a, doc_export(b, "updates"))
+  expect_identical(counter_get(doc_counter(a)), 2)
+
+  undo(manager)
+  expect_identical(counter_get(doc_counter(a)), 1)
+  redo(manager)
+  expect_identical(counter_get(doc_counter(a)), 2)
+})
+
+test_that("the oldest steps are dropped beyond max_steps", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc, max_steps = 3)
+  for (letter in c("a", "b", "c", "d", "e")) {
+    text_insert(text, text_length(text) + 1, letter)
+    doc_commit(doc)
+  }
+  expect_identical(undo_count(manager), 3L)
+  while (undo(manager)) NULL
+  expect_identical(text_get(text), "ab")
+})
+
+test_that("undo can be called from a callback", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc)
+  origins = character()
+  sub = doc_subscribe(doc, function(event) {
+    origins <<- c(origins, event$origin)
+    if (event$origin == "bad") undo(manager)
+  })
+  on.exit(unsubscribe(sub))
+
+  text_insert(text, 1, "keep")
+  doc_commit(doc)
+  text_insert(text, 5, " oops")
+  doc_commit(doc, origin = "bad")
+  expect_identical(text_get(text), "keep")
+  expect_identical(origins, c("", "bad", "undo"))
+})
