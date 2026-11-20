@@ -9,9 +9,20 @@ and
 [`doc_list()`](https://rundel.github.io/creditor/reference/containers.md),
 edit them with the `text_*`, `map_*`, and `list_*` functions, and move
 changes between replicas with
-[`doc_export()`](https://rundel.github.io/creditor/reference/doc_sync.md)
+[`doc_export()`](https://rundel.github.io/creditor/reference/doc_sync.md),
+[`doc_export_updates()`](https://rundel.github.io/creditor/reference/doc_sync.md),
 and
 [`doc_import()`](https://rundel.github.io/creditor/reference/doc_sync.md).
+
+## See also
+
+Useful links:
+
+- <https://github.com/rundel/creditor>
+
+- <https://rundel.github.io/creditor/>
+
+- Report bugs at <https://github.com/rundel/creditor/issues>
 
 ## Author
 

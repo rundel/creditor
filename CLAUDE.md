@@ -148,8 +148,8 @@ package.
   key, so `loro_map_ensure_container_impl` checks the existing type
   first.
 - `to_r_error` strips the `Position: <source path>` suffix and the
-  `at /path/file.rs:LINE:COL` suffix Loro appends to some error
-  messages.
+  `at <path>.rs:LINE:COL` suffix (Unix or Windows path) Loro appends to
+  some error messages.
 - Robustness rules learned from reviewing against Loro’s own tests (each
   has a test):
   - Strings: extendr exposes an R string’s bytes as `&str` unchecked,
@@ -164,12 +164,12 @@ package.
     stack, which R reports as an uncatchable segfault; if it happens
     inside Loro while a lock is held the process can also hang at exit.
   - Bounds: positions and ranges for text and lists are checked in R
-    (`check_insert_pos`, `check_element_pos`, `check_span` in
-    `R/utils.R`), and tree indexes in Rust (`check_tree_index`), so
-    errors name the 1-based value the caller passed. Loro’s own messages
-    are 0-based and sometimes report the end of a range, and Loro skips
-    the bounds check for zero-length ranges. Range arithmetic is done in
-    doubles to avoid integer overflow.
+    (`check_insert_pos`, `check_element_pos`, `check_positions`,
+    `check_range` in `R/utils.R`), and tree indexes in Rust
+    (`check_tree_index`), so errors name the 1-based value the caller
+    passed. Loro’s own messages are 0-based and sometimes report the end
+    of a range, and Loro skips the bounds check for zero-length ranges.
+    Range arithmetic is done in doubles to avoid integer overflow.
   - Versions:
     [`doc_version()`](https://rundel.github.io/creditor/reference/doc_sync.md)
     returns class `loro_version` and
@@ -223,10 +223,13 @@ package.
   exported S7 class `loro_doc` (a `@ptr` slot holding the external
   pointer, so documents have reference semantics) and the `doc_*`
   functions: identity, fork, commit, deep value, path queries
-  (`doc_get_path`, `doc_jsonpath`; both use Loro’s 0-based list
-  positions inside the path string), and sync (`doc_export` /
-  `doc_import` / `doc_version`, JSON updates, `blob_metadata`).
-  `doc_import` returns an import status invisibly, not the document.
+  (`doc_get`, which walks the handles in R one step per argument with
+  1-based list positions, and `doc_jsonpath`, whose expression keeps
+  JSONPath’s 0-based positions), and sync (`doc_export` /
+  `doc_export_updates` / `doc_export_shallow`, one function per export
+  mode so no argument depends on another, plus `doc_import` /
+  `doc_version`, JSON updates, `blob_metadata`). `doc_import` returns an
+  import status invisibly, not the document.
 - [R/container.R](https://rundel.github.io/creditor/R/container.R)
   defines the unexported S7 handle classes: abstract `loro_container`
   with children `loro_text`, `loro_map`, `loro_list`, `loro_counter`,
@@ -312,7 +315,48 @@ package.
   counts, `undo_group`, pause and resume, and `undo_clear`.
 - [R/utils.R](https://rundel.github.io/creditor/R/utils.R) holds the
   argument checks
-  ([`cli::cli_abort()`](https://cli.r-lib.org/reference/cli_abort.html)).
+  ([`cli::cli_abort()`](https://cli.r-lib.org/reference/cli_abort.html),
+  with `call = rlang::caller_env()`), and `named_values()` /
+  `unnamed_values()`, which collect dynamic dots
+  ([`rlang::list2()`](https://rlang.r-lib.org/reference/list2.html)).
+- Interface conventions, which new functions should follow:
+  - Keyed writes take `key = value` pairs in `...` (`map_set`,
+    `ephemeral_set`, `text_mark`, `doc_config_text_style`); sequence
+    writes take unnamed values in `...`, one element each (`list_push`,
+    `list_insert`). Both loop over a single-value Rust call, so a
+    rejected value leaves the earlier ones applied. An argument that
+    sits beside named dots gets a dot prefix (`.default`).
+  - `map_delete` and `ephemeral_delete` take keys in `...` as any number
+    of character vectors (`key_dots`); `map_has` and `text_unmark` take
+    one character vector; `list_delete` takes a vector of positions and
+    deletes contiguous runs from the end backward.
+  - Text ranges are `start` / `end`, inclusive, as in
+    [`substr()`](https://rdrr.io/r/base/substr.html); an empty range is
+    `end = start - 1`. `check_range` converts to the 0-based half-open
+    range Rust expects.
+  - Durations are in seconds (`ephemeral_store(timeout)`,
+    `doc_undo_manager(merge_interval)`) and converted to Loro’s
+    milliseconds by `check_seconds`.
+  - Every function that takes a container handle also accepts a
+    `loro_doc`, which stands for its root container of that type under
+    the default name (`text_insert(doc, 1, "a")` is
+    `text_insert(doc_text(doc), 1, "a")`). `container_ptr()` does this:
+    container functions start with `ptr = container_ptr(x, class, "x")`
+    and pass `ptr` to Rust, and still return the argument they were
+    given. A document stands for its plain list, so the movable-list
+    functions reject one. The base generic methods are for handles only.
+  - Handles have methods for base generics, registered with
+    [`S7::method()`](https://rconsortium.github.io/S7/reference/method.html):
+    `length` (text, map, list), `names` / `$` / `[[` / `$<-` / `[[<-`
+    (map), `[[` / `[[<-` (list; assignment needs a movable list),
+    `as.character` (text), `as.list` (map, list). The assignment methods
+    return the handle, and assigning `NULL` deletes (`map$key = NULL`,
+    `list[[pos]] = NULL`), as with an R list; `map_set(map, key = NULL)`
+    is the way to store a null. `map$child$key = value` makes R assign
+    the child handle back to `child`; `is_same_child` turns that step
+    into a no-op and rejects any other attempt to store a handle. The
+    empty string is a valid map key that `...` cannot express, so
+    `map[[""]] = value` is the way to write it.
 - Mutating functions return their first argument invisibly, except the
   `*_container` creators, which return the new handle.
 
@@ -322,9 +366,10 @@ package.
   `SystemRequirements`). Bridge: `extendr-api` 0.9.
 - Crates are fetched by cargo at build time (no vendoring; not
   CRAN-targeted). `src/rust/Cargo.lock` is committed.
-- Rebuild after Rust edits with `devtools::document()`; set the
-  `DEBUG=1` environment variable for a fast unoptimized build (the
-  release profile uses LTO and is slow).
+- Rebuild after Rust edits with
+  [`devtools::document()`](https://devtools.r-lib.org/reference/document.html);
+  set the `DEBUG=1` environment variable for a fast unoptimized build
+  (the release profile uses LTO and is slow).
 - [tools/config.R](https://rundel.github.io/creditor/tools/config.R) and
   [tools/msrv.R](https://rundel.github.io/creditor/tools/msrv.R) run at
   install time from `configure` to check the toolchain and template

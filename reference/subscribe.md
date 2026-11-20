@@ -104,10 +104,10 @@ watch = doc_subscribe(b, function(event) {
   cat("b changed by", event$by, "\n")
 })
 
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 doc_commit(a)
 #> b changed by import 
-text_get(doc_text(b))
+text_get(b)
 #> [1] "Hello"
 
 unsubscribe(sync)

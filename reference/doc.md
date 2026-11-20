@@ -25,16 +25,18 @@
   element per root container. It is an error if containers are nested
   more than 1000 levels deep.
 
-- `doc_get_path()` returns the value at a slash-separated path such as
-  `"note/items/1"`: a root container name, then map keys, 0-based list
-  positions, or tree node ids. Containers are returned as handles, and
-  `NULL` means nothing is there. The path syntax cannot express every
-  key: a map key that contains `/`, or that looks like a number, is not
-  reachable this way. Use `doc_jsonpath()` with a quoted key, such as
-  `"$.m['a/b']"`, for those.
+- `doc_get()` returns what is found by following a path into the
+  document, one step per argument, as in
+  `doc_get(doc, "note", "items", 2)`: the name of a root container, then
+  a string for each map key or tree node id (which leads to the node's
+  metadata map) and a 1-based number for each list position. Containers
+  are returned as handles, and `NULL` means nothing is there. Unlike
+  [`doc_map()`](https://rundel.github.io/creditor/reference/containers.md)
+  and its siblings, it never creates a container.
 
 - `doc_jsonpath()` returns a list of everything matching a JSONPath
-  expression such as `"$.note.items[*]"`. Loro does not support every
+  expression such as `"$.note.items[*]"`. JSONPath is its own language,
+  so list positions inside it are 0-based. Loro does not support every
   JSONPath feature: a query that has to descend into a tree container,
   or that uses the [`match()`](https://rdrr.io/r/base/match.html) or
   [`search()`](https://rdrr.io/r/base/search.html) functions, is an
@@ -53,7 +55,7 @@ doc_commit(doc, message = NULL, origin = NULL, timestamp = NULL)
 
 doc_value(doc)
 
-doc_get_path(doc, path)
+doc_get(doc, ...)
 
 doc_jsonpath(doc, path)
 ```
@@ -88,26 +90,44 @@ doc_jsonpath(doc, path)
   The time to record for the commit, as a `POSIXct` or a number of
   seconds since 1970, or `NULL`.
 
+- ...:
+
+  The steps of a path: strings and whole numbers. These are [dynamic
+  dots](https://rlang.r-lib.org/reference/dyn-dots.html), so a path held
+  in a list can be spliced in with `!!!`.
+
 - path:
 
-  A path or JSONPath expression, as a string.
+  A JSONPath expression, as a string.
 
 ## Value
 
 `doc_set_peer_id()` returns `doc` invisibly. `doc_peer_id()` returns a
 string, `doc_fork()` a new `loro_doc`, `doc_commit()` returns `doc`
-invisibly, and `doc_value()` a named list. `doc_get_path()` returns a
-value or container handle, and `doc_jsonpath()` a list of them.
+invisibly, and `doc_value()` a named list. `doc_get()` returns a value
+or container handle, and `doc_jsonpath()` a list of them.
 
 ## Examples
 
 ``` r
 doc = loro_doc(peer_id = 1)
-text_insert(doc_text(doc), 1, "Hello")
+text_insert(doc, 1, "Hello")
 doc_peer_id(doc)
 #> [1] "1"
 doc_value(doc)
 #> $text
 #> [1] "Hello"
+#> 
+
+note = doc_map(doc, "note")
+list_push(map_set_container(note, "items", "list"), "milk", "eggs")
+doc_get(doc, "note", "items", 2)
+#> [1] "eggs"
+doc_jsonpath(doc, "$.note.items[*]")
+#> [[1]]
+#> [1] "milk"
+#> 
+#> [[2]]
+#> [1] "eggs"
 #> 
 ```

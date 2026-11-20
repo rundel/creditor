@@ -29,7 +29,13 @@ A `loro_doc` object.
 
 ``` r
 doc = loro_doc()
-text_insert(doc_text(doc), 1, "Hello")
-text_get(doc_text(doc))
+text_insert(doc, 1, "Hello")
+text_get(doc)
 #> [1] "Hello"
+
+# the same, through a handle to the root text container
+text = doc_text(doc)
+text_push(text, " world")
+text_get(text)
+#> [1] "Hello world"
 ```

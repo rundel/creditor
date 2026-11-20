@@ -5,7 +5,8 @@ structure. Each node has an id, a position among its siblings, and a
 metadata map for its contents. Moving a node carries its whole subtree,
 and concurrent moves merge without creating cycles or duplicate nodes.
 
-- `tree_create()` creates a node and returns its id.
+- `tree_create()` creates a node, optionally with initial metadata, and
+  returns its id.
 
 - `tree_move()` moves a node, with its subtree, to a new parent or
   position.
@@ -42,7 +43,7 @@ keep ids.
 ## Usage
 
 ``` r
-tree_create(tree, parent = NULL, index = NULL)
+tree_create(tree, parent = NULL, index = NULL, meta = list())
 
 tree_move(tree, node, parent = NULL, index = NULL)
 
@@ -63,7 +64,10 @@ tree_contains(tree, node)
 
   A tree handle, from
   [`doc_tree()`](https://rundel.github.io/creditor/reference/containers.md)
-  or a parent container.
+  or a parent container. A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
+  is also accepted and stands for its default root container; see
+  [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
 
 - parent:
 
@@ -73,6 +77,12 @@ tree_contains(tree, node)
 
   A 1-based position among the parent's children, or `NULL` to place the
   node last. For a move it is the position the node ends up at.
+
+- meta:
+
+  A named list of plain values to store in the new node's metadata map,
+  as [`map_set()`](https://rundel.github.io/creditor/reference/map.md)
+  would.
 
 - node:
 
@@ -91,19 +101,18 @@ frame, and `tree_contains()` a logical.
 doc = loro_doc()
 tree = doc_tree(doc, "outline")
 
-intro = tree_create(tree)
-map_set(tree_meta(tree, intro), "title", "Introduction")
-methods = tree_create(tree)
-map_set(tree_meta(tree, methods), "title", "Methods")
-data = tree_create(tree, parent = intro)
-map_set(tree_meta(tree, data), "title", "Data")
+intro = tree_create(tree, meta = list(title = "Introduction"))
+methods = tree_create(tree, meta = list(title = "Methods"))
+data = tree_create(tree, parent = intro, meta = list(title = "Data"))
 
 tree_move(tree, data, parent = methods)
+tree_meta(tree, data)$title
+#> [1] "Data"
 tree_nodes(tree)
-#>                     id               parent index
-#> 1 0@963830613494124139                 <NA>     1
-#> 2 2@963830613494124139                 <NA>     2
-#> 3 4@963830613494124139 2@963830613494124139     1
+#>                      id                parent index
+#> 1 0@6086323607904221701                  <NA>     1
+#> 2 2@6086323607904221701                  <NA>     2
+#> 3 4@6086323607904221701 2@6086323607904221701     1
 tree_children(tree, methods)
-#> [1] "4@963830613494124139"
+#> [1] "4@6086323607904221701"
 ```

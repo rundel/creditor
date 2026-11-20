@@ -25,7 +25,10 @@ counter_get(counter)
 
   A counter handle, from
   [`doc_counter()`](https://rundel.github.io/creditor/reference/containers.md)
-  or a parent container.
+  or a parent container. A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
+  is also accepted and stands for its default root container; see
+  [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
 
 - by:
 

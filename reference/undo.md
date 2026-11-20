@@ -85,8 +85,8 @@ undo_group(manager, code)
 
 - merge_interval:
 
-  Commits made within this many milliseconds of the previous one join
-  its undo step. The default, `0`, keeps every commit separate.
+  Commits made within this many seconds of the previous one join its
+  undo step. The default, `0`, keeps every commit separate.
 
 - max_steps:
 

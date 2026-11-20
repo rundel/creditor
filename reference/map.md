@@ -3,13 +3,15 @@
 A map holds values under string keys. When replicas set the same key
 concurrently, one write wins on every replica.
 
-- `map_set()` stores a plain value under `key`.
+- `map_set()` stores plain values, given as `key = value` arguments.
 
 - `map_set_container()` stores a new, empty child container under `key`
   and returns its handle.
 
 - `map_get()` returns the value under `key`, a handle if it is a
   container, or `NULL` if the key is absent.
+
+- `map_has()` reports whether each of `keys` is present.
 
 - `map_ensure_container()` returns the child container under `key`,
   creating it if the key is empty. Unlike `map_set_container()`, which
@@ -20,7 +22,9 @@ concurrently, one write wins on every replica.
   plain value, a container of another type, or a container made by
   `map_set_container()`.
 
-- `map_delete()` removes `key`, and `map_clear()` removes every key.
+- `map_delete()` removes the keys named in `...`, as in
+  `map_delete(map, "a", "b")` or `map_delete(map, keys)`, and
+  `map_clear()` removes every key.
 
 - `map_last_editor()` returns the peer id of the replica that last wrote
   `key`, or `NA` if the key has never been written.
@@ -28,24 +32,44 @@ concurrently, one write wins on every replica.
 - `map_keys()` returns the keys in sorted order, and `map_length()` the
   number of entries.
 
+A map handle also works with the base functions an R user would reach
+for with a named list: `map$key` and `map[[key]]` read like `map_get()`,
+`map$key = value` and `map[[key]] = value` write one key like
+`map_set()`, [`names()`](https://rdrr.io/r/base/names.html) is
+`map_keys()`, [`length()`](https://rdrr.io/r/base/length.html) is
+`map_length()`, and [`as.list()`](https://rdrr.io/r/base/list.html) is
+[`container_value()`](https://rundel.github.io/creditor/reference/containers.md).
+As with a list, assigning `NULL` removes the key: `map$key = NULL` is
+`map_delete(map, "key")`. To store a null, use
+`map_set(map, key = NULL)`. Assignments can reach through child
+containers, as in `map$child$key = value`.
+
+Loro allows the empty string as a key, and a document written by another
+Loro client may contain one. It is supported only for compatibility with
+such documents: it can be read and removed like any other key, but R
+does not allow an empty argument name, so it cannot be written with
+`map_set()`. Use `map[[""]] = value` if one has to be changed.
+
 ## Usage
 
 ``` r
-map_set(map, key, value)
+map_set(map, ...)
 
 map_set_container(map, key, type)
 
+map_ensure_container(map, key, type)
+
 map_get(map, key)
 
-map_delete(map, key)
+map_has(map, keys)
+
+map_delete(map, ...)
+
+map_clear(map)
 
 map_keys(map)
 
 map_length(map)
-
-map_ensure_container(map, key, type)
-
-map_clear(map)
 
 map_last_editor(map, key)
 ```
@@ -56,27 +80,42 @@ map_last_editor(map, key)
 
   A map handle, from
   [`doc_map()`](https://rundel.github.io/creditor/reference/containers.md)
-  or a parent container.
+  or a parent container. A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
+  is also accepted and stands for its default root container; see
+  [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
+
+- ...:
+
+  Values to store, each named with its key, for example
+  `map_set(map, title = "Notes", done = FALSE)`; see the Values section.
+  These are [dynamic
+  dots](https://rlang.r-lib.org/reference/dyn-dots.html), so a named
+  list can be spliced in with `!!!` and a key held in a variable can be
+  used with `"{key}" := value`. Values are stored in order, so if one is
+  rejected the ones before it stay set. For `map_delete()`, the keys to
+  remove, as strings or character vectors.
 
 - key:
 
   A string.
-
-- value:
-
-  A plain value; see the Values section.
 
 - type:
 
   Type of the child container: `"text"`, `"map"`, `"list"`,
   `"movable_list"`, `"counter"`, or `"tree"`.
 
+- keys:
+
+  A character vector of keys.
+
 ## Value
 
 `map_set()`, `map_delete()`, and `map_clear()` return `map` invisibly.
 `map_set_container()` and `map_ensure_container()` return a container
 handle, and `map_last_editor()` a string. `map_get()` returns a value or
-handle, `map_keys()` a character vector, and `map_length()` an integer.
+handle, `map_has()` a logical vector, `map_keys()` a character vector,
+and `map_length()` an integer.
 
 ## Values
 
@@ -107,8 +146,7 @@ order [`sort()`](https://rdrr.io/r/base/sort.html) gives in your locale.
 ``` r
 doc = loro_doc()
 meta = doc_map(doc, "meta")
-map_set(meta, "title", "Notes")
-map_set(meta, "tags", c("a", "b"))
+map_set(meta, title = "Notes", tags = c("a", "b"))
 
 body = map_set_container(meta, "body", "text")
 text_insert(body, 1, "Hello")
@@ -117,21 +155,18 @@ map_keys(meta)
 #> [1] "body"  "tags"  "title"
 map_get(meta, "title")
 #> [1] "Notes"
-text_get(map_get(meta, "body"))
+meta$title
+#> [1] "Notes"
+text_get(meta$body)
 #> [1] "Hello"
-container_value(meta)
+
+meta$title = "Shopping"
+map_delete(meta, "tags")
+as.list(meta)
 #> $body
 #> [1] "Hello"
 #> 
-#> $tags
-#> $tags[[1]]
-#> [1] "a"
-#> 
-#> $tags[[2]]
-#> [1] "b"
-#> 
-#> 
 #> $title
-#> [1] "Notes"
+#> [1] "Shopping"
 #> 
 ```

@@ -1,14 +1,16 @@
 # Edit collaborative text
 
-Positions and lengths count Unicode code points and are 1-based,
-matching [`substr()`](https://rdrr.io/r/base/substr.html).
+Positions count Unicode code points and are 1-based, and a range of text
+is given by the positions of its first and last characters, `start` and
+`end`, as in [`substr()`](https://rdrr.io/r/base/substr.html). An empty
+range has `end = start - 1`.
 
 - `text_insert()` inserts `value` before the character currently at
-  `pos`; `pos = text_length(text) + 1` appends.
+  `pos`; `text_push()` appends it to the end.
 
-- `text_delete()` removes `len` characters starting at `pos`.
+- `text_delete()` removes the characters from `start` to `end`.
 
-- `text_splice()` replaces `len` characters starting at `pos` with
+- `text_replace()` replaces the characters from `start` to `end` with
   `value`, as a deletion followed by an insertion.
 
 - `text_update()` changes the text to `value` by computing a diff and
@@ -17,12 +19,14 @@ matching [`substr()`](https://rdrr.io/r/base/substr.html).
   the diff treats each line as a unit, which is faster for long texts
   but replaces a line whole when any part of it changes.
 
-- `text_slice()` returns `len` characters starting at `pos`.
+- `text_sub()` returns the characters from `start` to `end`.
 
-- `text_get()` returns the current contents as a string.
+- `text_get()` returns the current contents as a string, as does
+  [`as.character()`](https://rdrr.io/r/base/character.html).
 
 - `text_length()` returns the number of characters, or the length in
-  another `unit`.
+  another `unit`. [`length()`](https://rdrr.io/r/base/length.html) of a
+  text handle is its number of characters.
 
 - `text_convert_pos()` converts a position between units, for exchanging
   positions with software that counts differently: JavaScript, and so
@@ -38,13 +42,15 @@ matching [`substr()`](https://rdrr.io/r/base/substr.html).
 ``` r
 text_insert(text, pos, value)
 
-text_delete(text, pos, len)
+text_push(text, value)
+
+text_delete(text, start, end)
 
 text_update(text, value, by = c("char", "line"))
 
-text_splice(text, pos, len, value)
+text_replace(text, start, end, value)
 
-text_slice(text, pos, len)
+text_sub(text, start = 1, end = text_length(text))
 
 text_get(text)
 
@@ -64,7 +70,10 @@ text_convert_pos(
 
   A text handle, from
   [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md)
-  or a parent container.
+  or a parent container. A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
+  is also accepted and stands for its default root container; see
+  [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
 
 - pos:
 
@@ -74,9 +83,10 @@ text_convert_pos(
 
   A string: the text to insert, or the new contents for `text_update()`.
 
-- len:
+- start, end:
 
-  Number of characters to delete, replace, or return.
+  1-based positions of the first and last characters of a range. For
+  `text_sub()` they default to the whole text.
 
 - by:
 
@@ -90,9 +100,10 @@ text_convert_pos(
 
 ## Value
 
-`text_insert()`, `text_delete()`, `text_splice()`, and `text_update()`
-return `text` invisibly, `text_slice()` a string, `text_convert_pos()`
-an integer, `text_get()` a string, and `text_length()` an integer.
+`text_insert()`, `text_push()`, `text_delete()`, `text_replace()`, and
+`text_update()` return `text` invisibly. `text_sub()` and `text_get()`
+return a string, and `text_convert_pos()` and `text_length()` an
+integer.
 
 ## Examples
 
@@ -100,11 +111,14 @@ an integer, `text_get()` a string, and `text_length()` an integer.
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello world")
+text_push(text, "!")
+text_sub(text, 1, 5)
+#> [1] "Hello"
 text_delete(text, 1, 6)
 text_get(text)
-#> [1] "world"
+#> [1] "world!"
 text_length(text)
-#> [1] 5
+#> [1] 6
 
 text_update(text, "brave new world")
 text_get(text)

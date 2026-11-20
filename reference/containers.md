@@ -30,6 +30,21 @@ document it belongs to.
 
 - `container_id()` returns the container's unique id as a string.
 
+Handles also answer to the base functions that fit them:
+[`length()`](https://rdrr.io/r/base/length.html) for text, maps, and
+lists, [`names()`](https://rdrr.io/r/base/names.html), `$`, and `[[` for
+maps, `[[` for lists,
+[`as.character()`](https://rdrr.io/r/base/character.html) for text, and
+[`as.list()`](https://rdrr.io/r/base/list.html) for maps and lists.
+
+A document can be passed wherever a text, map, list, counter, or tree
+handle is expected. It stands for its root container of that type under
+the default name, so `text_insert(doc, 1, "Hello")` is
+`text_insert(doc_text(doc), 1, "Hello")` and `map_set(doc, a = 1)` is
+`map_set(doc_map(doc), a = 1)`. This is convenient for a document that
+holds one container of a kind; use handles for named or nested
+containers and for movable lists.
+
 Root container names are shared across types within a document's value,
 so use distinct names for different root containers: if two root
 containers of different types have the same name, each keeps its own
@@ -102,7 +117,7 @@ text = doc_text(doc, "body")
 text_insert(text, 1, "Hello")
 
 meta = doc_map(doc, "meta")
-map_set(meta, "title", "Greeting")
+map_set(meta, title = "Greeting")
 
 container_value(meta)
 #> $title

@@ -12,11 +12,11 @@ inspected, compared, and restored.
 - `doc_frontiers_to_version()` and `doc_version_to_frontiers()` convert
   between the two kinds of version. For example, converting a row of
   `doc_changes()` to a version vector lets
-  [`doc_export()`](https://rundel.github.io/creditor/reference/doc_sync.md)
+  [`doc_export_updates()`](https://rundel.github.io/creditor/reference/doc_sync.md)
   produce the updates made since that change.
 
-- `doc_compare_frontiers()` orders two versions: `-1` if `from` is an
-  ancestor of `to`, `1` if it is a descendant, `0` if they are the same,
+- `doc_compare_frontiers()` orders two versions: `-1` if `x` is an
+  ancestor of `y`, `1` if it is a descendant, `0` if they are the same,
   and `NA` if they are concurrent (neither contains the other).
 
 - `doc_changes()` returns one row per change in the history, and
@@ -79,7 +79,7 @@ doc_frontiers_to_version(doc, frontiers)
 
 doc_version_to_frontiers(doc, version)
 
-doc_compare_frontiers(doc, from, to)
+doc_compare_frontiers(doc, x, y)
 
 doc_checkout(doc, frontiers = NULL)
 
@@ -115,7 +115,7 @@ doc_record_timestamps(doc, record = TRUE)
 
   A data frame of changes, such as rows of `doc_changes()`.
 
-- frontiers, from, to:
+- frontiers, from, to, x, y:
 
   A version: frontiers from `doc_frontiers()` or the `frontiers` column
   of `doc_changes()`. See

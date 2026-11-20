@@ -2,17 +2,17 @@
 
 Marks attach a key and value (a style such as `bold = TRUE`, or data
 such as a link target) to a range of text. They merge across replicas
-like any other edit. As elsewhere, positions and lengths count Unicode
-code points and are 1-based.
+like any other edit. As elsewhere, positions count Unicode code points
+and are 1-based, and a range runs from `start` to `end`.
 
-- `text_mark()` marks `len` characters starting at `pos` with
-  `key = value`.
+- `text_mark()` marks the characters from `start` to `end` with the
+  marks given as `key = value` arguments.
 
-- `text_unmark()` removes the mark `key` from that range.
+- `text_unmark()` removes the marks named in `keys` from that range.
 
 - `text_delta()` returns the text as a list of runs, each a list with a
   string `insert` and, for marked runs, a named list `attributes`. This
-  is the Quill delta format. With `pos` and `len` it covers only that
+  is the Quill delta format. With `start` and `end` it covers only that
   range.
 
 - `text_apply_delta()` edits the text with a list of delta ops. Each op
@@ -30,15 +30,15 @@ code points and are 1-based.
 ## Usage
 
 ``` r
-text_mark(text, pos, len, key, value = TRUE)
+text_mark(text, start, end, ...)
 
-text_unmark(text, pos, len, key)
+text_unmark(text, start, end, keys)
 
-text_delta(text, pos = NULL, len = NULL)
+text_delta(text, start = 1, end = text_length(text))
 
 text_apply_delta(text, delta)
 
-doc_config_text_style(doc, ..., default = NULL)
+doc_config_text_style(doc, ..., .default = NULL)
 ```
 
 ## Arguments
@@ -47,26 +47,31 @@ doc_config_text_style(doc, ..., default = NULL)
 
   A text handle, from
   [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md)
-  or a parent container.
+  or a parent container. A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
+  is also accepted and stands for its default root container; see
+  [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
 
-- pos:
+- start, end:
 
-  A 1-based character position.
+  1-based positions of the first and last characters of the range. For
+  `text_delta()` they default to the whole text.
 
-- len:
+- ...:
 
-  Number of characters to mark, unmark, or return. For `text_delta()`,
-  `pos` and `len` are optional and must be given together.
+  For `text_mark()`, the marks to apply, each a plain value (see the
+  Values section of
+  [`map_set()`](https://rundel.github.io/creditor/reference/map.md))
+  named with its key, for example `bold = TRUE` or
+  `link = "https://loro.dev"`. A key must not contain `":"`, and a value
+  of `NULL` or `NA` removes the mark, as `text_unmark()` does. For
+  `doc_config_text_style()`, strings giving the expand behavior of each
+  key, for example `comment = "none"`. Both are [dynamic
+  dots](https://rlang.r-lib.org/reference/dyn-dots.html).
 
-- key:
+- keys:
 
-  Name of the mark. It must not contain `":"`.
-
-- value:
-
-  A plain value for the mark; see the Values section of
-  [`map_set()`](https://rundel.github.io/creditor/reference/map.md).
-  `NULL` and `NA` remove the mark, as `text_unmark()` does.
+  A character vector of mark names.
 
 - delta:
 
@@ -77,12 +82,7 @@ doc_config_text_style(doc, ..., default = NULL)
   A
   [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md).
 
-- ...:
-
-  Named strings giving the expand behavior for each key, for example
-  `comment = "none"`.
-
-- default:
+- .default:
 
   Expand behavior for keys that are not configured, or `NULL` to reject
   them.
@@ -115,8 +115,9 @@ every replica should configure a key the same way.
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello world")
-text_mark(text, 1, 5, "bold")
-text_mark(text, 7, 5, "link", "https://loro.dev")
+text_mark(text, 1, 5, bold = TRUE)
+text_mark(text, 7, 11, link = "https://loro.dev", italic = TRUE)
+text_unmark(text, 7, 11, "italic")
 str(text_delta(text))
 #> List of 3
 #>  $ :List of 2
@@ -139,5 +140,5 @@ text_get(text)
 #> [1] "Hello,world"
 
 doc_config_text_style(doc, author = "none")
-text_mark(text, 1, 5, "author", "cr")
+text_mark(text, 1, 5, author = "cr")
 ```

@@ -19,7 +19,6 @@ of a document under its own peer id, and `sync()` exchanges whatever
 each side is missing.
 
 ``` r
-
 library(creditor)
 
 replica = function(doc, peer_id) {
@@ -29,8 +28,8 @@ replica = function(doc, peer_id) {
 }
 
 sync = function(a, b) {
-  doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-  doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+  doc_import(b, doc_export_updates(a, from = doc_version(b)))
+  doc_import(a, doc_export_updates(b, from = doc_version(a)))
   invisible()
 }
 ```
@@ -52,6 +51,13 @@ each return a handle to a named root container, creating it on first
 use. Handles have reference semantics: editing through a handle changes
 the document.
 
+A document that needs only one container of a kind can skip the handle.
+Every function that takes a handle also takes the document itself, which
+then stands for its root container of that type under the default name:
+`text_insert(doc, 1, "Hello")` is short for
+`text_insert(doc_text(doc), 1, "Hello")`. Most examples below use this
+form, and switch to handles for named and nested containers.
+
 ## Text
 
 A text container holds a string that can be edited by inserting and
@@ -59,14 +65,11 @@ deleting at character positions. Positions are 1-based and count Unicode
 code points.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
-text = doc_text(doc, "body")
-
-text_insert(text, 1, "The quick fox")
-text_insert(text, 11, "brown ")
-text_delete(text, 1, 4)
-text_get(text)
+text_insert(doc, 1, "The quick fox")
+text_insert(doc, 11, "brown ")
+text_delete(doc, 1, 4)
+text_get(doc)
 #> [1] "quick brown fox"
 ```
 
@@ -74,18 +77,17 @@ Concurrent edits to different parts of a text are all kept. Here one
 replica changes the start of a sentence while the other changes the end.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-text_insert(doc_text(a, "body"), 1, "The quick fox jumps")
+text_insert(a, 1, "The quick fox jumps")
 b = replica(a, 2)
 
-text_splice(doc_text(a, "body"), 1, 3, "A")
-text_insert(doc_text(b, "body"), 20, " over the dog")
+text_replace(a, 1, 3, "A")
+text_insert(b, 20, " over the dog")
 
 sync(a, b)
-text_get(doc_text(a, "body"))
+text_get(a)
 #> [1] "A quick fox jumps over the dog"
-text_get(doc_text(b, "body"))
+text_get(b)
 #> [1] "A quick fox jumps over the dog"
 ```
 
@@ -97,16 +99,15 @@ matters for merging: replacing the whole string would discard a
 concurrent edit, while an update keeps it.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-text_insert(doc_text(a, "body"), 1, "Meeting at noon on Tuesday")
+text_insert(a, 1, "Meeting at noon on Tuesday")
 b = replica(a, 2)
 
-text_update(doc_text(a, "body"), "Meeting at 12:30 on Tuesday")
-text_update(doc_text(b, "body"), "Meeting at noon on Wednesday")
+text_update(a, "Meeting at 12:30 on Tuesday")
+text_update(b, "Meeting at noon on Wednesday")
 
 sync(a, b)
-text_get(doc_text(a, "body"))
+text_get(a)
 #> [1] "Meeting at 12:30 on Wednesday"
 ```
 
@@ -120,14 +121,12 @@ returns the text as a sequence of runs, each with the marks that apply
 to it.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
-text = doc_text(doc, "body")
-text_insert(text, 1, "Read the docs today")
+text_insert(doc, 1, "Read the docs today")
 
-text_mark(text, 1, 4, "bold")
-text_mark(text, 10, 4, "link", "https://loro.dev")
-str(text_delta(text))
+text_mark(doc, 1, 4, bold = TRUE)
+text_mark(doc, 10, 13, link = "https://loro.dev")
+str(text_delta(doc))
 #> List of 4
 #>  $ :List of 2
 #>   ..$ insert    : chr "Read"
@@ -147,16 +146,15 @@ Marks merge with concurrent edits. If one replica makes a phrase bold
 while another types inside it, the new characters are bold too.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-text_insert(doc_text(a, "body"), 1, "Hello world")
+text_insert(a, 1, "Hello world")
 b = replica(a, 2)
 
-text_mark(doc_text(a, "body"), 1, 5, "bold")
-text_insert(doc_text(b, "body"), 3, "XX")
+text_mark(a, 1, 5, bold = TRUE)
+text_insert(b, 3, "XX")
 
 sync(a, b)
-str(text_delta(doc_text(a, "body")))
+str(text_delta(a))
 #> List of 2
 #>  $ :List of 2
 #>   ..$ insert    : chr "HeXXllo"
@@ -175,13 +173,11 @@ after a link produces plain text. Keys other than the built-in ones
 [`doc_config_text_style()`](https://rundel.github.io/creditor/reference/richtext.md).
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
 doc_config_text_style(doc, author = "none")
-text = doc_text(doc, "body")
-text_insert(text, 1, "Reviewed")
-text_mark(text, 1, 8, "author", "cr")
-str(text_delta(text))
+text_insert(doc, 1, "Reviewed")
+text_mark(doc, 1, 8, author = "cr")
+str(text_delta(doc))
 #> List of 1
 #>  $ :List of 2
 #>   ..$ insert    : chr "Reviewed"
@@ -192,16 +188,14 @@ str(text_delta(text))
 ## Map
 
 A map holds values under string keys, like a named list. Values can be
-scalars, vectors, or nested lists.
+scalars, vectors, or nested lists. This example uses a handle to a root
+map named `settings`.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
 settings = doc_map(doc, "settings")
 
-map_set(settings, "theme", "dark")
-map_set(settings, "font_size", 12L)
-map_set(settings, "recent", c("a.qmd", "b.qmd"))
+map_set(settings, theme = "dark", font_size = 12L, recent = c("a.qmd", "b.qmd"))
 
 map_keys(settings)
 #> [1] "font_size" "recent"    "theme"
@@ -216,6 +210,24 @@ str(container_value(settings))
 #>  $ theme    : chr "dark"
 ```
 
+A map handle also answers to the functions that work on a named list, so
+the same reads and writes can be spelled the base R way.
+
+``` r
+settings$theme
+#> [1] "dark"
+settings$theme = "light"
+names(settings)
+#> [1] "font_size" "recent"    "theme"
+str(as.list(settings))
+#> List of 3
+#>  $ font_size: int 12
+#>  $ recent   :List of 2
+#>   ..$ : chr "a.qmd"
+#>   ..$ : chr "b.qmd"
+#>  $ theme    : chr "light"
+```
+
 A vector is stored as a list and comes back as one, so `recent` above
 reads back as a list of two strings.
 
@@ -224,18 +236,15 @@ the same key cannot both be kept, so one of them wins, and it is the
 same one on every replica.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-map_set(doc_map(a, "settings"), "theme", "light")
+map_set(a, theme = "light")
 b = replica(a, 2)
 
-map_set(doc_map(a, "settings"), "theme", "dark")
-map_set(doc_map(a, "settings"), "font_size", 12L)
-map_set(doc_map(b, "settings"), "theme", "sepia")
-map_set(doc_map(b, "settings"), "line_numbers", TRUE)
+map_set(a, theme = "dark", font_size = 12L)
+map_set(b, theme = "sepia", line_numbers = TRUE)
 
 sync(a, b)
-str(container_value(doc_map(a, "settings")))
+str(as.list(doc_map(a)))
 #> List of 3
 #>  $ font_size   : int 12
 #>  $ line_numbers: logi TRUE
@@ -254,15 +263,11 @@ a value should merge independently, store a child container instead; see
 A list is an ordered sequence of values, addressed by 1-based position.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
-items = doc_list(doc, "groceries")
-
-list_push(items, "milk")
-list_push(items, "eggs")
-list_insert(items, 1, "bread")
-list_delete(items, 2)
-str(container_value(items))
+list_push(doc, "milk", "eggs")
+list_insert(doc, 1, "bread")
+list_delete(doc, 2)
+str(as.list(doc_list(doc)))
 #> List of 2
 #>  $ : chr "bread"
 #>  $ : chr "eggs"
@@ -272,16 +277,15 @@ Concurrent insertions are all kept, even at the same position. Their
 relative order is decided the same way on every replica.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-list_push(doc_list(a, "groceries"), "milk")
+list_push(a, "milk")
 b = replica(a, 2)
 
-list_push(doc_list(a, "groceries"), "eggs")
-list_push(doc_list(b, "groceries"), "bread")
+list_push(a, "eggs")
+list_push(b, "bread")
 
 sync(a, b)
-str(container_value(doc_list(a, "groceries")))
+str(as.list(doc_list(a)))
 #> List of 3
 #>  $ : chr "milk"
 #>  $ : chr "eggs"
@@ -294,10 +298,8 @@ replicas do that to the same element, each insertion is kept and the
 element is duplicated.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-tasks = doc_list(a, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(a, "write", "test", "ship")
 b = replica(a, 2)
 
 move_by_copy = function(list, from, to) {
@@ -305,11 +307,11 @@ move_by_copy = function(list, from, to) {
   list_delete(list, from)
   list_insert(list, to, value)
 }
-move_by_copy(doc_list(a, "tasks"), 3, 1)
-move_by_copy(doc_list(b, "tasks"), 3, 2)
+move_by_copy(a, 3, 1)
+move_by_copy(b, 3, 2)
 
 sync(a, b)
-str(container_value(doc_list(a, "tasks")))
+str(as.list(doc_list(a)))
 #> List of 4
 #>  $ : chr "ship"
 #>  $ : chr "write"
@@ -327,17 +329,19 @@ merge cleanly:
 moves an element, and
 [`list_set()`](https://rundel.github.io/creditor/reference/list.md)
 replaces one in place. It uses the same `list_*` functions as a plain
-list.
+list. A document on its own stands for its plain list, so a movable list
+always needs a handle, from
+[`doc_movable_list()`](https://rundel.github.io/creditor/reference/containers.md)
+or a parent container.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
 tasks = doc_movable_list(doc, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 
 list_move(tasks, 3, 1)
 list_set(tasks, 2, "write docs")
-str(container_value(tasks))
+str(as.list(tasks))
 #> List of 3
 #>  $ : chr "ship"
 #>  $ : chr "write docs"
@@ -349,17 +353,16 @@ list leaves one copy of the element. The two replicas disagreed about
 where it should go, so one destination wins.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 b = replica(a, 2)
 
-list_move(doc_movable_list(a, "tasks"), 3, 1)
+list_move(tasks, 3, 1)
 list_move(doc_movable_list(b, "tasks"), 3, 2)
 
 sync(a, b)
-str(container_value(doc_movable_list(a, "tasks")))
+str(as.list(tasks))
 #> List of 3
 #>  $ : chr "write"
 #>  $ : chr "ship"
@@ -371,17 +374,16 @@ reorders a task while another rewrites it, the result is the rewritten
 task in its new position.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks")
-for (task in c("write", "test", "ship")) list_push(tasks, task)
+list_push(tasks, "write", "test", "ship")
 b = replica(a, 2)
 
-list_move(doc_movable_list(a, "tasks"), 1, 3)
+list_move(tasks, 1, 3)
 list_set(doc_movable_list(b, "tasks"), 1, "write the vignette")
 
 sync(a, b)
-str(container_value(doc_movable_list(a, "tasks")))
+str(as.list(tasks))
 #> List of 3
 #>  $ : chr "test"
 #>  $ : chr "ship"
@@ -398,16 +400,15 @@ increments are all applied, so the total is the sum of what every
 replica added.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
 b = replica(a, 2)
 
-counter_increment(doc_counter(a, "votes"), 3)
-counter_increment(doc_counter(b, "votes"), 4)
-counter_increment(doc_counter(b, "votes"), -1)
+counter_increment(a, 3)
+counter_increment(b, 4)
+counter_increment(b, -1)
 
 sync(a, b)
-counter_get(doc_counter(a, "votes"))
+counter_get(a)
 #> [1] 6
 ```
 
@@ -417,20 +418,18 @@ merge only one of those writes survives, and the other replica’s votes
 are lost.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-map_set(doc_map(a, "tally"), "votes", 0)
+map_set(a, votes = 0)
 b = replica(a, 2)
 
 add_votes = function(doc, n) {
-  tally = doc_map(doc, "tally")
-  map_set(tally, "votes", map_get(tally, "votes") + n)
+  map_set(doc, votes = map_get(doc, "votes") + n)
 }
 add_votes(a, 3)
 add_votes(b, 4)
 
 sync(a, b)
-map_get(doc_map(a, "tally"), "votes")
+map_get(a, "votes")
 #> [1] 4
 ```
 
@@ -445,14 +444,11 @@ its contents, reached with
 edited with the `map_*` functions.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
-outline = doc_tree(doc, "outline")
+outline = doc_tree(doc)
 
 add_section = function(tree, title, parent = NULL) {
-  node = tree_create(tree, parent = parent)
-  map_set(tree_meta(tree, node), "title", title)
-  node
+  tree_create(tree, parent = parent, meta = list(title = title))
 }
 
 intro = add_section(outline, "Introduction")
@@ -473,7 +469,6 @@ gives a flat table of the structure. A small recursive function prints
 it as an outline.
 
 ``` r
-
 show_outline = function(tree, parent = NULL, depth = 0) {
   for (node in tree_children(tree, parent)) {
     title = map_get(tree_meta(tree, node), "title")
@@ -491,7 +486,6 @@ show_outline(outline)
 Moving a node carries its whole subtree with it.
 
 ``` r
-
 tree_move(outline, methods, parent = intro)
 show_outline(outline)
 #> - Introduction
@@ -508,22 +502,19 @@ level. Loro keeps one of the moves and drops the other, so the result is
 always a valid tree and no node is lost.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-tree_a = doc_tree(a, "outline")
-intro = add_section(tree_a, "Introduction")
-methods = add_section(tree_a, "Methods")
+intro = add_section(a, "Introduction")
+methods = add_section(a, "Methods")
 b = replica(a, 2)
-tree_b = doc_tree(b, "outline")
 
-tree_move(tree_a, methods, parent = intro)
-tree_move(tree_b, intro, parent = methods)
+tree_move(a, methods, parent = intro)
+tree_move(b, intro, parent = methods)
 
 sync(a, b)
-show_outline(tree_a)
+show_outline(a)
 #> - Introduction
 #>   - Methods
-identical(tree_nodes(tree_a), tree_nodes(tree_b))
+identical(tree_nodes(a), tree_nodes(b))
 #> [1] TRUE
 ```
 
@@ -532,12 +523,11 @@ metadata is an ordinary map. Here one replica moves “Methods” back to
 the top level while the other retitles it, and both changes apply.
 
 ``` r
-
-tree_move(tree_a, methods)
-map_set(tree_meta(tree_b, methods), "title", "Approach")
+tree_move(a, methods)
+map_set(tree_meta(b, methods), title = "Approach")
 
 sync(a, b)
-show_outline(tree_a)
+show_outline(a)
 #> - Introduction
 #> - Approach
 ```
@@ -555,18 +545,16 @@ and
 create an empty child and return its handle.
 
 ``` r
-
 doc = loro_doc(peer_id = 1)
 note = doc_map(doc, "note")
-map_set(note, "title", "Trip planning")
+map_set(note, title = "Trip planning")
 
 body = map_set_container(note, "body", "text")
 text_insert(body, 1, "Flights are booked.")
 
 todo = map_set_container(note, "todo", "movable_list")
 item = list_push_container(todo, "map")
-map_set(item, "label", "Book hotel")
-map_set(item, "done", FALSE)
+map_set(item, label = "Book hotel", done = FALSE)
 
 likes = map_set_container(note, "likes", "counter")
 counter_increment(likes)
@@ -584,16 +572,14 @@ str(doc_value(doc))
 ```
 
 Reading a child container back gives a handle, so nested structures can
-be navigated step by step or reached directly by path. Positions inside
-a path string are 0-based, following Loro’s path syntax.
+be navigated step by step or reached directly by path.
 
 ``` r
-
 class(map_get(note, "body"))[1]
 #> [1] "creditor::loro_text"
 text_get(map_get(note, "body"))
 #> [1] "Flights are booked."
-doc_get_path(doc, "note/todo/0/label")
+doc_get(doc, "note", "todo", 1, "label")
 #> [1] "Book hotel"
 ```
 
@@ -603,25 +589,23 @@ list under one key, and once as a child map. Two replicas then change
 different fields.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
-root = doc_map(a, "root")
-map_set(root, "plain", list(label = "Book hotel", done = FALSE))
+root = doc_map(a)
+map_set(root, plain = list(label = "Book hotel", done = FALSE))
 child = map_set_container(root, "child", "map")
-map_set(child, "label", "Book hotel")
-map_set(child, "done", FALSE)
+map_set(child, label = "Book hotel", done = FALSE)
 b = replica(a, 2)
 
-root_a = doc_map(a, "root")
-map_set(root_a, "plain", list(label = "Book hotel", done = TRUE))
-map_set(map_get(root_a, "child"), "done", TRUE)
+root_a = doc_map(a)
+map_set(root_a, plain = list(label = "Book hotel", done = TRUE))
+root_a$child$done = TRUE
 
-root_b = doc_map(b, "root")
-map_set(root_b, "plain", list(label = "Book a hotel in Lisbon", done = FALSE))
-map_set(map_get(root_b, "child"), "label", "Book a hotel in Lisbon")
+root_b = doc_map(b)
+map_set(root_b, plain = list(label = "Book a hotel in Lisbon", done = FALSE))
+root_b$child$label = "Book a hotel in Lisbon"
 
 sync(a, b)
-str(container_value(doc_map(a, "root")))
+str(as.list(root_a))
 #> List of 2
 #>  $ child:List of 2
 #>   ..$ done : logi TRUE
@@ -648,28 +632,27 @@ creates the child in a way that makes both replicas end up with the same
 container, so the edits from both are kept.
 
 ``` r
-
 a = loro_doc(peer_id = 1)
 b = loro_doc(peer_id = 2)
 
-text_insert(map_ensure_container(doc_map(a, "note"), "body", "text"), 1, "From A. ")
-text_insert(map_ensure_container(doc_map(b, "note"), "body", "text"), 1, "From B. ")
+text_insert(map_ensure_container(a, "body", "text"), 1, "From A. ")
+text_insert(map_ensure_container(b, "body", "text"), 1, "From B. ")
 
 sync(a, b)
-text_get(map_get(doc_map(a, "note"), "body"))
+text_get(map_get(a, "body"))
 #> [1] "From A. From B. "
 ```
 
 ## Choosing a container
 
-| Container | Holds | Concurrent edits | Typical use |
-|----|----|----|----|
-| Text | A string, with optional marks | Insertions and deletions all apply | Prose, code, any edited string |
-| Map | Values under string keys | Different keys both apply; the same key has one winner | Records, settings, fields of an item |
-| List | An ordered sequence | All insertions are kept | Logs and append-only collections |
-| Movable list | An ordered sequence | As a list, plus moves and replacements that do not duplicate | Anything users reorder |
-| Counter | A number | Increments add up | Votes, tallies, usage counts |
-| Tree | A hierarchy of nodes | Moves never create cycles or lose nodes | Outlines, folders, nested comments |
+| Container    | Holds                         | Concurrent edits                                             | Typical use                          |
+|--------------|-------------------------------|--------------------------------------------------------------|--------------------------------------|
+| Text         | A string, with optional marks | Insertions and deletions all apply                           | Prose, code, any edited string       |
+| Map          | Values under string keys      | Different keys both apply; the same key has one winner       | Records, settings, fields of an item |
+| List         | An ordered sequence           | All insertions are kept                                      | Logs and append-only collections     |
+| Movable list | An ordered sequence           | As a list, plus moves and replacements that do not duplicate | Anything users reorder               |
+| Counter      | A number                      | Increments add up                                            | Votes, tallies, usage counts         |
+| Tree         | A hierarchy of nodes          | Moves never create cycles or lose nodes                      | Outlines, folders, nested comments   |
 
 Two rules of thumb cover most decisions. First, if a value is edited
 piece by piece, give it a container of its own instead of storing it as

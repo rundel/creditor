@@ -4,8 +4,9 @@ A list is an ordered sequence of values. Positions are 1-based.
 Concurrent insertions at the same position are all kept, in the same
 order on every replica.
 
-- `list_insert()` inserts a plain value before the element currently at
-  `pos`, and `list_push()` appends one.
+- `list_insert()` inserts plain values before the element currently at
+  `pos`, and `list_push()` appends them. Each argument in `...` becomes
+  one element.
 
 - `list_insert_container()` and `list_push_container()` do the same with
   a new, empty child container and return its handle.
@@ -13,7 +14,7 @@ order on every replica.
 - `list_get()` returns the element at `pos`, as a handle if it is a
   container.
 
-- `list_delete()` removes `len` elements starting at `pos`, and
+- `list_delete()` removes the elements at the positions `pos`, and
   `list_clear()` removes them all.
 
 - `list_pop()` removes the last element and returns it, or returns
@@ -21,6 +22,13 @@ order on every replica.
   its contents.
 
 - `list_length()` returns the number of elements.
+
+A list handle also works with base functions: `list[[pos]]` reads like
+`list_get()`, [`length()`](https://rdrr.io/r/base/length.html) is
+`list_length()`, and [`as.list()`](https://rdrr.io/r/base/list.html) is
+[`container_value()`](https://rundel.github.io/creditor/reference/containers.md).
+`list[[pos]] = NULL` removes an element like `list_delete()`, and for a
+movable list `list[[pos]] = value` replaces one like `list_set()`.
 
 A movable list, from
 [`doc_movable_list()`](https://rundel.github.io/creditor/reference/containers.md),
@@ -42,9 +50,9 @@ Plain values are converted as described in the Values section of
 ## Usage
 
 ``` r
-list_insert(list, pos, value)
+list_insert(list, pos, ...)
 
-list_push(list, value)
+list_push(list, ...)
 
 list_insert_container(list, pos, type)
 
@@ -52,7 +60,7 @@ list_push_container(list, type)
 
 list_get(list, pos)
 
-list_delete(list, pos, len = 1)
+list_delete(list, pos)
 
 list_length(list)
 
@@ -75,28 +83,37 @@ list_clear(list)
   [`doc_list()`](https://rundel.github.io/creditor/reference/containers.md),
   [`doc_movable_list()`](https://rundel.github.io/creditor/reference/containers.md),
   or a parent container. `list_move()`, `list_set()`, and
-  `list_set_container()` need a movable list.
+  `list_set_container()` need a movable list. A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
+  is also accepted and stands for its default root list, which is a
+  plain list, so it cannot be used with the functions that need a
+  movable list; see
+  [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
 
 - pos:
 
-  A 1-based position.
+  A 1-based position. For `list_delete()`, a vector of positions such as
+  `2:4`.
 
-- value:
+- ...:
 
-  A plain value.
+  Plain values to add, one element each. They must not be named; to
+  store a map as one element, pass a named list. These are [dynamic
+  dots](https://rlang.r-lib.org/reference/dyn-dots.html), so a list of
+  elements can be spliced in with `!!!`.
 
 - type:
 
   Type of the child container: `"text"`, `"map"`, `"list"`,
   `"movable_list"`, `"counter"`, or `"tree"`.
 
-- len:
-
-  Number of elements to delete.
-
 - from, to:
 
   1-based positions.
+
+- value:
+
+  A plain value.
 
 ## Value
 
@@ -112,16 +129,18 @@ container handle. `list_get()` returns a value or handle, and
 ``` r
 doc = loro_doc()
 items = doc_list(doc, "items")
-list_push(items, "b")
+list_push(items, "b", "c")
 list_insert(items, 1, "a")
 
 item = list_push_container(items, "map")
-map_set(item, "done", FALSE)
+map_set(item, done = FALSE)
 
 list_get(items, 1)
 #> [1] "a"
-list_delete(items, 2)
-container_value(items)
+items[[2]]
+#> [1] "b"
+list_delete(items, 2:3)
+as.list(items)
 #> [[1]]
 #> [1] "a"
 #> 
@@ -132,12 +151,10 @@ container_value(items)
 #> 
 
 tasks = doc_movable_list(doc, "tasks")
-list_push(tasks, "write")
-list_push(tasks, "test")
-list_push(tasks, "ship")
+list_push(tasks, "write", "test", "ship")
 list_move(tasks, 3, 1)
 list_set(tasks, 2, "write docs")
-container_value(tasks)
+as.list(tasks)
 #> [[1]]
 #> [1] "ship"
 #> 

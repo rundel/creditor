@@ -7,8 +7,9 @@ wins), and entries expire when they stop being refreshed.
 
 - `ephemeral_store()` creates a store.
 
-- `ephemeral_set()`, `ephemeral_get()`, and `ephemeral_delete()` write,
-  read, and remove one key. Setting a key again refreshes it.
+- `ephemeral_set()` writes values given as `key = value` arguments,
+  `ephemeral_get()` reads one key, and `ephemeral_delete()` removes the
+  keys named in `...`. Setting a key again refreshes it.
 
 - `ephemeral_keys()` and `ephemeral_values()` list the current entries.
 
@@ -44,13 +45,13 @@ and are stopped with
 ## Usage
 
 ``` r
-ephemeral_store(timeout = 30000)
+ephemeral_store(timeout = 30)
 
-ephemeral_set(store, key, value)
+ephemeral_set(store, ...)
 
 ephemeral_get(store, key)
 
-ephemeral_delete(store, key)
+ephemeral_delete(store, ...)
 
 ephemeral_keys(store)
 
@@ -71,20 +72,22 @@ ephemeral_subscribe_local_updates(store, callback)
 
 - timeout:
 
-  Milliseconds after which an entry that has not been updated expires.
+  Seconds after which an entry that has not been updated expires.
 
 - store:
 
   An ephemeral store.
 
+- ...:
+
+  Plain values to store, each named with its key; see
+  [`map_set()`](https://rundel.github.io/creditor/reference/map.md). For
+  `ephemeral_delete()`, the keys to remove, as strings or character
+  vectors.
+
 - key:
 
   A string.
-
-- value:
-
-  A plain value; see the Values section of
-  [`map_set()`](https://rundel.github.io/creditor/reference/map.md).
 
 - bytes:
 
@@ -112,7 +115,7 @@ sync = ephemeral_subscribe_local_updates(a, function(bytes) {
   ephemeral_apply(b, bytes)
 })
 
-ephemeral_set(a, "alice", list(name = "Alice", cursor = 12L))
+ephemeral_set(a, alice = list(name = "Alice", cursor = 12L))
 ephemeral_values(b)
 #> $alice
 #> $alice$cursor

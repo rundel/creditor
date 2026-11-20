@@ -20,7 +20,6 @@ for a tour of each container type and how it merges concurrent edits.
 Building from source needs a Rust toolchain (cargo and rustc \>= 1.85).
 
 ``` r
-
 # install.packages("pak")
 pak::pak("rundel/creditor")
 ```
@@ -30,24 +29,23 @@ pak::pak("rundel/creditor")
 Two replicas edit the same text concurrently and then merge.
 
 ``` r
-
 library(creditor)
 
 a = loro_doc()
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 
 b = loro_doc()
 doc_import(b, doc_export(a))
 
-text_insert(doc_text(a), 6, " world")
-text_insert(doc_text(b), 1, ">> ")
+text_insert(a, 6, " world")
+text_insert(b, 1, ">> ")
 
-doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+doc_import(b, doc_export_updates(a, from = doc_version(b)))
+doc_import(a, doc_export_updates(b, from = doc_version(a)))
 
-text_get(doc_text(a))
+text_get(a)
 #> [1] ">> Hello world"
-text_get(doc_text(b))
+text_get(b)
 #> [1] ">> Hello world"
 ```
 
@@ -55,14 +53,12 @@ Containers nest: a map or list can hold plain values or child
 containers, each of which merges independently.
 
 ``` r
-
 doc = loro_doc()
 note = doc_map(doc, "note")
-map_set(note, "title", "Groceries")
+map_set(note, title = "Groceries")
 
 items = map_set_container(note, "items", "list")
-list_push(items, "milk")
-list_push(items, "eggs")
+list_push(items, "milk", "eggs")
 
 body = map_set_container(note, "body", "text")
 text_insert(body, 1, "Buy before Friday")
@@ -81,11 +77,10 @@ Text can carry marks, and a cursor keeps pointing at the same character
 as the text changes.
 
 ``` r
-
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello world")
-text_mark(text, 1, 5, "bold")
+text_mark(text, 1, 5, bold = TRUE)
 cursor = text_cursor(text, 7)
 
 text_update(text, "Hello brave new world")
@@ -104,7 +99,6 @@ cursor_pos(doc, cursor)
 Every version stays reachable.
 
 ``` r
-
 doc = loro_doc()
 text = doc_text(doc)
 text_insert(text, 1, "Hello")
@@ -130,21 +124,33 @@ Subscriptions make live sync a one-liner, and undo reverses only local
 edits.
 
 ``` r
-
 a = loro_doc()
 b = loro_doc()
 sync = doc_subscribe_local_updates(a, function(bytes) doc_import(b, bytes))
 manager = doc_undo_manager(a)
 
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 doc_commit(a)
-text_get(doc_text(b))
+text_get(b)
 #> [1] "Hello"
 
 undo(manager)
 #> [1] TRUE
-text_get(doc_text(b))
+text_get(b)
 #> [1] ""
 
 unsubscribe(sync)
+```
+
+## Shiny example
+
+An example app shows two replicas of one document side by side. Each
+pane can be taken offline to make concurrent edits, which merge when it
+comes back online. Below the panes a timeline shows every edit as a
+bubble, in one row per replica above an axis of edit times; hovering a
+bubble shows what was changed and by whom, and selecting one shows the
+text at that point with the edit’s insertions and deletions highlighted.
+
+``` r
+shiny::runApp(system.file("examples/sync-editors", package = "creditor"))
 ```

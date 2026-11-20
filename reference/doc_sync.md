@@ -3,18 +3,17 @@
 Replicas exchange state as raw vectors, which can be written to disk or
 sent over any transport.
 
-- `doc_export()` serializes a document, in one of three modes:
+- `doc_export()` serializes a whole document as a snapshot: its contents
+  and full history.
 
-  - `"snapshot"`: the full contents and history.
+- `doc_export_updates()` serializes only the changes made since the
+  version `from`, or the complete history when `from` is `NULL`.
 
-  - `"updates"`: the changes made since the version `from`, or the
-    complete history when `from` is `NULL`.
-
-  - `"shallow_snapshot"`: the contents plus only the history after the
-    version `since`. Dropping old history can make the export much
-    smaller for a document with a long history, but a document loaded
-    from it cannot check out versions before `since` or merge edits that
-    branch off before it.
+- `doc_export_shallow()` serializes a shallow snapshot: the contents
+  plus only the history after the version `since`. Dropping old history
+  can make the export much smaller for a document with a long history,
+  but a document loaded from it cannot check out versions before `since`
+  or merge edits that branch off before it.
 
 - `doc_import()` merges a snapshot or updates into a document. Importing
   is commutative and idempotent, so replicas that have seen the same
@@ -22,7 +21,7 @@ sent over any transport.
   vectors, which are imported together in one step.
 
 - `doc_version()` returns the document's current version vector, for use
-  as the `from` argument of a later export. See
+  as the `from` argument of `doc_export_updates()`. See
   [`as_version()`](https://rundel.github.io/creditor/reference/versions.md).
 
 - `doc_is_shallow()` reports whether a document lacks its early history
@@ -42,12 +41,11 @@ sent over any transport.
 ## Usage
 
 ``` r
-doc_export(
-  doc,
-  mode = c("snapshot", "updates", "shallow_snapshot"),
-  from = NULL,
-  since = NULL
-)
+doc_export(doc)
+
+doc_export_updates(doc, from = NULL)
+
+doc_export_shallow(doc, since = NULL)
 
 doc_import(doc, bytes)
 
@@ -69,28 +67,21 @@ doc_import_json(doc, json)
   A
   [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md).
 
-- mode:
-
-  One of `"snapshot"`, `"updates"`, or `"shallow_snapshot"`.
-
 - from:
 
-  A version returned by `doc_version()`, typically that of the replica
-  the updates are destined for. Only used when `mode` is `"updates"`.
-  For `doc_export_json()`, the version to start from, or `NULL` for the
-  beginning.
+  A version returned by `doc_version()` to start from, typically that of
+  the replica the updates are destined for, or `NULL` for the beginning.
 
 - since:
 
   A version from
   [`doc_frontiers()`](https://rundel.github.io/creditor/reference/history.md).
-  Only used when `mode` is `"shallow_snapshot"`; `NULL` keeps no history
-  before the current version.
+  The default, the latest version, keeps no earlier history at all.
 
 - bytes:
 
-  A raw vector produced by `doc_export()`, or for `doc_import()` a list
-  of them.
+  A raw vector produced by one of the export functions, or for
+  `doc_import()` a list of them.
 
 - to:
 
@@ -103,11 +94,12 @@ doc_import_json(doc, json)
 
 ## Value
 
-`doc_export()` returns a raw vector and `doc_version()` a version
-vector. `doc_import()` and `doc_import_json()` invisibly return an
-import status; see the Import status section. `doc_is_shallow()` returns
-a logical, `doc_export_json()` a string, and `blob_metadata()` a list
-with `mode`, `changes` (the number of changes), `start_timestamp` and
+`doc_export()`, `doc_export_updates()`, and `doc_export_shallow()`
+return a raw vector and `doc_version()` a version vector. `doc_import()`
+and `doc_import_json()` invisibly return an import status; see the
+Import status section. `doc_is_shallow()` returns a logical,
+`doc_export_json()` a string, and `blob_metadata()` a list with `mode`,
+`changes` (the number of changes), `start_timestamp` and
 `end_timestamp`, and the versions `start_frontiers`, `start_version`,
 and `end_version`.
 
@@ -125,22 +117,22 @@ automatically once the missing changes are imported. A non-empty
 
 ``` r
 a = loro_doc()
-text_insert(doc_text(a), 1, "Hello")
+text_insert(a, 1, "Hello")
 
 b = loro_doc()
 doc_import(b, doc_export(a))
 
-text_insert(doc_text(a), 6, " world")
-text_insert(doc_text(b), 1, ">> ")
+text_insert(a, 6, " world")
+text_insert(b, 1, ">> ")
 
-doc_import(b, doc_export(a, "updates", from = doc_version(b)))
-doc_import(a, doc_export(b, "updates", from = doc_version(a)))
-text_get(doc_text(a))
+doc_import(b, doc_export_updates(a, from = doc_version(b)))
+doc_import(a, doc_export_updates(b, from = doc_version(a)))
+text_get(a)
 #> [1] ">> Hello world"
-text_get(doc_text(b))
+text_get(b)
 #> [1] ">> Hello world"
 
-small = doc_export(a, "shallow_snapshot")
+small = doc_export_shallow(a)
 blob_metadata(small)$mode
 #> [1] "shallow-snapshot"
 ```
