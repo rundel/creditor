@@ -21,8 +21,14 @@ package.
   `as_counter` / `as_tree` and errors on a mismatch. `LoroList` and
   `LoroMovableList` share method names but no trait, so the shared
   `loro_list_*` functions dispatch over both with the `with_list!`
-  macro. Child containers are created through the `new_child!` macro,
-  which is the one place that lists the creatable kinds.
+  macro. New containers are created detached (`detached_container`, the
+  one place that lists the creatable kinds) and attached with
+  `insert_container` / `set_container` (`loro_*_attach_impl`), which
+  copies the detached contents, nested detached children included, into
+  the document. Loro records the attached copy on the detached object;
+  `loro_container_resolve_impl` swaps a handle’s `Container` for it in
+  place, so every R reference to the external pointer follows the
+  container into the document.
 - A handle is returned to R by `container_ref` as `list(kind, ptr)` with
   class `creditor_container_ref`. Functions that can return either a
   plain value or a child container (`loro_map_get_impl`,
@@ -231,11 +237,19 @@ package.
   `doc_version`, JSON updates, `blob_metadata`). `doc_import` returns an
   import status invisibly, not the document.
 - [R/container.R](https://rundel.github.io/creditor/R/container.R)
-  defines the unexported S7 handle classes: abstract `loro_container`
+  defines the S7 handle classes: abstract `loro_container` (unexported)
   with children `loro_text`, `loro_map`, `loro_list`, `loro_counter`,
   and `loro_tree`, plus `loro_movable_list` as a child of `loro_list`
   (so every `list_*` function accepts it, while `list_move` / `list_set`
-  / `list_set_container` require it). Users get handles from
+  require it). The child classes are exported because their constructors
+  create new detached containers with initial contents
+  (`loro_list("a", "b")`, `loro_text("hi")`); internally a handle is
+  wrapped with the `.ptr` argument instead. A new container is stored
+  wherever a value is (`map_store` / `list_store` / `list_set`, via
+  `attachable`). `container_ptr` (and `handle_ptr` for functions that do
+  not accept a document) resolves a detached handle that has since been
+  attached, so every container function must get its pointer through one
+  of them rather than reading `@ptr` directly. Users get handles from
   [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md)
   /
   [`doc_map()`](https://rundel.github.io/creditor/reference/containers.md)
@@ -260,9 +274,9 @@ package.
   [R/tree.R](https://rundel.github.io/creditor/R/tree.R) define the
   `text_*`, `map_*`, `list_*`, `counter_*`, and `tree_*` functions, each
   taking a handle as its first argument. The R API is 1-based; the
-  conversion to 0-based happens here. Child containers are created empty
-  by type name (`map_set_container`, `list_insert_container`,
-  `list_push_container`) and returned as handles.
+  conversion to 0-based happens here. New child containers come from the
+  `loro_*()` constructors and are stored like plain values; there are no
+  type-name container creators.
 - [R/richtext.R](https://rundel.github.io/creditor/R/richtext.R) defines
   `text_mark` / `text_unmark` / `text_delta` / `text_apply_delta` and
   `doc_config_text_style`; `with_style_hint` rewrites Loro’s
@@ -318,7 +332,15 @@ package.
   ([`cli::cli_abort()`](https://cli.r-lib.org/reference/cli_abort.html),
   with `call = rlang::caller_env()`), and `named_values()` /
   `unnamed_values()`, which collect dynamic dots
-  ([`rlang::list2()`](https://rlang.r-lib.org/reference/list2.html)).
+  ([`rlang::list2()`](https://rlang.r-lib.org/reference/list2.html)). A
+  function whose `...` takes user-chosen keys as argument names
+  (`map_set`, `ephemeral_set`, `text_mark`, `doc_config_text_style`)
+  gives every other argument before `...` a leading dot (`.map`,
+  `.store`, `.text` / `.start` / `.end`, `.doc`), because R matches a
+  named argument exactly and partially against those formals, so a key
+  such as `map`, `st`, or `e` would otherwise be taken as the argument.
+  The checks take an `arg` (or `args`) name so their errors name the
+  dotted argument.
 - Interface conventions, which new functions should follow:
   - Keyed writes take `key = value` pairs in `...` (`map_set`,
     `ephemeral_set`, `text_mark`, `doc_config_text_style`); sequence
@@ -354,7 +376,8 @@ package.
     `list[[pos]] = NULL`), as with an R list; `map_set(map, key = NULL)`
     is the way to store a null. `map$child$key = value` makes R assign
     the child handle back to `child`; `is_same_child` turns that step
-    into a no-op and rejects any other attempt to store a handle. The
+    into a no-op; any other handle that is already in a document is
+    rejected (`abort_attached`), while a new detached one is stored. The
     empty string is a valid map key that `...` cannot express, so
     `map[[""]] = value` is the way to write it.
 - Mutating functions return their first argument invisibly, except the

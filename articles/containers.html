@@ -475,22 +475,15 @@
 </section><section class="level2"><h2 id="nesting-containers">Nesting containers<a class="anchor" aria-label="anchor" href="#nesting-containers"></a>
 </h2>
 <p>Maps, lists, movable lists, and tree metadata can hold child containers as well as plain values. This is what lets a real document be more than one flat structure, and it controls how finely concurrent edits merge.</p>
-<p><code><a href="../reference/map.html">map_set_container()</a></code>, <code><a href="../reference/list.html">list_push_container()</a></code>, and <code><a href="../reference/list.html">list_insert_container()</a></code> create an empty child and return its handle.</p>
+<p><code><a href="../reference/loro_text.html">loro_text()</a></code>, <code><a href="../reference/loro_text.html">loro_map()</a></code>, <code><a href="../reference/loro_text.html">loro_list()</a></code>, <code><a href="../reference/loro_text.html">loro_movable_list()</a></code>, <code><a href="../reference/loro_text.html">loro_counter()</a></code>, and <code><a href="../reference/loro_text.html">loro_tree()</a></code> create a new container, optionally with initial contents, that can be stored anywhere a plain value can. New containers nest the way R lists do.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">note</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">note</span>, title <span class="op">=</span> <span class="st">"Trip planning"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="../reference/map.html">map_set_container</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"body"</span>, <span class="st">"text"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">body</span>, <span class="fl">1</span>, <span class="st">"Flights are booked."</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">todo</span> <span class="op">=</span> <span class="fu"><a href="../reference/map.html">map_set_container</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"todo"</span>, <span class="st">"movable_list"</span><span class="op">)</span></span>
-<span><span class="va">item</span> <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list_push_container</a></span><span class="op">(</span><span class="va">todo</span>, <span class="st">"map"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">item</span>, label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">likes</span> <span class="op">=</span> <span class="fu"><a href="../reference/map.html">map_set_container</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"likes"</span>, <span class="st">"counter"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/counter.html">counter_increment</a></span><span class="op">(</span><span class="va">likes</span><span class="op">)</span></span>
+<span><span class="va">note</span><span class="op">$</span><span class="va">title</span> <span class="op">=</span> <span class="st">"Trip planning"</span></span>
+<span><span class="va">note</span><span class="op">$</span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Flights are booked."</span><span class="op">)</span></span>
+<span><span class="va">note</span><span class="op">$</span><span class="va">todo</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_movable_list</a></span><span class="op">(</span><span class="fu"><a href="../reference/loro_text.html">loro_map</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">note</span><span class="op">$</span><span class="va">likes</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_counter</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/doc.html">doc_value</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 1</span></span>
@@ -503,24 +496,32 @@
 <span><span class="co">#&gt;   .. .. ..$ done : logi FALSE</span></span>
 <span><span class="co">#&gt;   .. .. ..$ label: chr "Book hotel"</span></span></code></pre></div>
 </div>
-<p>Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path.</p>
+<p>Once stored, a handle refers to the container in the document, so it can keep being used for edits.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Flights"</span><span class="op">)</span></span>
+<span><span class="va">note</span><span class="op">$</span><span class="va">body</span> <span class="op">=</span> <span class="va">body</span></span>
+<span><span class="fu"><a href="../reference/text.html">text_push</a></span><span class="op">(</span><span class="va">body</span>, <span class="st">" and trains are booked."</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="va">note</span><span class="op">$</span><span class="va">body</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "Flights and trains are booked."</span></span></code></pre></div>
+</div>
+<p>Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"body"</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
 <span><span class="co">#&gt; [1] "creditor::loro_text"</span></span>
 <span><span class="fu"><a href="../reference/text.html">text_get</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"body"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "Flights are booked."</span></span>
+<span><span class="co">#&gt; [1] "Flights and trains are booked."</span></span>
 <span><span class="fu"><a href="../reference/doc.html">doc_get</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span>, <span class="st">"todo"</span>, <span class="fl">1</span>, <span class="st">"label"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Book hotel"</span></span></code></pre></div>
 </div>
 <p>The difference between a plain value and a child container is the unit of merging. Below, the same data is stored twice: once as a plain nested list under one key, and once as a child map. Two replicas then change different fields.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">root</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">root</span>, plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">child</span> <span class="op">=</span> <span class="fu"><a href="../reference/map.html">map_set_container</a></span><span class="op">(</span><span class="va">root</span>, <span class="st">"child"</span>, <span class="st">"map"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span><span class="va">child</span>, label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="va">root</span><span class="op">$</span><span class="va">child</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_map</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">root_a</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
@@ -544,9 +545,9 @@
 <p>In the child map both changes survive: the item is relabeled and marked done. In the plain value one replica’s whole list replaced the other’s, so one of the two changes is gone.</p>
 <section class="level3"><h3 id="creating-children-on-first-use">Creating children on first use<a class="anchor" aria-label="anchor" href="#creating-children-on-first-use"></a>
 </h3>
-<p>When replicas create a child container lazily, the first time it is needed, two of them may each create one under the same key before they have synced. With <code><a href="../reference/map.html">map_set_container()</a></code> those are two different containers, and after a merge only one is visible. <code><a href="../reference/map.html">map_ensure_container()</a></code> creates the child in a way that makes both replicas end up with the same container, so the edits from both are kept.</p>
+<p>When replicas create a child container lazily, the first time it is needed, two of them may each create one under the same key before they have synced. Storing a new container with <code><a href="../reference/map.html">map_set()</a></code> makes those two different containers, and after a merge only one is visible. <code><a href="../reference/map.html">map_ensure_container()</a></code> creates the child in a way that makes both replicas end up with the same container, so the edits from both are kept.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span></span>

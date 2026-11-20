@@ -30,7 +30,7 @@ and are 1-based, and a range runs from `start` to `end`.
 ## Usage
 
 ``` r
-text_mark(text, start, end, ...)
+text_mark(.text, .start, .end, ...)
 
 text_unmark(text, start, end, keys)
 
@@ -38,10 +38,28 @@ text_delta(text, start = 1, end = text_length(text))
 
 text_apply_delta(text, delta)
 
-doc_config_text_style(doc, ..., .default = NULL)
+doc_config_text_style(.doc, ..., .default = NULL)
 ```
 
 ## Arguments
+
+- .text, .start, .end:
+
+  The text handle and range for `text_mark()`, as for `text`, `start`,
+  and `end`. The argument names start with a dot so that they cannot
+  clash with a mark key given in `...`.
+
+- ...:
+
+  For `text_mark()`, the marks to apply, each a plain value (see the
+  Values section of
+  [`map_set()`](https://rundel.github.io/creditor/reference/map.md))
+  named with its key, for example `bold = TRUE` or
+  `link = "https://loro.dev"`. A key must not contain `":"`, and a value
+  of `NULL` or `NA` removes the mark, as `text_unmark()` does. For
+  `doc_config_text_style()`, strings giving the expand behavior of each
+  key, for example `comment = "none"`. Both are [dynamic
+  dots](https://rlang.r-lib.org/reference/dyn-dots.html).
 
 - text:
 
@@ -57,18 +75,6 @@ doc_config_text_style(doc, ..., .default = NULL)
   1-based positions of the first and last characters of the range. For
   `text_delta()` they default to the whole text.
 
-- ...:
-
-  For `text_mark()`, the marks to apply, each a plain value (see the
-  Values section of
-  [`map_set()`](https://rundel.github.io/creditor/reference/map.md))
-  named with its key, for example `bold = TRUE` or
-  `link = "https://loro.dev"`. A key must not contain `":"`, and a value
-  of `NULL` or `NA` removes the mark, as `text_unmark()` does. For
-  `doc_config_text_style()`, strings giving the expand behavior of each
-  key, for example `comment = "none"`. Both are [dynamic
-  dots](https://rlang.r-lib.org/reference/dyn-dots.html).
-
 - keys:
 
   A character vector of mark names.
@@ -77,10 +83,12 @@ doc_config_text_style(doc, ..., .default = NULL)
 
   A list of delta ops.
 
-- doc:
+- .doc:
 
   A
   [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md).
+  The argument name starts with a dot so that it cannot clash with a
+  mark key given in `...`.
 
 - .default:
 
@@ -89,9 +97,9 @@ doc_config_text_style(doc, ..., .default = NULL)
 
 ## Value
 
-`text_mark()`, `text_unmark()`, and `text_apply_delta()` return `text`
-invisibly; `text_delta()` returns a list; and `doc_config_text_style()`
-returns `doc` invisibly.
+`text_mark()` returns `.text` invisibly, `text_unmark()` and
+`text_apply_delta()` return `text` invisibly, `text_delta()` returns a
+list, and `doc_config_text_style()` returns `.doc` invisibly.
 
 ## Style configuration
 

@@ -4,12 +4,13 @@ A list is an ordered sequence of values. Positions are 1-based.
 Concurrent insertions at the same position are all kept, in the same
 order on every replica.
 
-- `list_insert()` inserts plain values before the element currently at
-  `pos`, and `list_push()` appends them. Each argument in `...` becomes
-  one element.
-
-- `list_insert_container()` and `list_push_container()` do the same with
-  a new, empty child container and return its handle.
+- `list_insert()` inserts values before the element currently at `pos`,
+  and `list_push()` appends them. Each argument in `...` becomes one
+  element, and can be a plain value or a new container from
+  [`loro_text()`](https://rundel.github.io/creditor/reference/loro_text.md),
+  [`loro_map()`](https://rundel.github.io/creditor/reference/loro_text.md),
+  [`loro_list()`](https://rundel.github.io/creditor/reference/loro_text.md),
+  and the like.
 
 - `list_get()` returns the element at `pos`, as a handle if it is a
   container.
@@ -40,9 +41,8 @@ replicas do it at once.
 - `list_move()` moves the element at `from` so that it ends up at
   position `to`. Concurrent moves of one element leave a single copy.
 
-- `list_set()` replaces the element at `pos` in place, and
-  `list_set_container()` replaces it with a new, empty child container.
-  Concurrent sets resolve to one winner.
+- `list_set()` replaces the element at `pos` in place. Concurrent sets
+  resolve to one winner.
 
 Plain values are converted as described in the Values section of
 [`map_set()`](https://rundel.github.io/creditor/reference/map.md).
@@ -54,10 +54,6 @@ list_insert(list, pos, ...)
 
 list_push(list, ...)
 
-list_insert_container(list, pos, type)
-
-list_push_container(list, type)
-
 list_get(list, pos)
 
 list_delete(list, pos)
@@ -67,8 +63,6 @@ list_length(list)
 list_move(list, from, to)
 
 list_set(list, pos, value)
-
-list_set_container(list, pos, type)
 
 list_pop(list)
 
@@ -82,8 +76,8 @@ list_clear(list)
   A list handle, from
   [`doc_list()`](https://rundel.github.io/creditor/reference/containers.md),
   [`doc_movable_list()`](https://rundel.github.io/creditor/reference/containers.md),
-  or a parent container. `list_move()`, `list_set()`, and
-  `list_set_container()` need a movable list. A
+  or a parent container. `list_move()` and `list_set()` need a movable
+  list. A
   [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
   is also accepted and stands for its default root list, which is a
   plain list, so it cannot be used with the functions that need a
@@ -97,15 +91,13 @@ list_clear(list)
 
 - ...:
 
-  Plain values to add, one element each. They must not be named; to
-  store a map as one element, pass a named list. These are [dynamic
+  Values to add, one element each: plain values or new containers. They
+  must not be named; to store a map as one element, pass a named list or
+  a
+  [`loro_map()`](https://rundel.github.io/creditor/reference/loro_text.md).
+  These are [dynamic
   dots](https://rlang.r-lib.org/reference/dyn-dots.html), so a list of
   elements can be spliced in with `!!!`.
-
-- type:
-
-  Type of the child container: `"text"`, `"map"`, `"list"`,
-  `"movable_list"`, `"counter"`, or `"tree"`.
 
 - from, to:
 
@@ -113,15 +105,13 @@ list_clear(list)
 
 - value:
 
-  A plain value.
+  A plain value or a new container.
 
 ## Value
 
 `list_insert()`, `list_push()`, `list_delete()`, `list_clear()`,
 `list_move()`, and `list_set()` return `list` invisibly. `list_pop()`
-returns the removed element. `list_insert_container()`,
-`list_push_container()`, and `list_set_container()` return the new
-container handle. `list_get()` returns a value or handle, and
+returns the removed element. `list_get()` returns a value or handle, and
 `list_length()` an integer.
 
 ## Examples
@@ -132,8 +122,7 @@ items = doc_list(doc, "items")
 list_push(items, "b", "c")
 list_insert(items, 1, "a")
 
-item = list_push_container(items, "map")
-map_set(item, done = FALSE)
+list_push(items, loro_map(task = "d", done = FALSE))
 
 list_get(items, 1)
 #> [1] "a"
@@ -147,6 +136,9 @@ as.list(items)
 #> [[2]]
 #> [[2]]$done
 #> [1] FALSE
+#> 
+#> [[2]]$task
+#> [1] "d"
 #> 
 #> 
 

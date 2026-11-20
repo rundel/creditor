@@ -143,7 +143,7 @@ described in <code><a href="subscribe.html">doc_subscribe()</a></code> and are s
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ephemeral_store</span><span class="op">(</span>timeout <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">ephemeral_set</span><span class="op">(</span><span class="va">store</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">ephemeral_set</span><span class="op">(</span><span class="va">.store</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">ephemeral_get</span><span class="op">(</span><span class="va">store</span>, <span class="va">key</span><span class="op">)</span></span>
 <span></span>
@@ -173,14 +173,19 @@ described in <code><a href="subscribe.html">doc_subscribe()</a></code> and are s
 updated expires.</p></dd>
 
 
-<dt id="arg-store">store<a class="anchor" aria-label="anchor" href="#arg-store"></a></dt>
-<dd><p>An ephemeral store.</p></dd>
+<dt id="arg--store">.store<a class="anchor" aria-label="anchor" href="#arg--store"></a></dt>
+<dd><p>An ephemeral store. The argument name starts with a dot
+so that it cannot clash with a key given in <code>...</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Plain values to store, each named with its key; see
 <code><a href="map.html">map_set()</a></code>. For <code>ephemeral_delete()</code>, the keys to remove, as
 strings or character vectors.</p></dd>
+
+
+<dt id="arg-store">store<a class="anchor" aria-label="anchor" href="#arg-store"></a></dt>
+<dd><p>An ephemeral store.</p></dd>
 
 
 <dt id="arg-key">key<a class="anchor" aria-label="anchor" href="#arg-key"></a></dt>
@@ -201,8 +206,9 @@ updates subscription.</p></dd>
     <p><code>ephemeral_store()</code> returns a store. <code>ephemeral_get()</code> returns
 a value or <code>NULL</code>, <code>ephemeral_keys()</code> a character vector,
 <code>ephemeral_values()</code> a named list, and <code>ephemeral_encode()</code> a raw
-vector. The subscribe functions return a subscription object. The
-others return <code>store</code> invisibly.</p>
+vector. The subscribe functions return a subscription object.
+<code>ephemeral_set()</code> returns <code>.store</code> invisibly and the others return
+<code>store</code> invisibly.</p>
     </div>
 
     <div class="section level2">

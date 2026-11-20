@@ -47,7 +47,7 @@ and are stopped with
 ``` r
 ephemeral_store(timeout = 30)
 
-ephemeral_set(store, ...)
+ephemeral_set(.store, ...)
 
 ephemeral_get(store, key)
 
@@ -74,9 +74,10 @@ ephemeral_subscribe_local_updates(store, callback)
 
   Seconds after which an entry that has not been updated expires.
 
-- store:
+- .store:
 
-  An ephemeral store.
+  An ephemeral store. The argument name starts with a dot so that it
+  cannot clash with a key given in `...`.
 
 - ...:
 
@@ -84,6 +85,10 @@ ephemeral_subscribe_local_updates(store, callback)
   [`map_set()`](https://rundel.github.io/creditor/reference/map.md). For
   `ephemeral_delete()`, the keys to remove, as strings or character
   vectors.
+
+- store:
+
+  An ephemeral store.
 
 - key:
 
@@ -103,8 +108,8 @@ ephemeral_subscribe_local_updates(store, callback)
 `ephemeral_store()` returns a store. `ephemeral_get()` returns a value
 or `NULL`, `ephemeral_keys()` a character vector, `ephemeral_values()` a
 named list, and `ephemeral_encode()` a raw vector. The subscribe
-functions return a subscription object. The others return `store`
-invisibly.
+functions return a subscription object. `ephemeral_set()` returns
+`.store` invisibly and the others return `store` invisibly.
 
 ## Examples
 

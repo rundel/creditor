@@ -538,26 +538,24 @@ Maps, lists, movable lists, and tree metadata can hold child containers
 as well as plain values. This is what lets a real document be more than
 one flat structure, and it controls how finely concurrent edits merge.
 
-[`map_set_container()`](https://rundel.github.io/creditor/reference/map.md),
-[`list_push_container()`](https://rundel.github.io/creditor/reference/list.md),
+[`loro_text()`](https://rundel.github.io/creditor/reference/loro_text.md),
+[`loro_map()`](https://rundel.github.io/creditor/reference/loro_text.md),
+[`loro_list()`](https://rundel.github.io/creditor/reference/loro_text.md),
+[`loro_movable_list()`](https://rundel.github.io/creditor/reference/loro_text.md),
+[`loro_counter()`](https://rundel.github.io/creditor/reference/loro_text.md),
 and
-[`list_insert_container()`](https://rundel.github.io/creditor/reference/list.md)
-create an empty child and return its handle.
+[`loro_tree()`](https://rundel.github.io/creditor/reference/loro_text.md)
+create a new container, optionally with initial contents, that can be
+stored anywhere a plain value can. New containers nest the way R lists
+do.
 
 ``` r
 doc = loro_doc(peer_id = 1)
 note = doc_map(doc, "note")
-map_set(note, title = "Trip planning")
-
-body = map_set_container(note, "body", "text")
-text_insert(body, 1, "Flights are booked.")
-
-todo = map_set_container(note, "todo", "movable_list")
-item = list_push_container(todo, "map")
-map_set(item, label = "Book hotel", done = FALSE)
-
-likes = map_set_container(note, "likes", "counter")
-counter_increment(likes)
+note$title = "Trip planning"
+note$body = loro_text("Flights are booked.")
+note$todo = loro_movable_list(loro_map(label = "Book hotel", done = FALSE))
+note$likes = loro_counter(1)
 
 str(doc_value(doc))
 #> List of 1
@@ -571,6 +569,17 @@ str(doc_value(doc))
 #>   .. .. ..$ label: chr "Book hotel"
 ```
 
+Once stored, a handle refers to the container in the document, so it can
+keep being used for edits.
+
+``` r
+body = loro_text("Flights")
+note$body = body
+text_push(body, " and trains are booked.")
+text_get(note$body)
+#> [1] "Flights and trains are booked."
+```
+
 Reading a child container back gives a handle, so nested structures can
 be navigated step by step or reached directly by path.
 
@@ -578,7 +587,7 @@ be navigated step by step or reached directly by path.
 class(map_get(note, "body"))[1]
 #> [1] "creditor::loro_text"
 text_get(map_get(note, "body"))
-#> [1] "Flights are booked."
+#> [1] "Flights and trains are booked."
 doc_get(doc, "note", "todo", 1, "label")
 #> [1] "Book hotel"
 ```
@@ -592,8 +601,7 @@ different fields.
 a = loro_doc(peer_id = 1)
 root = doc_map(a)
 map_set(root, plain = list(label = "Book hotel", done = FALSE))
-child = map_set_container(root, "child", "map")
-map_set(child, label = "Book hotel", done = FALSE)
+root$child = loro_map(label = "Book hotel", done = FALSE)
 b = replica(a, 2)
 
 root_a = doc_map(a)
@@ -623,10 +631,9 @@ so one of the two changes is gone.
 
 When replicas create a child container lazily, the first time it is
 needed, two of them may each create one under the same key before they
-have synced. With
-[`map_set_container()`](https://rundel.github.io/creditor/reference/map.md)
-those are two different containers, and after a merge only one is
-visible.
+have synced. Storing a new container with
+[`map_set()`](https://rundel.github.io/creditor/reference/map.md) makes
+those two different containers, and after a merge only one is visible.
 [`map_ensure_container()`](https://rundel.github.io/creditor/reference/map.md)
 creates the child in a way that makes both replicas end up with the same
 container, so the edits from both are kept.

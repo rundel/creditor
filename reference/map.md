@@ -3,10 +3,12 @@
 A map holds values under string keys. When replicas set the same key
 concurrently, one write wins on every replica.
 
-- `map_set()` stores plain values, given as `key = value` arguments.
-
-- `map_set_container()` stores a new, empty child container under `key`
-  and returns its handle.
+- `map_set()` stores values, given as `key = value` arguments. A value
+  can be a plain R value or a new container from
+  [`loro_text()`](https://rundel.github.io/creditor/reference/loro_text.md),
+  [`loro_map()`](https://rundel.github.io/creditor/reference/loro_text.md),
+  [`loro_list()`](https://rundel.github.io/creditor/reference/loro_text.md),
+  and the like.
 
 - `map_get()` returns the value under `key`, a handle if it is a
   container, or `NULL` if the key is absent.
@@ -14,13 +16,13 @@ concurrently, one write wins on every replica.
 - `map_has()` reports whether each of `keys` is present.
 
 - `map_ensure_container()` returns the child container under `key`,
-  creating it if the key is empty. Unlike `map_set_container()`, which
-  always makes a fresh container, the container it creates is shared:
-  replicas that each create it independently end up editing the same
-  one, with all their edits merged. Use it for containers that are
-  created lazily on first use. It is an error if `key` already holds a
-  plain value, a container of another type, or a container made by
-  `map_set_container()`.
+  creating it if the key is empty. Unlike storing a new container with
+  `map_set()`, which always makes a fresh one, the container it creates
+  is shared: replicas that each create it independently end up editing
+  the same one, with all their edits merged. Use it for containers that
+  are created lazily on first use. It is an error if `key` already holds
+  a plain value, a container of another type, or a container stored with
+  `map_set()`.
 
 - `map_delete()` removes the keys named in `...`, as in
   `map_delete(map, "a", "b")` or `map_delete(map, keys)`, and
@@ -53,9 +55,7 @@ does not allow an empty argument name, so it cannot be written with
 ## Usage
 
 ``` r
-map_set(map, ...)
-
-map_set_container(map, key, type)
+map_set(.map, ...)
 
 map_ensure_container(map, key, type)
 
@@ -76,6 +76,23 @@ map_last_editor(map, key)
 
 ## Arguments
 
+- .map:
+
+  A map handle, as for `map`. For `map_set()` the argument name starts
+  with a dot so that it cannot clash with a key given in `...`, such as
+  `map_set(x, map = 1)`.
+
+- ...:
+
+  Values to store, each named with its key, for example
+  `map_set(map, title = "Notes", done = FALSE)`: plain values (see the
+  Values section) or new containers such as `loro_list("a", "b")`. These
+  are [dynamic dots](https://rlang.r-lib.org/reference/dyn-dots.html),
+  so a named list can be spliced in with `!!!` and a key held in a
+  variable can be used with `"{key}" := value`. Values are stored in
+  order, so if one is rejected the ones before it stay set. For
+  `map_delete()`, the keys to remove, as strings or character vectors.
+
 - map:
 
   A map handle, from
@@ -84,17 +101,6 @@ map_last_editor(map, key)
   [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md)
   is also accepted and stands for its default root container; see
   [`doc_text()`](https://rundel.github.io/creditor/reference/containers.md).
-
-- ...:
-
-  Values to store, each named with its key, for example
-  `map_set(map, title = "Notes", done = FALSE)`; see the Values section.
-  These are [dynamic
-  dots](https://rlang.r-lib.org/reference/dyn-dots.html), so a named
-  list can be spliced in with `!!!` and a key held in a variable can be
-  used with `"{key}" := value`. Values are stored in order, so if one is
-  rejected the ones before it stay set. For `map_delete()`, the keys to
-  remove, as strings or character vectors.
 
 - key:
 
@@ -111,11 +117,11 @@ map_last_editor(map, key)
 
 ## Value
 
-`map_set()`, `map_delete()`, and `map_clear()` return `map` invisibly.
-`map_set_container()` and `map_ensure_container()` return a container
-handle, and `map_last_editor()` a string. `map_get()` returns a value or
-handle, `map_has()` a logical vector, `map_keys()` a character vector,
-and `map_length()` an integer.
+`map_set()` returns `.map` invisibly, and `map_delete()` and
+`map_clear()` return `map` invisibly. `map_ensure_container()` returns a
+container handle, and `map_last_editor()` a string. `map_get()` returns
+a value or handle, `map_has()` a logical vector, `map_keys()` a
+character vector, and `map_length()` an integer.
 
 ## Values
 
@@ -148,8 +154,7 @@ doc = loro_doc()
 meta = doc_map(doc, "meta")
 map_set(meta, title = "Notes", tags = c("a", "b"))
 
-body = map_set_container(meta, "body", "text")
-text_insert(body, 1, "Hello")
+meta$body = loro_text("Hello")
 
 map_keys(meta)
 #> [1] "body"  "tags"  "title"

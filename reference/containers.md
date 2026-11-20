@@ -4,10 +4,13 @@ A document's data lives in containers. `doc_text()`, `doc_map()`,
 `doc_list()`, `doc_movable_list()`, `doc_counter()`, and `doc_tree()`
 return a handle to the root container with the given name, creating it
 on first use. Handles to nested containers come from
-[`map_set_container()`](https://rundel.github.io/creditor/reference/map.md),
-[`list_insert_container()`](https://rundel.github.io/creditor/reference/list.md),
-[`map_get()`](https://rundel.github.io/creditor/reference/map.md), and
-[`list_get()`](https://rundel.github.io/creditor/reference/list.md).
+[`map_get()`](https://rundel.github.io/creditor/reference/map.md) and
+[`list_get()`](https://rundel.github.io/creditor/reference/list.md) (or
+`$` and `[[`), and new containers to nest are made with
+[`loro_text()`](https://rundel.github.io/creditor/reference/loro_text.md),
+[`loro_map()`](https://rundel.github.io/creditor/reference/loro_text.md),
+[`loro_list()`](https://rundel.github.io/creditor/reference/loro_text.md),
+and the like.
 
 A handle is a `loro_text`, `loro_map`, `loro_list`, `loro_movable_list`,
 `loro_counter`, or `loro_tree` object. Like a

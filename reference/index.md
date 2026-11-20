@@ -70,21 +70,24 @@
   : Document history
 - [`list_insert()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_push()`](https://rundel.github.io/creditor/reference/list.md)
-  [`list_insert_container()`](https://rundel.github.io/creditor/reference/list.md)
-  [`list_push_container()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_get()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_delete()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_length()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_move()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_set()`](https://rundel.github.io/creditor/reference/list.md)
-  [`list_set_container()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_pop()`](https://rundel.github.io/creditor/reference/list.md)
   [`list_clear()`](https://rundel.github.io/creditor/reference/list.md)
   : Edit lists
 - [`loro_doc()`](https://rundel.github.io/creditor/reference/loro_doc.md)
   : Create a Loro document
+- [`loro_text()`](https://rundel.github.io/creditor/reference/loro_text.md)
+  [`loro_map()`](https://rundel.github.io/creditor/reference/loro_text.md)
+  [`loro_list()`](https://rundel.github.io/creditor/reference/loro_text.md)
+  [`loro_movable_list()`](https://rundel.github.io/creditor/reference/loro_text.md)
+  [`loro_counter()`](https://rundel.github.io/creditor/reference/loro_text.md)
+  [`loro_tree()`](https://rundel.github.io/creditor/reference/loro_text.md)
+  : Create containers
 - [`map_set()`](https://rundel.github.io/creditor/reference/map.md)
-  [`map_set_container()`](https://rundel.github.io/creditor/reference/map.md)
   [`map_ensure_container()`](https://rundel.github.io/creditor/reference/map.md)
   [`map_get()`](https://rundel.github.io/creditor/reference/map.md)
   [`map_has()`](https://rundel.github.io/creditor/reference/map.md)
