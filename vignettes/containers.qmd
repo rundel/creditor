@@ -59,13 +59,14 @@ Concurrent edits to different parts of a text are all kept. Here one replica cha
 ```{r}
 a = loro_doc(peer_id = 1) |>
   text_insert(1, "The quick fox jumps")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 text_replace(a, 1, 3, "A")
 text_insert(b, 20, " over the dog")
 
 sync(a, b) |>
   text_get()
+
 text_get(b)
 ```
 
@@ -74,7 +75,7 @@ When you have the new contents as a whole string, for example from an editor wid
 ```{r}
 a = loro_doc(peer_id = 1) |>
   text_insert(1, "Meeting at noon on Tuesday")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 text_update(a, "Meeting at 12:30 on Tuesday")
 text_update(b, "Meeting at noon on Wednesday")
@@ -101,7 +102,7 @@ Marks merge with concurrent edits. If one replica makes a phrase bold while anot
 ```{r}
 a = loro_doc(peer_id = 1) |>
   text_insert(1, "Hello world")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 text_mark(a, 1, 5, bold = TRUE)
 text_insert(b, 3, "XX")
@@ -132,7 +133,9 @@ settings = doc_map(doc, "settings") |>
   map_set(theme = "dark", font_size = 12L, recent = c("a.qmd", "b.qmd"))
 
 map_keys(settings)
+
 map_get(settings, "theme")
+
 settings |>
   container_value() |>
   str()
@@ -142,8 +145,10 @@ A map handle also answers to the functions that work on a named list, so the sam
 
 ```{r}
 settings$theme
+
 settings$theme = "light"
 names(settings)
+
 str(as.list(settings))
 ```
 
@@ -154,7 +159,7 @@ Concurrent writes to different keys are both kept. Concurrent writes to the same
 ```{r}
 a = loro_doc(peer_id = 1) |>
   map_set(theme = "light")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 map_set(a, theme = "dark", font_size = 12L)
 map_set(b, theme = "sepia", line_numbers = TRUE)
@@ -163,6 +168,7 @@ sync(a, b) |>
   doc_map() |>
   as.list() |>
   str()
+
 identical(doc_value(a), doc_value(b))
 ```
 
@@ -187,7 +193,7 @@ Concurrent insertions are all kept, even at the same position. Their relative or
 ```{r}
 a = loro_doc(peer_id = 1) |>
   list_push("milk")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 list_push(a, "eggs")
 list_push(b, "bread")
@@ -203,7 +209,7 @@ A plain list has no way to move or replace an element. You can imitate a move by
 ```{r}
 a = loro_doc(peer_id = 1) |>
   list_push("write", "test", "ship")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 move_by_copy = function(list, from, to) {
   value = list_get(list, from)
@@ -242,7 +248,7 @@ Repeating the concurrent move from the previous section with a movable list leav
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks") |>
   list_push("write", "test", "ship")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 list_move(tasks, 3, 1)
 doc_movable_list(b, "tasks") |>
@@ -260,7 +266,7 @@ A move and an edit to the same element also combine: if one replica reorders a t
 a = loro_doc(peer_id = 1)
 tasks = doc_movable_list(a, "tasks") |>
   list_push("write", "test", "ship")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 list_move(tasks, 1, 3)
 doc_movable_list(b, "tasks") |>
@@ -280,7 +286,7 @@ A counter holds a number that is changed by adding to it. Concurrent increments 
 
 ```{r}
 a = loro_doc(peer_id = 1)
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 counter_increment(a, 3)
 b |>
@@ -296,7 +302,7 @@ Compare that with keeping the count as a number in a map. Each replica reads the
 ```{r}
 a = loro_doc(peer_id = 1) |>
   map_set(votes = 0)
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 add_votes = function(doc, n) {
   map_set(doc, votes = map_get(doc, "votes") + n)
@@ -355,13 +361,14 @@ The hard case for a tree is two replicas making moves that are each valid alone 
 a = loro_doc(peer_id = 1)
 intro = add_section(a, "Introduction")
 methods = add_section(a, "Methods")
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 tree_move(a, methods, parent = intro)
 tree_move(b, intro, parent = methods)
 
 sync(a, b) |>
   show_outline()
+
 identical(tree_nodes(a), tree_nodes(b))
 ```
 
@@ -411,9 +418,11 @@ Reading a child container back gives a handle, so nested structures can be navig
 
 ```{r}
 class(map_get(note, "body"))[1]
+
 note |>
   map_get("body") |>
   text_get()
+
 doc_get(doc, "note", "todo", 1, "label")
 ```
 
@@ -425,7 +434,7 @@ a = loro_doc(peer_id = 1) |>
     plain = list(label = "Book hotel", done = FALSE),
     child = loro_map(label = "Book hotel", done = FALSE)
   )
-b = replica(a, 2)
+b = replica(a, peer_id = 2)
 
 map_set(a, plain = list(label = "Book hotel", done = TRUE))
 doc_map(a)$child |>

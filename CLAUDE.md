@@ -73,6 +73,6 @@ R package that wraps the [`loro`](https://github.com/loro-dev/loro) Rust crate t
 
 ## Style
 
-- R: use `=` for assignment, `pkg::fn` over imports, minimize single-line comments. In examples, the README, and vignettes, chain edits with the native pipe (`|>`), one step per line, but only when there are at least two steps: a single call on a variable is a plain call (`text_push(a, "x")`, not `a |> text_push("x")`).
+- R: use `=` for assignment, `pkg::fn` over imports, minimize single-line comments. In examples, the README, and vignettes, chain edits with the native pipe (`|>`), one step per line, but only when there are at least two steps: a single call on a variable is a plain call (`text_push(a, "x")`, not `a |> text_push("x")`). Within a chunk, leave a blank line after any code that prints output before the next code, so each result sits visibly with the code that produced it.
 - Rust: standard rustfmt; no decorative comments.
 - Commit messages: one short imperative line, no attribution trailers.
