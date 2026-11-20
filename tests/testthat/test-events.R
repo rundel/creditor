@@ -187,3 +187,26 @@ test_that("subscription arguments are validated", {
   expect_error(doc_subscribe(doc, identity, container = "m"), "container")
   expect_error(doc_subscribe_local_updates(doc, NULL), "callback")
 })
+
+test_that("a commit origin reaches subscribers but not history", {
+  a = loro_doc(peer_id = 1)
+  b = loro_doc(peer_id = 2)
+  seen = collector()
+  remote = collector()
+  sub_a = doc_subscribe(a, seen$add)
+  sub_b = doc_subscribe(b, remote$add)
+  on.exit({
+    unsubscribe(sub_a)
+    unsubscribe(sub_b)
+  })
+
+  text_insert(doc_text(a), 1, "a")
+  doc_commit(a, origin = "import-script")
+  text_insert(doc_text(a), 1, "b")
+  doc_commit(a)
+  expect_identical(vapply(seen$get(), `[[`, "", "origin"), c("import-script", ""))
+
+  doc_import(b, doc_export(a))
+  expect_identical(remote$get()[[1]]$origin, "")
+  expect_error(doc_commit(a, origin = 1), "origin")
+})

@@ -4,6 +4,13 @@
 \alias{history}
 \alias{doc_frontiers}
 \alias{doc_changes}
+\alias{doc_change}
+\alias{doc_change_count}
+\alias{doc_op_count}
+\alias{doc_changed_containers}
+\alias{doc_frontiers_to_version}
+\alias{doc_version_to_frontiers}
+\alias{doc_compare_frontiers}
 \alias{doc_checkout}
 \alias{doc_is_detached}
 \alias{doc_revert_to}
@@ -15,6 +22,20 @@
 doc_frontiers(doc)
 
 doc_changes(doc)
+
+doc_change(doc, peer, counter)
+
+doc_change_count(doc)
+
+doc_op_count(doc)
+
+doc_changed_containers(doc, changes)
+
+doc_frontiers_to_version(doc, frontiers)
+
+doc_version_to_frontiers(doc, version)
+
+doc_compare_frontiers(doc, from, to)
 
 doc_checkout(doc, frontiers = NULL)
 
@@ -31,8 +52,16 @@ doc_record_timestamps(doc, record = TRUE)
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
 
+\item{peer, counter}{The id of an operation: a peer id string and an
+operation counter.}
+
+\item{changes}{A data frame of changes, such as rows of
+\code{doc_changes()}.}
+
 \item{frontiers, from, to}{A version: a raw vector from
 \code{doc_frontiers()} or the \code{frontiers} column of \code{doc_changes()}.}
+
+\item{version}{A version vector from \code{\link[=doc_version]{doc_version()}}.}
 
 \item{source}{The \code{\link{loro_doc}} whose history \code{from} and \code{to} refer
 to.}
@@ -40,7 +69,11 @@ to.}
 \item{record}{Whether to record timestamps.}
 }
 \value{
-\code{doc_frontiers()} returns a raw vector, \code{doc_changes()} a
+\code{doc_frontiers()}, \code{doc_frontiers_to_version()}, and
+\code{doc_version_to_frontiers()} return raw vectors.
+\code{doc_compare_frontiers()} returns an integer, \code{doc_change_count()}
+and \code{doc_op_count()} integers, and \code{doc_changed_containers()} a
+character vector. \code{doc_changes()} and \code{doc_change()} return a
 data frame, \code{doc_is_detached()} a logical, and \code{doc_diff()} a named
 list. \code{doc_checkout()}, \code{doc_revert_to()},
 \code{doc_apply_diff()}, and \code{doc_record_timestamps()} return \code{doc}
@@ -54,7 +87,19 @@ inspected, compared, and restored.
 showing, as a raw vector. Unlike the version vector from
 \code{\link[=doc_version]{doc_version()}}, which is meant for synchronization, frontiers
 are a compact name for one point in history.
-\item \code{doc_changes()} returns one row per change in the history.
+\item \code{doc_frontiers_to_version()} and \code{doc_version_to_frontiers()}
+convert between the two kinds of version. For example, converting
+a row of \code{doc_changes()} to a version vector lets \code{\link[=doc_export]{doc_export()}}
+produce the updates made since that change.
+\item \code{doc_compare_frontiers()} orders two versions: \code{-1} if \code{from} is an
+ancestor of \code{to}, \code{1} if it is a descendant, \code{0} if they are the
+same, and \code{NA} if they are concurrent (neither contains the other).
+\item \code{doc_changes()} returns one row per change in the history, and
+\code{doc_change()} the one change containing a given operation.
+\item \code{doc_change_count()} and \code{doc_op_count()} return the number of
+changes and of individual operations in the history.
+\item \code{doc_changed_containers()} returns the ids of the containers
+modified by the given changes.
 \item \code{doc_checkout()} moves the document to an earlier version, or back
 to the latest when \code{frontiers} is \code{NULL}. While checked out at an
 earlier version the document is detached: it is read-only, and

@@ -10,8 +10,14 @@
 #' * `undo()` and `redo()` step backward and forward. They return `TRUE`
 #'   if the document changed.
 #' * `can_undo()` and `can_redo()` report whether a step is available.
+#' * `undo_count()` and `redo_count()` return the number of steps
+#'   available.
 #' * `undo_group()` evaluates `code` and records all the changes it
 #'   makes as a single undo step.
+#' * `undo_pause()` stops recording local edits as undo steps until
+#'   `undo_resume()`; `undo_is_paused()` reports the state. Edits made
+#'   while paused cannot be undone.
+#' * `undo_clear()` discards all undo and redo steps.
 #'
 #' Checking out another version with [`doc_checkout()`] clears the undo
 #' and redo history.
@@ -25,11 +31,17 @@
 #'   the previous one join its undo step. The default, `0`, keeps every
 #'   commit separate.
 #' @param max_steps Maximum number of undo steps to keep.
+#' @param exclude_origins A character vector of origin prefixes. Commits
+#'   whose `origin` (see [`doc_commit()`]) starts with one of them are
+#'   not recorded as undo steps.
 #' @param manager An undo manager from `doc_undo_manager()`.
 #' @param code Code that edits the document.
 #'
 #' @return `doc_undo_manager()` returns an undo manager. `undo()`,
-#'   `redo()`, `can_undo()`, and `can_redo()` return a logical.
+#'   `redo()`, `can_undo()`, `can_redo()`, and `undo_is_paused()` return
+#'   a logical, and `undo_count()` and `redo_count()` an integer.
+#'   `undo_pause()`, `undo_resume()`, and `undo_clear()` return
+#'   `manager` invisibly.
 #'   `undo_group()` returns the value of `code`.
 #'
 #' @examples
@@ -68,11 +80,71 @@ check_manager = function(manager, call = sys.call(-1)) {
 
 #' @rdname undo
 #' @export
-doc_undo_manager = function(doc, merge_interval = 0, max_steps = 100) {
+doc_undo_manager = function(
+  doc,
+  merge_interval = 0,
+  max_steps = 100,
+  exclude_origins = character()
+) {
   check_doc(doc)
   merge_interval = check_count(merge_interval, "merge_interval", 0)
   max_steps = check_count(max_steps, "max_steps", 1)
-  loro_undo_manager(ptr = loro_undo_new_impl(doc@ptr, as.numeric(merge_interval), max_steps))
+  if (!is.character(exclude_origins) || anyNA(exclude_origins) || any(exclude_origins == "")) {
+    cli::cli_abort("{.arg exclude_origins} must be a character vector of non-empty strings.")
+  }
+  loro_undo_manager(
+    ptr = loro_undo_new_impl(
+      doc@ptr,
+      as.numeric(merge_interval),
+      max_steps,
+      enc2utf8(exclude_origins)
+    )
+  )
+}
+
+#' @rdname undo
+#' @export
+undo_count = function(manager) {
+  check_manager(manager)
+  loro_undo_counts_impl(manager@ptr)[1]
+}
+
+#' @rdname undo
+#' @export
+redo_count = function(manager) {
+  check_manager(manager)
+  loro_undo_counts_impl(manager@ptr)[2]
+}
+
+#' @rdname undo
+#' @export
+undo_pause = function(manager) {
+  check_manager(manager)
+  loro_undo_pause_impl(manager@ptr, TRUE)
+  invisible(manager)
+}
+
+#' @rdname undo
+#' @export
+undo_resume = function(manager) {
+  check_manager(manager)
+  loro_undo_pause_impl(manager@ptr, FALSE)
+  invisible(manager)
+}
+
+#' @rdname undo
+#' @export
+undo_is_paused = function(manager) {
+  check_manager(manager)
+  loro_undo_is_paused_impl(manager@ptr)
+}
+
+#' @rdname undo
+#' @export
+undo_clear = function(manager) {
+  check_manager(manager)
+  loro_undo_clear_impl(manager@ptr)
+  invisible(manager)
 }
 
 #' @rdname undo

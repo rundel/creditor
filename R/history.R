@@ -8,7 +8,19 @@
 #'   showing, as a raw vector. Unlike the version vector from
 #'   [`doc_version()`], which is meant for synchronization, frontiers
 #'   are a compact name for one point in history.
-#' * `doc_changes()` returns one row per change in the history.
+#' * `doc_frontiers_to_version()` and `doc_version_to_frontiers()`
+#'   convert between the two kinds of version. For example, converting
+#'   a row of `doc_changes()` to a version vector lets [`doc_export()`]
+#'   produce the updates made since that change.
+#' * `doc_compare_frontiers()` orders two versions: `-1` if `from` is an
+#'   ancestor of `to`, `1` if it is a descendant, `0` if they are the
+#'   same, and `NA` if they are concurrent (neither contains the other).
+#' * `doc_changes()` returns one row per change in the history, and
+#'   `doc_change()` the one change containing a given operation.
+#' * `doc_change_count()` and `doc_op_count()` return the number of
+#'   changes and of individual operations in the history.
+#' * `doc_changed_containers()` returns the ids of the containers
+#'   modified by the given changes.
 #' * `doc_checkout()` moves the document to an earlier version, or back
 #'   to the latest when `frontiers` is `NULL`. While checked out at an
 #'   earlier version the document is detached: it is read-only, and
@@ -68,10 +80,19 @@
 #' @param frontiers,from,to A version: a raw vector from
 #'   `doc_frontiers()` or the `frontiers` column of `doc_changes()`.
 #' @param record Whether to record timestamps.
+#' @param version A version vector from [`doc_version()`].
+#' @param peer,counter The id of an operation: a peer id string and an
+#'   operation counter.
+#' @param changes A data frame of changes, such as rows of
+#'   `doc_changes()`.
 #' @param source The [`loro_doc`] whose history `from` and `to` refer
 #'   to.
 #'
-#' @return `doc_frontiers()` returns a raw vector, `doc_changes()` a
+#' @return `doc_frontiers()`, `doc_frontiers_to_version()`, and
+#'   `doc_version_to_frontiers()` return raw vectors.
+#'   `doc_compare_frontiers()` returns an integer, `doc_change_count()`
+#'   and `doc_op_count()` integers, and `doc_changed_containers()` a
+#'   character vector. `doc_changes()` and `doc_change()` return a
 #'   data frame, `doc_is_detached()` a logical, and `doc_diff()` a named
 #'   list. `doc_checkout()`, `doc_revert_to()`,
 #'   `doc_apply_diff()`, and `doc_record_timestamps()` return `doc`
@@ -123,7 +144,10 @@ doc_frontiers = function(doc) {
 #' @export
 doc_changes = function(doc) {
   check_doc(doc)
-  changes = loro_doc_changes_impl(doc@ptr)
+  changes_frame(loro_doc_changes_impl(doc@ptr))
+}
+
+changes_frame = function(changes) {
   timestamp = changes$timestamp
   timestamp[timestamp == 0] = NA
   out = data.frame(
@@ -136,6 +160,84 @@ doc_changes = function(doc) {
   )
   out$frontiers = changes$frontiers
   out
+}
+
+check_peer = function(peer, call = sys.call(-1)) {
+  if (!is.character(peer) || length(peer) != 1 || is.na(peer) || !grepl("^[0-9]+$", peer)) {
+    cli::cli_abort("{.arg peer} must be a peer id: a string of digits.", call = call)
+  }
+  peer
+}
+
+#' @rdname history
+#' @export
+doc_change = function(doc, peer, counter) {
+  check_doc(doc)
+  peer = check_peer(peer)
+  counter = check_count(counter, "counter", 0)
+  changes_frame(loro_doc_change_impl(doc@ptr, peer, counter))
+}
+
+#' @rdname history
+#' @export
+doc_change_count = function(doc) {
+  check_doc(doc)
+  loro_doc_counts_impl(doc@ptr)[2]
+}
+
+#' @rdname history
+#' @export
+doc_op_count = function(doc) {
+  check_doc(doc)
+  loro_doc_counts_impl(doc@ptr)[1]
+}
+
+#' @rdname history
+#' @export
+doc_changed_containers = function(doc, changes) {
+  check_doc(doc)
+  if (!is.data.frame(changes) || !all(c("peer", "counter", "length") %in% names(changes))) {
+    cli::cli_abort(
+      "{.arg changes} must be a data frame with columns {.field peer}, {.field counter}, and {.field length}."
+    )
+  }
+  ids = character()
+  for (i in seq_len(nrow(changes))) {
+    ids = c(ids, loro_doc_changed_containers_impl(
+      doc@ptr,
+      as.character(changes$peer[i]),
+      as.integer(changes$counter[i]),
+      as.integer(changes$length[i])
+    ))
+  }
+  sort(unique(ids))
+}
+
+#' @rdname history
+#' @export
+doc_frontiers_to_version = function(doc, frontiers) {
+  check_doc(doc)
+  check_frontiers(frontiers, "frontiers")
+  loro_doc_frontiers_to_version_impl(doc@ptr, frontiers)
+}
+
+#' @rdname history
+#' @export
+doc_version_to_frontiers = function(doc, version) {
+  check_doc(doc)
+  if (!is.raw(version)) {
+    cli::cli_abort("{.arg version} must be a raw vector from {.fn doc_version}.")
+  }
+  loro_doc_version_to_frontiers_impl(doc@ptr, version)
+}
+
+#' @rdname history
+#' @export
+doc_compare_frontiers = function(doc, from, to) {
+  check_doc(doc)
+  check_frontiers(from, "from")
+  check_frontiers(to, "to")
+  loro_doc_compare_frontiers_impl(doc@ptr, from, to)
 }
 
 #' @rdname history

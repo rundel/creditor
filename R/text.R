@@ -97,7 +97,7 @@ text_slice = function(text, pos, len) {
 #' @export
 text_get = function(text) {
   check_container(text, loro_text, "text")
-  loro_container_value_impl(text@ptr)
+  loro_container_value_impl(text@ptr, TRUE)
 }
 
 #' @rdname text

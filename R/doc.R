@@ -72,7 +72,10 @@ check_doc = function(doc, call = sys.call(-1)) {
 #'   was at that version.
 #' * `doc_commit()` commits pending edits as one change, optionally
 #'   labeled with a `message` that is kept in the history and shown by
-#'   [`doc_changes()`]. Edits are also committed implicitly on export,
+#'   [`doc_changes()`]. An `origin` is a label for this commit that is
+#'   not stored or synchronized: it is passed to subscribers on this
+#'   replica as `event$origin`, so they can tell where a change came
+#'   from, and an undo manager can be told to ignore commits by origin. Edits are also committed implicitly on export,
 #'   import, and checkout.
 #' * `doc_value()` returns the whole document as a named list with one
 #'   element per root container.
@@ -87,6 +90,7 @@ check_doc = function(doc, call = sys.call(-1)) {
 #' @param at A version from [`doc_frontiers()`] to fork at, or `NULL`
 #'   for the current version.
 #' @param message A string describing the change, or `NULL`.
+#' @param origin A string labeling the source of the commit, or `NULL`.
 #' @param path A path or JSONPath expression, as a string.
 #'
 #' @return `doc_peer_id()` returns a string, `doc_fork()` a new
@@ -124,12 +128,15 @@ doc_fork = function(doc, at = NULL) {
 
 #' @rdname doc
 #' @export
-doc_commit = function(doc, message = NULL) {
+doc_commit = function(doc, message = NULL, origin = NULL) {
   check_doc(doc)
   if (!is.null(message)) {
     message = check_string(message, "message")
   }
-  loro_doc_commit_impl(doc@ptr, message)
+  if (!is.null(origin)) {
+    origin = check_string(origin, "origin")
+  }
+  loro_doc_commit_impl(doc@ptr, message, origin)
   deliver_events()
   invisible(doc)
 }

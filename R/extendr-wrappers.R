@@ -17,9 +17,10 @@ loro_doc_peer_id_impl <- function(doc) .Call(wrap__loro_doc_peer_id_impl, doc)
 #' @noRd
 loro_doc_set_peer_id_impl <- function(doc, peer_id) .Call(wrap__loro_doc_set_peer_id_impl, doc, peer_id)
 
-#' Commit the pending transaction, optionally with a message.
+#' Commit the pending transaction, optionally with a message kept in
+#' history and an origin label passed to subscribers.
 #' @noRd
-loro_doc_commit_impl <- function(doc, message) .Call(wrap__loro_doc_commit_impl, doc, message)
+loro_doc_commit_impl <- function(doc, message, origin) .Call(wrap__loro_doc_commit_impl, doc, message, origin)
 
 #' Fork a document into an independent replica with a new peer id,
 #' optionally at an earlier version given as encoded frontiers.
@@ -142,9 +143,54 @@ loro_doc_container_impl <- function(doc, name, kind) .Call(wrap__loro_doc_contai
 #' @noRd
 loro_container_id_impl <- function(container) .Call(wrap__loro_container_id_impl, container)
 
-#' Deep value of a container.
+#' Contents of a container; child containers are expanded when `deep`
+#' and given by id otherwise.
 #' @noRd
-loro_container_value_impl <- function(container) .Call(wrap__loro_container_value_impl, container)
+loro_container_value_impl <- function(container, deep) .Call(wrap__loro_container_value_impl, container, deep)
+
+#' Whether the container has been removed from its document.
+#' @noRd
+loro_container_is_deleted_impl <- function(container) .Call(wrap__loro_container_is_deleted_impl, container)
+
+#' Version vector equivalent of encoded frontiers.
+#' @noRd
+loro_doc_frontiers_to_version_impl <- function(doc, frontiers) .Call(wrap__loro_doc_frontiers_to_version_impl, doc, frontiers)
+
+#' Frontiers equivalent of an encoded version vector.
+#' @noRd
+loro_doc_version_to_frontiers_impl <- function(doc, version) .Call(wrap__loro_doc_version_to_frontiers_impl, doc, version)
+
+#' Order of two versions: -1, 0, or 1, or `NA` when they are concurrent.
+#' @noRd
+loro_doc_compare_frontiers_impl <- function(doc, a, b) .Call(wrap__loro_doc_compare_frontiers_impl, doc, a, b)
+
+#' Number of operations and of changes in the document's history.
+#' @noRd
+loro_doc_counts_impl <- function(doc) .Call(wrap__loro_doc_counts_impl, doc)
+
+#' Metadata of the change containing the operation `counter@peer`.
+#' @noRd
+loro_doc_change_impl <- function(doc, peer, counter) .Call(wrap__loro_doc_change_impl, doc, peer, counter)
+
+#' Ids of the containers changed by `length` operations from `counter@peer`.
+#' @noRd
+loro_doc_changed_containers_impl <- function(doc, peer, counter, length) .Call(wrap__loro_doc_changed_containers_impl, doc, peer, counter, length)
+
+#' Encoded cursor anchored at a 0-based list position.
+#' @noRd
+loro_list_cursor_impl <- function(list, pos, side) .Call(wrap__loro_list_cursor_impl, list, pos, side)
+
+#' Empty the undo and redo stacks.
+#' @noRd
+loro_undo_clear_impl <- function(manager) .Call(wrap__loro_undo_clear_impl, manager)
+
+#' Pause (`TRUE`) or resume (`FALSE`) recording of local edits.
+#' @noRd
+loro_undo_pause_impl <- function(manager, pause) .Call(wrap__loro_undo_pause_impl, manager, pause)
+
+#' Whether recording is paused.
+#' @noRd
+loro_undo_is_paused_impl <- function(manager) .Call(wrap__loro_undo_is_paused_impl, manager)
 
 #' Insert `value` at a 0-based Unicode code point position.
 #' @noRd
@@ -216,7 +262,7 @@ loro_subscription_cancel_impl <- function(subscription) .Call(wrap__loro_subscri
 
 #' Create an undo manager tracking local changes to `doc`.
 #' @noRd
-loro_undo_new_impl <- function(doc, merge_interval, max_steps) .Call(wrap__loro_undo_new_impl, doc, merge_interval, max_steps)
+loro_undo_new_impl <- function(doc, merge_interval, max_steps, exclude_origins) .Call(wrap__loro_undo_new_impl, doc, merge_interval, max_steps, exclude_origins)
 
 #' Undo one step; returns whether anything changed.
 #' @noRd

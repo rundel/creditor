@@ -14,7 +14,7 @@ doc_peer_id(doc)
 
 doc_fork(doc, at = NULL)
 
-doc_commit(doc, message = NULL)
+doc_commit(doc, message = NULL, origin = NULL)
 
 doc_value(doc)
 
@@ -29,6 +29,8 @@ doc_jsonpath(doc, path)
 for the current version.}
 
 \item{message}{A string describing the change, or \code{NULL}.}
+
+\item{origin}{A string labeling the source of the commit, or \code{NULL}.}
 
 \item{path}{A path or JSONPath expression, as a string.}
 }
@@ -46,7 +48,10 @@ and a new peer id. With \code{at}, the replica holds the document as it
 was at that version.
 \item \code{doc_commit()} commits pending edits as one change, optionally
 labeled with a \code{message} that is kept in the history and shown by
-\code{\link[=doc_changes]{doc_changes()}}. Edits are also committed implicitly on export,
+\code{\link[=doc_changes]{doc_changes()}}. An \code{origin} is a label for this commit that is
+not stored or synchronized: it is passed to subscribers on this
+replica as \code{event$origin}, so they can tell where a change came
+from, and an undo manager can be told to ignore commits by origin. Edits are also committed implicitly on export,
 import, and checkout.
 \item \code{doc_value()} returns the whole document as a named list with one
 element per root container.

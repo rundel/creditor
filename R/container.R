@@ -53,12 +53,17 @@ check_container = function(x, class, arg, call = sys.call(-1)) {
 #' changes the document it belongs to.
 #'
 #' * `container_value()` returns the contents of a container: a string
-#'   for text, a number for a counter, and a list for a map or list,
-#'   with nested containers expanded to their contents.
-#'   A tree is returned in Loro's own nested form, a list of root nodes
-#'   each with `id`, `parent`, `meta`, `children`, a 0-based `index`,
-#'   and a `fractional_index`; [`tree_nodes()`] gives a flat table with
-#'   1-based positions.
+#'   for text, a number for a counter, and a list for a map or list.
+#'   A tree is a list of its root nodes, each a list with `id`, `parent`
+#'   (`NA` at the top level), a 1-based `index`, a `fractional_index`
+#'   (Loro's internal sort key), `meta`, and `children` (a list of nodes
+#'   of the same form). Nested containers are expanded to their contents
+#'   by default; with `deep = FALSE` they appear as container id
+#'   strings.
+#' * `container_is_deleted()` reports whether the container has been
+#'   removed from its document, for example because its key was
+#'   overwritten or its parent deleted. A handle to a deleted container
+#'   can still be read, but editing through it is an error.
 #' * `container_id()` returns the container's unique id as a string.
 #'
 #' Root container names are shared across types within a document's
@@ -67,12 +72,13 @@ check_container = function(x, class, arg, call = sys.call(-1)) {
 #' @param doc A [`loro_doc`].
 #' @param name Name of the root container.
 #' @param x A container handle.
+#' @param deep Whether to expand nested containers.
 #'
 #' @return `doc_text()`, `doc_map()`, `doc_list()`,
 #'   `doc_movable_list()`, `doc_counter()`, and `doc_tree()` return
 #'   container handles; `container_value()` returns a string, number, or
-#'   list; and
-#'   `container_id()` returns a string.
+#'   list; `container_id()` returns a string; and
+#'   `container_is_deleted()` returns a logical.
 #'
 #' @examples
 #' doc = loro_doc()
@@ -136,9 +142,19 @@ doc_tree = function(doc, name = "tree") {
 
 #' @rdname containers
 #' @export
-container_value = function(x) {
+container_value = function(x, deep = TRUE) {
   check_container(x, loro_container, "x")
-  loro_container_value_impl(x@ptr)
+  if (!is.logical(deep) || length(deep) != 1 || is.na(deep)) {
+    cli::cli_abort("{.arg deep} must be {.code TRUE} or {.code FALSE}.")
+  }
+  loro_container_value_impl(x@ptr, deep)
+}
+
+#' @rdname containers
+#' @export
+container_is_deleted = function(x) {
+  check_container(x, loro_container, "x")
+  loro_container_is_deleted_impl(x@ptr)
 }
 
 #' @rdname containers

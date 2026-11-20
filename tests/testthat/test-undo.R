@@ -186,3 +186,70 @@ test_that("the manager prints its step counts", {
   doc_commit(doc)
   expect_match(cli::cli_fmt(print(manager)), "1 undo, 0 redo")
 })
+
+test_that("commits with an excluded origin are not undo steps", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc, exclude_origins = "sys")
+
+  text_insert(text, 1, "u")
+  doc_commit(doc, origin = "user")
+  text_insert(text, 1, "s")
+  doc_commit(doc, origin = "sys:autosave")
+  text_insert(text, 1, "n")
+  doc_commit(doc)
+  expect_identical(undo_count(manager), 2L)
+
+  undo(manager)
+  undo(manager)
+  expect_identical(text_get(text), "s")
+  expect_identical(redo_count(manager), 2L)
+  expect_error(doc_undo_manager(doc, exclude_origins = NA_character_), "exclude_origins")
+  expect_error(doc_undo_manager(doc, exclude_origins = 1), "exclude_origins")
+})
+
+test_that("undo and redo are labeled with the origin undo", {
+  doc = loro_doc()
+  manager = doc_undo_manager(doc)
+  text_insert(doc_text(doc), 1, "a")
+  doc_commit(doc)
+
+  origins = character()
+  sub = doc_subscribe(doc, function(event) origins <<- c(origins, event$origin))
+  on.exit(unsubscribe(sub))
+  undo(manager)
+  redo(manager)
+  expect_identical(origins, c("undo", "undo"))
+})
+
+test_that("steps can be counted, paused, and cleared", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc)
+  expect_identical(c(undo_count(manager), redo_count(manager)), c(0L, 0L))
+  expect_false(undo_is_paused(manager))
+
+  text_insert(text, 1, "a")
+  doc_commit(doc)
+  undo_pause(manager)
+  expect_true(undo_is_paused(manager))
+  text_insert(text, 2, "b")
+  doc_commit(doc)
+  expect_identical(undo_count(manager), 1L)
+
+  undo_resume(manager)
+  expect_false(undo_is_paused(manager))
+  text_insert(text, 3, "c")
+  doc_commit(doc)
+  expect_identical(undo_count(manager), 2L)
+
+  undo(manager)
+  expect_identical(text_get(text), "ab")
+  expect_identical(redo_count(manager), 1L)
+
+  undo_clear(manager)
+  expect_identical(c(undo_count(manager), redo_count(manager)), c(0L, 0L))
+  expect_false(undo(manager))
+  expect_identical(text_get(text), "ab")
+  expect_error(undo_clear("x"), "loro_undo_manager")
+})

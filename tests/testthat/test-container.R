@@ -87,3 +87,40 @@ test_that("containers print their id and contents", {
   expect_match(header[1], "cid:root-text:Text", fixed = TRUE)
   expect_match(contents, "hi")
 })
+
+test_that("a handle reports when its container has been deleted", {
+  doc = loro_doc()
+  map = doc_map(doc, "m")
+  child = map_set_container(map, "c", "text")
+  text_insert(child, 1, "x")
+  expect_false(container_is_deleted(child))
+  expect_false(container_is_deleted(map))
+
+  map_set(map, "c", 1L)
+  expect_true(container_is_deleted(child))
+  expect_identical(text_get(child), "x")
+  expect_error(text_insert(child, 1, "y"), "deleted")
+
+  items = doc_list(doc, "l")
+  nested = list_push_container(items, "map")
+  list_clear(items)
+  expect_true(container_is_deleted(nested))
+  expect_error(container_is_deleted(doc), "loro_container")
+})
+
+test_that("a shallow value shows child containers by id", {
+  doc = loro_doc(peer_id = 1)
+  map = doc_map(doc, "m")
+  map_set(map, "v", 1L)
+  text = map_set_container(map, "t", "text")
+  text_insert(text, 1, "hi")
+  items = doc_list(doc, "l")
+  list_push(items, "a")
+  counter = list_push_container(items, "counter")
+
+  expect_identical(container_value(map, deep = FALSE), list(t = container_id(text), v = 1L))
+  expect_identical(container_value(map), list(t = "hi", v = 1L))
+  expect_identical(container_value(items, deep = FALSE), list("a", container_id(counter)))
+  expect_identical(container_value(text, deep = FALSE), "hi")
+  expect_error(container_value(map, deep = NA), "deep")
+})

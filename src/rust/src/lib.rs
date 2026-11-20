@@ -5,12 +5,13 @@ use std::sync::Arc;
 use loro::awareness::EphemeralStore;
 use loro::cursor::{Cursor, PosType, Side};
 use loro::{
-    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, ImportStatus, JsonSchema,
+    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, ID, ImportStatus, JsonSchema,
     LoroCounter, LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText, LoroTree, StyleConfig,
     StyleConfigMap, TreeID, TreeParentId, UndoManager, UpdateOptions, ValueOrContainer,
     VersionRange, VersionVector,
 };
 
+mod container_value;
 mod delta;
 mod events;
 mod history;
@@ -175,7 +176,7 @@ fn value_or_container_to_r(item: ValueOrContainer) -> Result<Robj> {
         ValueOrContainer::Container(container) if kind_of(&container).is_some() => {
             container_ref(container)
         }
-        other => Ok(value_to_r(&other.get_deep_value())),
+        other => Ok(container_value::item_to_r(&other, true)),
     }
 }
 
@@ -201,12 +202,16 @@ fn loro_doc_set_peer_id_impl(doc: DocPtr, peer_id: &str) -> Result<()> {
     doc.set_peer_id(id).map_err(to_r_error)
 }
 
-/// Commit the pending transaction, optionally with a message.
+/// Commit the pending transaction, optionally with a message kept in
+/// history and an origin label passed to subscribers.
 /// @noRd
 #[extendr]
-fn loro_doc_commit_impl(doc: DocPtr, message: Nullable<String>) {
+fn loro_doc_commit_impl(doc: DocPtr, message: Nullable<String>, origin: Nullable<String>) {
     if let Nullable::NotNull(message) = message {
         doc.set_next_commit_message(&message);
+    }
+    if let Nullable::NotNull(origin) = origin {
+        doc.set_next_commit_origin(&origin);
     }
     doc.commit();
 }
@@ -471,7 +476,7 @@ fn loro_doc_apply_diff_impl(doc: DocPtr, source: DocPtr, from: Raw, to: Raw) -> 
 /// @noRd
 #[extendr]
 fn loro_doc_value_impl(doc: DocPtr) -> Robj {
-    value_to_r(&doc.get_deep_value())
+    container_value::doc_to_r(&doc)
 }
 
 /// Root container of the given `kind`.
@@ -497,19 +502,22 @@ fn loro_container_id_impl(container: ContainerPtr) -> String {
     container.id().to_string()
 }
 
-/// Deep value of a container.
+/// Contents of a container; child containers are expanded when `deep`
+/// and given by id otherwise.
 /// @noRd
 #[extendr]
-fn loro_container_value_impl(container: ContainerPtr) -> Result<Robj> {
-    match &*container {
-        Container::Text(text) => Ok(text.to_string().into()),
-        Container::Map(map) => Ok(value_to_r(&map.get_deep_value())),
-        Container::List(list) => Ok(value_to_r(&list.get_deep_value())),
-        Container::MovableList(list) => Ok(value_to_r(&list.get_deep_value())),
-        Container::Counter(counter) => Ok(counter.get_value().into()),
-        Container::Tree(tree) => Ok(value_to_r(&tree.get_value_with_meta())),
-        _ => Err(Error::Other("unsupported container type".to_string())),
+fn loro_container_value_impl(container: ContainerPtr, deep: bool) -> Result<Robj> {
+    if kind_of(&container).is_none() {
+        return Err(Error::Other("unsupported container type".to_string()));
     }
+    Ok(container_value::container_to_r(&container, deep))
+}
+
+/// Whether the container has been removed from its document.
+/// @noRd
+#[extendr]
+fn loro_container_is_deleted_impl(container: ContainerPtr) -> bool {
+    container.is_deleted()
 }
 
 /// Insert `value` at a 0-based Unicode code point position.
@@ -882,11 +890,44 @@ type UndoPtr = ExternalPtr<UndoManager>;
 /// Create an undo manager tracking local changes to `doc`.
 /// @noRd
 #[extendr]
-fn loro_undo_new_impl(doc: DocPtr, merge_interval: f64, max_steps: i32) -> Result<UndoPtr> {
+fn loro_undo_new_impl(
+    doc: DocPtr,
+    merge_interval: f64,
+    max_steps: i32,
+    exclude_origins: Vec<String>,
+) -> Result<UndoPtr> {
     let mut manager = UndoManager::new(&doc);
     manager.set_merge_interval(merge_interval as i64);
     manager.set_max_undo_steps(to_index(max_steps, "max_steps")?);
+    for prefix in &exclude_origins {
+        manager.add_exclude_origin_prefix(prefix);
+    }
     Ok(ExternalPtr::new(manager))
+}
+
+/// Empty the undo and redo stacks.
+/// @noRd
+#[extendr]
+fn loro_undo_clear_impl(manager: UndoPtr) {
+    manager.clear();
+}
+
+/// Pause (`TRUE`) or resume (`FALSE`) recording of local edits.
+/// @noRd
+#[extendr]
+fn loro_undo_pause_impl(manager: UndoPtr, pause: bool) {
+    if pause {
+        manager.pause();
+    } else {
+        manager.resume();
+    }
+}
+
+/// Whether recording is paused.
+/// @noRd
+#[extendr]
+fn loro_undo_is_paused_impl(manager: UndoPtr) -> bool {
+    manager.is_paused()
 }
 
 /// Undo one step; returns whether anything changed.
@@ -1182,7 +1223,7 @@ fn loro_list_pop_impl(list: ContainerPtr) -> Result<Robj> {
     // Read before deleting: `LoroList::pop` returns a child container as
     // a bare id, after which its contents can no longer be read.
     let value = match with_list!(list, |l| l.get(len - 1)) {
-        Some(item) => value_to_r(&item.get_deep_value()),
+        Some(item) => container_value::item_to_r(&item, true),
         None => ().into(),
     };
     with_list!(list, |l| l.delete(len - 1, 1).map_err(to_r_error))?;
@@ -1194,6 +1235,107 @@ fn loro_list_pop_impl(list: ContainerPtr) -> Result<Robj> {
 #[extendr]
 fn loro_list_clear_impl(list: ContainerPtr) -> Result<()> {
     with_list!(list, |l| l.clear().map_err(to_r_error))
+}
+
+/// Version vector equivalent of encoded frontiers.
+/// @noRd
+#[extendr]
+fn loro_doc_frontiers_to_version_impl(doc: DocPtr, frontiers: Raw) -> Result<Raw> {
+    match doc.frontiers_to_vv(&to_frontiers(&frontiers)?) {
+        Some(vv) => Ok(Raw::from_bytes(&vv.encode())),
+        None => Err(Error::Other(
+            "frontiers are not part of this document's history".to_string(),
+        )),
+    }
+}
+
+/// Frontiers equivalent of an encoded version vector.
+/// @noRd
+#[extendr]
+fn loro_doc_version_to_frontiers_impl(doc: DocPtr, version: Raw) -> Result<Raw> {
+    let vv = VersionVector::decode(version.as_slice()).map_err(to_r_error)?;
+    Ok(Raw::from_bytes(&doc.vv_to_frontiers(&vv).encode()))
+}
+
+/// Order of two versions: -1, 0, or 1, or `NA` when they are concurrent.
+/// @noRd
+#[extendr]
+fn loro_doc_compare_frontiers_impl(doc: DocPtr, a: Raw, b: Raw) -> Result<Rint> {
+    let order = doc
+        .cmp_frontiers(&to_frontiers(&a)?, &to_frontiers(&b)?)
+        .map_err(to_r_error)?;
+    Ok(match order {
+        Some(std::cmp::Ordering::Less) => Rint::from(-1),
+        Some(std::cmp::Ordering::Equal) => Rint::from(0),
+        Some(std::cmp::Ordering::Greater) => Rint::from(1),
+        None => Rint::na(),
+    })
+}
+
+/// Number of operations and of changes in the document's history.
+/// @noRd
+#[extendr]
+fn loro_doc_counts_impl(doc: DocPtr) -> Vec<i32> {
+    vec![doc.len_ops() as i32, doc.len_changes() as i32]
+}
+
+fn to_id(peer: &str, counter: i32) -> Result<ID> {
+    let peer: u64 = peer
+        .parse()
+        .map_err(|_| Error::Other(format!("not a valid peer id: {peer}")))?;
+    Ok(ID::new(peer, counter))
+}
+
+/// Metadata of the change containing the operation `counter@peer`.
+/// @noRd
+#[extendr]
+fn loro_doc_change_impl(doc: DocPtr, peer: &str, counter: i32) -> Result<Robj> {
+    match doc.get_change(to_id(peer, counter)?) {
+        Some(change) => Ok(history::change_metas_to_r(&[change])),
+        None => Err(Error::Other(
+            "no change contains that operation".to_string(),
+        )),
+    }
+}
+
+/// Ids of the containers changed by `length` operations from `counter@peer`.
+/// @noRd
+#[extendr]
+fn loro_doc_changed_containers_impl(
+    doc: DocPtr,
+    peer: &str,
+    counter: i32,
+    length: i32,
+) -> Result<Vec<String>> {
+    let id = to_id(peer, counter)?;
+    if doc.get_change(id).is_none() {
+        return Err(Error::Other(
+            "no change contains that operation".to_string(),
+        ));
+    }
+    let mut ids: Vec<String> = doc
+        .get_changed_containers_in(id, to_index(length, "length")?)
+        .iter()
+        .map(|id| id.to_string())
+        .collect();
+    ids.sort();
+    Ok(ids)
+}
+
+/// Encoded cursor anchored at a 0-based list position.
+/// @noRd
+#[extendr]
+fn loro_list_cursor_impl(list: ContainerPtr, pos: i32, side: i32) -> Result<Raw> {
+    let pos = to_index(pos, "pos")?;
+    let Some(side) = Side::from_i32(side) else {
+        return Err(Error::Other("side must be -1, 0, or 1".to_string()));
+    };
+    match with_list!(list, |l| l.get_cursor(pos, side)) {
+        Some(cursor) => Ok(Raw::from_bytes(&cursor.encode())),
+        None => Err(Error::Other(
+            "cannot create a cursor at this position".to_string(),
+        )),
+    }
 }
 
 extendr_module! {
@@ -1232,6 +1374,17 @@ extendr_module! {
     fn loro_doc_container_impl;
     fn loro_container_id_impl;
     fn loro_container_value_impl;
+    fn loro_container_is_deleted_impl;
+    fn loro_doc_frontiers_to_version_impl;
+    fn loro_doc_version_to_frontiers_impl;
+    fn loro_doc_compare_frontiers_impl;
+    fn loro_doc_counts_impl;
+    fn loro_doc_change_impl;
+    fn loro_doc_changed_containers_impl;
+    fn loro_list_cursor_impl;
+    fn loro_undo_clear_impl;
+    fn loro_undo_pause_impl;
+    fn loro_undo_is_paused_impl;
     fn loro_text_insert_impl;
     fn loro_text_delete_impl;
     fn loro_text_length_impl;

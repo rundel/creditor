@@ -3,13 +3,36 @@
 \name{undo}
 \alias{undo}
 \alias{doc_undo_manager}
+\alias{undo_count}
+\alias{redo_count}
+\alias{undo_pause}
+\alias{undo_resume}
+\alias{undo_is_paused}
+\alias{undo_clear}
 \alias{redo}
 \alias{can_undo}
 \alias{can_redo}
 \alias{undo_group}
 \title{Undo and redo}
 \usage{
-doc_undo_manager(doc, merge_interval = 0, max_steps = 100)
+doc_undo_manager(
+  doc,
+  merge_interval = 0,
+  max_steps = 100,
+  exclude_origins = character()
+)
+
+undo_count(manager)
+
+redo_count(manager)
+
+undo_pause(manager)
+
+undo_resume(manager)
+
+undo_is_paused(manager)
+
+undo_clear(manager)
 
 undo(manager)
 
@@ -30,13 +53,20 @@ commit separate.}
 
 \item{max_steps}{Maximum number of undo steps to keep.}
 
+\item{exclude_origins}{A character vector of origin prefixes. Commits
+whose \code{origin} (see \code{\link[=doc_commit]{doc_commit()}}) starts with one of them are
+not recorded as undo steps.}
+
 \item{manager}{An undo manager from \code{doc_undo_manager()}.}
 
 \item{code}{Code that edits the document.}
 }
 \value{
 \code{doc_undo_manager()} returns an undo manager. \code{undo()},
-\code{redo()}, \code{can_undo()}, and \code{can_redo()} return a logical.
+\code{redo()}, \code{can_undo()}, \code{can_redo()}, and \code{undo_is_paused()} return
+a logical, and \code{undo_count()} and \code{redo_count()} an integer.
+\code{undo_pause()}, \code{undo_resume()}, and \code{undo_clear()} return
+\code{manager} invisibly.
 \code{undo_group()} returns the value of \code{code}.
 }
 \description{
@@ -49,8 +79,14 @@ edits, adjusted for whatever others have done since.
 \item \code{undo()} and \code{redo()} step backward and forward. They return \code{TRUE}
 if the document changed.
 \item \code{can_undo()} and \code{can_redo()} report whether a step is available.
+\item \code{undo_count()} and \code{redo_count()} return the number of steps
+available.
 \item \code{undo_group()} evaluates \code{code} and records all the changes it
 makes as a single undo step.
+\item \code{undo_pause()} stops recording local edits as undo steps until
+\code{undo_resume()}; \code{undo_is_paused()} reports the state. Edits made
+while paused cannot be undone.
+\item \code{undo_clear()} discards all undo and redo steps.
 }
 
 Checking out another version with \code{\link[=doc_checkout]{doc_checkout()}} clears the undo

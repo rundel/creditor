@@ -208,3 +208,80 @@ test_that("commit messages are validated", {
   doc = loro_doc()
   expect_error(doc_commit(doc, 1), "message")
 })
+
+test_that("frontiers and version vectors convert both ways", {
+  doc = loro_doc(peer_id = 1)
+  text_insert(doc_text(doc), 1, "a")
+  doc_commit(doc, "one")
+  frontiers = doc_frontiers(doc)
+  version = doc_version(doc)
+  text_insert(doc_text(doc), 2, "b")
+  doc_commit(doc, "two")
+
+  expect_identical(doc_frontiers_to_version(doc, frontiers), version)
+  expect_identical(doc_version_to_frontiers(doc, version), frontiers)
+
+  since_first = doc_frontiers_to_version(doc, doc_changes(doc)$frontiers[[1]])
+  updates = doc_export(doc, "updates", from = since_first)
+  expect_identical(blob_metadata(updates)$changes, 1L)
+
+  other = loro_doc(peer_id = 9)
+  text_insert(doc_text(other), 1, "z")
+  expect_error(doc_frontiers_to_version(doc, doc_frontiers(other)), "not part")
+  expect_error(doc_frontiers_to_version(doc, "x"), "frontiers")
+  expect_error(doc_version_to_frontiers(doc, "x"), "version")
+})
+
+test_that("versions can be ordered", {
+  h = history_doc()
+  expect_identical(doc_compare_frontiers(h$doc, h$v1, h$v2), -1L)
+  expect_identical(doc_compare_frontiers(h$doc, h$v2, h$v1), 1L)
+  expect_identical(doc_compare_frontiers(h$doc, h$v1, h$v1), 0L)
+
+  branch = doc_fork(h$doc, at = h$v1)
+  text_insert(doc_text(branch), 1, "B")
+  side = doc_frontiers(branch)
+  doc_import(h$doc, doc_export(branch, "updates"))
+  expect_identical(doc_compare_frontiers(h$doc, h$v2, side), NA_integer_)
+  expect_identical(doc_compare_frontiers(h$doc, h$v1, side), -1L)
+
+  stranger = loro_doc(peer_id = 9)
+  text_insert(doc_text(stranger), 1, "z")
+  expect_error(doc_compare_frontiers(h$doc, h$v1, doc_frontiers(stranger)), "not included")
+})
+
+test_that("history can be counted and looked up", {
+  h = history_doc()
+  expect_identical(doc_change_count(h$doc), 2L)
+  expect_identical(doc_op_count(h$doc), 11L)
+  expect_identical(doc_change_count(loro_doc()), 0L)
+
+  changes = doc_changes(h$doc)
+  expect_identical(doc_change(h$doc, "1", 0), changes[1, ])
+  expect_identical(doc_change(h$doc, "1", 3)$message, "greeting")
+  second = doc_change(h$doc, "1", 7)
+  expect_identical(second$message, "audience")
+  expect_identical(second$frontiers, list(h$v2))
+
+  expect_error(doc_change(h$doc, "1", 999), "no change")
+  expect_error(doc_change(h$doc, "77", 0), "no change")
+  expect_error(doc_change(h$doc, 1, 0), "peer")
+  expect_error(doc_change(h$doc, "1", -1), "counter")
+})
+
+test_that("the containers touched by changes are reported", {
+  h = history_doc()
+  map_set(doc_map(h$doc, "m"), "k", 1L)
+  doc_commit(h$doc, "map")
+  changes = doc_changes(h$doc)
+
+  expect_identical(doc_changed_containers(h$doc, changes[1, ]), "cid:root-text:Text")
+  expect_identical(doc_changed_containers(h$doc, changes[3, ]), "cid:root-m:Map")
+  expect_identical(
+    doc_changed_containers(h$doc, changes),
+    c("cid:root-m:Map", "cid:root-text:Text")
+  )
+  expect_identical(doc_changed_containers(h$doc, changes[0, ]), character())
+  expect_error(doc_changed_containers(h$doc, "x"), "data frame")
+  expect_error(doc_changed_containers(h$doc, data.frame(peer = "1")), "columns")
+})

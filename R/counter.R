@@ -42,5 +42,5 @@ counter_increment = function(counter, by = 1) {
 #' @export
 counter_get = function(counter) {
   check_container(counter, loro_counter, "counter")
-  loro_container_value_impl(counter@ptr)
+  loro_container_value_impl(counter@ptr, TRUE)
 }

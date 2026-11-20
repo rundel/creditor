@@ -241,3 +241,45 @@ test_that("a tree can be nested and prints its nodes", {
   out = utils::capture.output(invisible(cli::cli_fmt(print(tree))))
   expect_match(paste(out, collapse = "\n"), node, fixed = TRUE)
 })
+
+test_that("tree values use 1-based positions and NA root parents", {
+  o = outline()
+  map_set(tree_meta(o$tree, o$a2), "title", "second child")
+  value = container_value(o$tree)
+
+  expect_length(value, 2)
+  expect_named(value[[1]], c("id", "parent", "index", "fractional_index", "meta", "children"))
+  expect_identical(vapply(value, `[[`, "", "id"), c(o$a, o$b))
+  expect_identical(vapply(value, `[[`, 1L, "index"), c(1L, 2L))
+  expect_identical(value[[1]]$parent, NA_character_)
+  expect_type(value[[1]]$fractional_index, "character")
+
+  kids = value[[1]]$children
+  expect_identical(vapply(kids, `[[`, "", "id"), c(o$a1, o$a2))
+  expect_identical(vapply(kids, `[[`, 1L, "index"), c(1L, 2L))
+  expect_identical(kids[[2]]$parent, o$a)
+  expect_identical(kids[[2]]$meta, list(title = "second child"))
+  expect_identical(kids[[2]]$children, list())
+
+  expect_identical(doc_value(o$doc)$t, value)
+  nodes = tree_nodes(o$tree)
+  expect_identical(nodes$index[match(o$a2, nodes$id)], kids[[2]]$index)
+})
+
+test_that("a shallow tree value gives metadata maps by id", {
+  o = outline()
+  shallow = container_value(o$tree, deep = FALSE)
+  expect_identical(shallow[[1]]$meta, container_id(tree_meta(o$tree, o$a)))
+  expect_identical(shallow[[1]]$children[[1]]$id, o$a1)
+})
+
+test_that("a map entry named index is not mistaken for a tree position", {
+  doc = loro_doc()
+  map = doc_map(doc, "m")
+  map_set(map, "index", 0L)
+  map_set(map, "node", list(id = "0@1", index = 0L, parent = NULL))
+  expect_identical(
+    doc_value(doc)$m,
+    list(index = 0L, node = list(id = "0@1", index = 0L, parent = NULL))
+  )
+})

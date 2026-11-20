@@ -152,6 +152,11 @@ pub fn changes_to_r(doc: &LoroDoc) -> Result<Robj> {
     .map_err(|e| Error::Other(e.to_string()))?;
     changes.sort_by(|a, b| (a.lamport, a.id.peer).cmp(&(b.lamport, b.id.peer)));
 
+    Ok(change_metas_to_r(&changes))
+}
+
+/// Column-wise change metadata.
+pub fn change_metas_to_r(changes: &[ChangeMeta]) -> Robj {
     let peer: Vec<String> = changes.iter().map(|c| c.id.peer.to_string()).collect();
     let counter: Vec<i32> = changes.iter().map(|c| c.id.counter).collect();
     let lamport: Vec<i32> = changes.iter().map(|c| c.lamport as i32).collect();
@@ -172,7 +177,7 @@ pub fn changes_to_r(doc: &LoroDoc) -> Result<Robj> {
         })
         .collect();
 
-    Ok(list!(
+    list!(
         peer = peer,
         counter = counter,
         lamport = lamport,
@@ -181,5 +186,5 @@ pub fn changes_to_r(doc: &LoroDoc) -> Result<Robj> {
         message = Strings::from_values(message),
         frontiers = List::from_values(frontiers)
     )
-    .into())
+    .into()
 }
