@@ -1,0 +1,146 @@
+# Synchronize documents
+
+Replicas exchange state as raw vectors, which can be written to disk or
+sent over any transport.
+
+- `doc_export()` serializes a document, in one of three modes:
+
+  - `"snapshot"`: the full contents and history.
+
+  - `"updates"`: the changes made since the version `from`, or the
+    complete history when `from` is `NULL`.
+
+  - `"shallow_snapshot"`: the contents plus only the history after the
+    version `since`. Dropping old history can make the export much
+    smaller for a document with a long history, but a document loaded
+    from it cannot check out versions before `since` or merge edits that
+    branch off before it.
+
+- `doc_import()` merges a snapshot or updates into a document. Importing
+  is commutative and idempotent, so replicas that have seen the same
+  updates hold the same contents. `bytes` may also be a list of raw
+  vectors, which are imported together in one step.
+
+- `doc_version()` returns the document's current version vector, for use
+  as the `from` argument of a later export. See
+  [`as_version()`](https://rundel.github.io/creditor/reference/versions.md).
+
+- `doc_is_shallow()` reports whether a document lacks its early history
+  because it was loaded from a shallow snapshot.
+
+- `blob_metadata()` describes an exported raw vector without importing
+  it.
+
+- `doc_export_json()` and `doc_import_json()` exchange changes as JSON
+  text. This is larger than the binary format but readable, and useful
+  for inspection and debugging. JSON cannot carry values nested more
+  than about 120 levels deep: such a document exports, but the result
+  cannot be imported again. It also cannot carry containers created with
+  [`map_ensure_container()`](https://rundel.github.io/creditor/reference/map.md),
+  and `doc_export_json()` refuses to export changes that create one.
+
+## Usage
+
+``` r
+doc_export(
+  doc,
+  mode = c("snapshot", "updates", "shallow_snapshot"),
+  from = NULL,
+  since = NULL
+)
+
+doc_import(doc, bytes)
+
+doc_version(doc)
+
+doc_is_shallow(doc)
+
+blob_metadata(bytes)
+
+doc_export_json(doc, from = NULL, to = NULL)
+
+doc_import_json(doc, json)
+```
+
+## Arguments
+
+- doc:
+
+  A
+  [`loro_doc`](https://rundel.github.io/creditor/reference/loro_doc.md).
+
+- mode:
+
+  One of `"snapshot"`, `"updates"`, or `"shallow_snapshot"`.
+
+- from:
+
+  A version returned by `doc_version()`, typically that of the replica
+  the updates are destined for. Only used when `mode` is `"updates"`.
+  For `doc_export_json()`, the version to start from, or `NULL` for the
+  beginning.
+
+- since:
+
+  A version from
+  [`doc_frontiers()`](https://rundel.github.io/creditor/reference/history.md).
+  Only used when `mode` is `"shallow_snapshot"`; `NULL` keeps no history
+  before the current version.
+
+- bytes:
+
+  A raw vector produced by `doc_export()`, or for `doc_import()` a list
+  of them.
+
+- to:
+
+  A version returned by `doc_version()` to stop at, or `NULL` for the
+  latest.
+
+- json:
+
+  A string produced by `doc_export_json()`.
+
+## Value
+
+`doc_export()` returns a raw vector and `doc_version()` a version
+vector. `doc_import()` and `doc_import_json()` invisibly return an
+import status; see the Import status section. `doc_is_shallow()` returns
+a logical, `doc_export_json()` a string, and `blob_metadata()` a list
+with `mode`, `changes` (the number of changes), `start_timestamp` and
+`end_timestamp`, and the versions `start_frontiers`, `start_version`,
+and `end_version`.
+
+## Import status
+
+`doc_import()` and `doc_import_json()` invisibly return a list of two
+data frames, `success` and `pending`, each with columns `peer`, `start`,
+and `end` giving a range of that peer's operation counters. `success`
+holds the operations that were applied. `pending` holds operations that
+arrived before the changes they depend on; they are kept and applied
+automatically once the missing changes are imported. A non-empty
+`pending` means an earlier update was lost or is still in transit.
+
+## Examples
+
+``` r
+a = loro_doc()
+text_insert(doc_text(a), 1, "Hello")
+
+b = loro_doc()
+doc_import(b, doc_export(a))
+
+text_insert(doc_text(a), 6, " world")
+text_insert(doc_text(b), 1, ">> ")
+
+doc_import(b, doc_export(a, "updates", from = doc_version(b)))
+doc_import(a, doc_export(b, "updates", from = doc_version(a)))
+text_get(doc_text(a))
+#> [1] ">> Hello world"
+text_get(doc_text(b))
+#> [1] ">> Hello world"
+
+small = doc_export(a, "shallow_snapshot")
+blob_metadata(small)$mode
+#> [1] "shallow-snapshot"
+```
