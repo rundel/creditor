@@ -31,6 +31,7 @@
   [`doc_export_updates()`](https://rundel.github.io/creditor/reference/doc_sync.md)
   [`doc_export_shallow()`](https://rundel.github.io/creditor/reference/doc_sync.md)
   [`doc_import()`](https://rundel.github.io/creditor/reference/doc_sync.md)
+  [`doc_import_status()`](https://rundel.github.io/creditor/reference/doc_sync.md)
   [`doc_version()`](https://rundel.github.io/creditor/reference/doc_sync.md)
   [`doc_is_shallow()`](https://rundel.github.io/creditor/reference/doc_sync.md)
   [`blob_metadata()`](https://rundel.github.io/creditor/reference/doc_sync.md)

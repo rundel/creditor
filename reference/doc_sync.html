@@ -137,6 +137,8 @@ containers created with <code><a href="map.html">map_ensure_container()</a></cod
 <span></span>
 <span><span class="fu">doc_import</span><span class="op">(</span><span class="va">doc</span>, <span class="va">bytes</span><span class="op">)</span></span>
 <span></span>
+<span><span class="fu">doc_import_status</span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
+<span></span>
 <span><span class="fu">doc_version</span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">doc_is_shallow</span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
@@ -186,8 +188,9 @@ for the latest.</p></dd>
     <p><code>doc_export()</code>, <code>doc_export_updates()</code>, and
 <code>doc_export_shallow()</code> return a raw vector and <code>doc_version()</code> a
 version vector.
-<code>doc_import()</code> and <code>doc_import_json()</code> invisibly return an import
-status; see the Import status section. <code>doc_is_shallow()</code> returns a
+<code>doc_import()</code> and <code>doc_import_json()</code> return <code>doc</code> invisibly, and
+<code>doc_import_status()</code> returns an import status or <code>NULL</code>; see the
+Import status section. <code>doc_is_shallow()</code> returns a
 logical, <code>doc_export_json()</code> a string, and <code>blob_metadata()</code> a list
 with <code>mode</code>, <code>changes</code> (the number of changes), <code>start_timestamp</code>
 and <code>end_timestamp</code>, and the versions <code>start_frontiers</code>,
@@ -197,7 +200,12 @@ and <code>end_timestamp</code>, and the versions <code>start_frontiers</code>,
     <h2 id="import-status">Import status<a class="anchor" aria-label="anchor" href="#import-status"></a></h2>
 
 
-<p><code>doc_import()</code> and <code>doc_import_json()</code> invisibly return a list of two
+<p><code>doc_import()</code> and <code>doc_import_json()</code> return the document invisibly,
+so they can be used in a pipe. The outcome of the most recent import
+into a document is kept with it, and <code>doc_import_status()</code> returns
+it, or <code>NULL</code> if nothing has been imported. Like the document, it is
+shared by every reference to it, so it can be read from the original
+variable as well as from the result of a pipe. It is a list of two
 data frames, <code>success</code> and <code>pending</code>, each with columns <code>peer</code>,
 <code>start</code>, and <code>end</code> giving a range of that peer's operation counters.
 <code>success</code> holds the operations that were applied. <code>pending</code> holds
@@ -223,6 +231,19 @@ is still in transit.</p>
 <span class="r-in"><span><span class="fu"><a href="text.html">text_get</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "&gt;&gt; Hello world"</span>
 <span class="r-in"><span><span class="fu"><a href="text.html">text_get</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "&gt;&gt; Hello world"</span>
+<span class="r-in"><span><span class="fu">doc_import_status</span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $success</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                  peer start end</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 4361946284435857240     5  11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $pending</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] peer  start end  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;0 rows&gt; (or 0-length row.names)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Imports return the document, so they can be piped</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">doc_import</span><span class="op">(</span><span class="fu">doc_export</span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="text.html">text_get</a></span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "&gt;&gt; Hello world"</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">small</span> <span class="op">=</span> <span class="fu">doc_export_shallow</span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span></span>

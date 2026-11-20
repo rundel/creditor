@@ -61,7 +61,7 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>Building from source needs a Rust toolchain (cargo and rustc &gt;= 1.85).</p>
+<p>Building from source needs a Rust toolchain: cargo and <code>rustc &gt;= 1.85</code>.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"rundel/creditor"</span><span class="op">)</span></span></code></pre></div>
@@ -73,18 +73,23 @@
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/rundel/creditor" class="external-link">creditor</a></span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Replica `a` starts the document with some text</span></span>
 <span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="st">"Hello"</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Replica `b` starts from a full snapshot of `a`</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="va">b</span>, <span class="fu"><a href="reference/doc_sync.html">doc_export</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Both replicas edit the text independently, without syncing</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">6</span>, <span class="st">" world"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">b</span>, <span class="fl">1</span>, <span class="st">"&gt;&gt; "</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Each replica sends the other the updates it is missing</span></span>
 <span><span class="fu"><a href="reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="va">b</span>, <span class="fu"><a href="reference/doc_sync.html">doc_export_updates</a></span><span class="op">(</span><span class="va">a</span>, from <span class="op">=</span> <span class="fu"><a href="reference/doc_sync.html">doc_version</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="va">a</span>, <span class="fu"><a href="reference/doc_sync.html">doc_export_updates</a></span><span class="op">(</span><span class="va">b</span>, from <span class="op">=</span> <span class="fu"><a href="reference/doc_sync.html">doc_version</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Both edits are kept and the replicas agree</span></span>
 <span><span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "&gt;&gt; Hello world"</span></span>
 <span><span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span>
@@ -92,28 +97,45 @@
 <p>Containers nest: a map or list can hold plain values or child containers, each of which merges independently. New containers are made with <code><a href="reference/loro_text.html">loro_text()</a></code>, <code><a href="reference/loro_text.html">loro_list()</a></code>, <code><a href="reference/loro_text.html">loro_map()</a></code>, and friends, and stored like any other value.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># A map works like a named list</span></span>
 <span><span class="va">note</span> <span class="op">=</span> <span class="fu"><a href="reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># A plain value is replaced whole when edited concurrently</span></span>
 <span><span class="va">note</span><span class="op">$</span><span class="va">title</span> <span class="op">=</span> <span class="st">"Groceries"</span></span>
+<span></span>
+<span><span class="co"># Child containers merge concurrent edits to their contents</span></span>
 <span><span class="va">note</span><span class="op">$</span><span class="va">items</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_text.html">loro_list</a></span><span class="op">(</span><span class="st">"milk"</span>, <span class="st">"eggs"</span><span class="op">)</span></span>
 <span><span class="va">note</span><span class="op">$</span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Buy before Friday"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Edit a child container in place</span></span>
+<span><span class="fu"><a href="reference/list.html">list_push</a></span><span class="op">(</span><span class="va">note</span><span class="op">$</span><span class="va">items</span>, <span class="st">"bread"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="reference/doc.html">doc_value</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 1</span></span>
 <span><span class="co">#&gt;  $ note:List of 3</span></span>
 <span><span class="co">#&gt;   ..$ body : chr "Buy before Friday"</span></span>
-<span><span class="co">#&gt;   ..$ items:List of 2</span></span>
+<span><span class="co">#&gt;   ..$ items:List of 3</span></span>
 <span><span class="co">#&gt;   .. ..$ : chr "milk"</span></span>
 <span><span class="co">#&gt;   .. ..$ : chr "eggs"</span></span>
+<span><span class="co">#&gt;   .. ..$ : chr "bread"</span></span>
 <span><span class="co">#&gt;   ..$ title: chr "Groceries"</span></span></code></pre></div>
 <p>Text can carry marks, and a cursor keeps pointing at the same character as the text changes.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">text</span> <span class="op">=</span> <span class="fu"><a href="reference/containers.html">doc_text</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">text</span>, <span class="fl">1</span>, <span class="st">"Hello world"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Mark characters 1 to 5 ("Hello") as bold</span></span>
 <span><span class="fu"><a href="reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="va">text</span>, <span class="fl">1</span>, <span class="fl">5</span>, bold <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># A cursor at the "w" of "world" (character 7)</span></span>
 <span><span class="va">cursor</span> <span class="op">=</span> <span class="fu"><a href="reference/cursor.html">text_cursor</a></span><span class="op">(</span><span class="va">text</span>, <span class="fl">7</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Rewrite the text; only the differences are applied, so the mark and cursor survive</span></span>
 <span><span class="fu"><a href="reference/text.html">text_update</a></span><span class="op">(</span><span class="va">text</span>, <span class="st">"Hello brave new world"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># The text as runs of characters with their marks</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="reference/richtext.html">text_delta</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 2</span></span>
 <span><span class="co">#&gt;  $ :List of 2</span></span>
@@ -122,26 +144,33 @@
 <span><span class="co">#&gt;   .. ..$ bold: logi TRUE</span></span>
 <span><span class="co">#&gt;  $ :List of 1</span></span>
 <span><span class="co">#&gt;   ..$ insert: chr " brave new world"</span></span>
+<span></span>
+<span><span class="co"># The cursor has moved with the "w", which is now character 17</span></span>
 <span><span class="fu"><a href="reference/cursor.html">cursor_pos</a></span><span class="op">(</span><span class="va">doc</span>, <span class="va">cursor</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 17</span></span></code></pre></div>
 <p>Every version stays reachable.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># Two commits, each labeled with a message</span></span>
+<span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">text</span> <span class="op">=</span> <span class="fu"><a href="reference/containers.html">doc_text</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">text</span>, <span class="fl">1</span>, <span class="st">"Hello"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/doc.html">doc_commit</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"greeting"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">text</span>, <span class="fl">6</span>, <span class="st">" world"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/doc.html">doc_commit</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"audience"</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># One row per change</span></span>
 <span><span class="va">changes</span> <span class="op">=</span> <span class="fu"><a href="reference/history.html">doc_changes</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
 <span><span class="va">changes</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lamport"</span>, <span class="st">"length"</span>, <span class="st">"message"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;   lamport length  message</span></span>
 <span><span class="co">#&gt; 1       0      5 greeting</span></span>
 <span><span class="co">#&gt; 2       5      6 audience</span></span>
 <span></span>
+<span><span class="co"># Show the document as it was after the first change</span></span>
 <span><span class="fu"><a href="reference/history.html">doc_checkout</a></span><span class="op">(</span><span class="va">doc</span>, <span class="va">changes</span><span class="op">$</span><span class="va">frontiers</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Hello"</span></span>
+<span></span>
+<span><span class="co"># Return to the latest version</span></span>
 <span><span class="fu"><a href="reference/history.html">doc_checkout</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Hello world"</span></span></code></pre></div>
@@ -149,19 +178,25 @@
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu"><a href="reference/loro_doc.html">loro_doc</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Send every update committed on `a` straight to `b`</span></span>
 <span><span class="va">sync</span> <span class="op">=</span> <span class="fu"><a href="reference/subscribe.html">doc_subscribe_local_updates</a></span><span class="op">(</span><span class="va">a</span>, <span class="kw">function</span><span class="op">(</span><span class="va">bytes</span><span class="op">)</span> <span class="fu"><a href="reference/doc_sync.html">doc_import</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">bytes</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Track `a`'s local edits so they can be undone</span></span>
 <span><span class="va">manager</span> <span class="op">=</span> <span class="fu"><a href="reference/undo.html">doc_undo_manager</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Committing on `a` delivers the update to `b`</span></span>
 <span><span class="fu"><a href="reference/text.html">text_insert</a></span><span class="op">(</span><span class="va">a</span>, <span class="fl">1</span>, <span class="st">"Hello"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/doc.html">doc_commit</a></span><span class="op">(</span><span class="va">a</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Hello"</span></span>
 <span></span>
+<span><span class="co"># Undo is itself an edit, so it syncs to `b` too</span></span>
 <span><span class="fu"><a href="reference/undo.html">undo</a></span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] TRUE</span></span>
 <span><span class="fu"><a href="reference/text.html">text_get</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] ""</span></span>
 <span></span>
+<span><span class="co"># Stop syncing</span></span>
 <span><span class="fu"><a href="reference/subscribe.html">unsubscribe</a></span><span class="op">(</span><span class="va">sync</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">

@@ -7,8 +7,8 @@ edits, adjusted for whatever others have done since.
 
 - `doc_undo_manager()` creates an undo manager for `doc`.
 
-- `undo()` and `redo()` step backward and forward. They return `TRUE` if
-  the document changed.
+- `undo()` and `redo()` step backward and forward. If there is no step
+  to take they do nothing, or with `strict = TRUE` raise an error.
 
 - `can_undo()` and `can_redo()` report whether a step is available.
 
@@ -20,7 +20,8 @@ edits, adjusted for whatever others have done since.
   starts and when it ends, so the step contains exactly the edits made
   by `code`. Groups cannot be nested. If changes to the same container
   are imported from another replica while the group is open, Loro closes
-  the step early and the group is recorded as more than one step.
+  the step early and the group is recorded as more than one step. With
+  `strict = TRUE` it is an error for `code` to make no edits.
 
 - `undo_pause()` stops recording local edits as undo steps until
   `undo_resume()`; `undo_is_paused()` reports the state. Edits made
@@ -65,15 +66,15 @@ undo_is_paused(manager)
 
 undo_clear(manager)
 
-undo(manager)
+undo(manager, strict = FALSE)
 
-redo(manager)
+redo(manager, strict = FALSE)
 
 can_undo(manager)
 
 can_redo(manager)
 
-undo_group(manager, code)
+undo_group(manager, code, strict = FALSE)
 ```
 
 ## Arguments
@@ -102,6 +103,11 @@ undo_group(manager, code)
 
   An undo manager from `doc_undo_manager()`.
 
+- strict:
+
+  Whether doing nothing is an error: for `undo()` and `redo()`, having
+  no step to take, and for `undo_group()`, `code` making no edits.
+
 - code:
 
   Code that edits the document.
@@ -109,10 +115,10 @@ undo_group(manager, code)
 ## Value
 
 `doc_undo_manager()` returns an undo manager. `undo()`, `redo()`,
-`can_undo()`, `can_redo()`, and `undo_is_paused()` return a logical, and
-`undo_count()` and `redo_count()` an integer. `undo_pause()`,
-`undo_resume()`, and `undo_clear()` return `manager` invisibly.
-`undo_group()` returns the value of `code`.
+`undo_group()`, `undo_pause()`, `undo_resume()`, and `undo_clear()`
+return `manager` invisibly. `can_undo()`, `can_redo()`, and
+`undo_is_paused()` return a logical, and `undo_count()` and
+`redo_count()` an integer.
 
 ## Examples
 
@@ -127,11 +133,9 @@ text_insert(text, 6, " world")
 doc_commit(doc)
 
 undo(manager)
-#> [1] TRUE
 text_get(text)
 #> [1] "Hello"
 redo(manager)
-#> [1] TRUE
 text_get(text)
 #> [1] "Hello world"
 ```

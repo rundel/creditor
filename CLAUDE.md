@@ -227,15 +227,21 @@ package.
 
 - [R/doc.R](https://rundel.github.io/creditor/R/doc.R) defines the
   exported S7 class `loro_doc` (a `@ptr` slot holding the external
-  pointer, so documents have reference semantics) and the `doc_*`
-  functions: identity, fork, commit, deep value, path queries
-  (`doc_get`, which walks the handles in R one step per argument with
-  1-based list positions, and `doc_jsonpath`, whose expression keeps
-  JSONPath’s 0-based positions), and sync (`doc_export` /
-  `doc_export_updates` / `doc_export_shallow`, one function per export
+  pointer, so documents have reference semantics, and a `@state`
+  environment for R-side state shared by every reference to the
+  document) and the `doc_*` functions: identity, fork, commit, deep
+  value, path queries (`doc_get`, which walks the handles in R one step
+  per argument with 1-based list positions, and `doc_jsonpath`, whose
+  expression keeps JSONPath’s 0-based positions), and sync (`doc_export`
+  / `doc_export_updates` / `doc_export_shallow`, one function per export
   mode so no argument depends on another, plus `doc_import` /
-  `doc_version`, JSON updates, `blob_metadata`). `doc_import` returns an
-  import status invisibly, not the document.
+  `doc_version`, JSON updates, `blob_metadata`). `doc_import` /
+  `doc_import_json` return the document so they pipe; the status of the
+  most recent import is stored in `doc@state$import_status` and read
+  with
+  [`doc_import_status()`](https://rundel.github.io/creditor/reference/doc_sync.md).
+  A plain attribute on the returned object would not work, because
+  callers who do not capture the result would never see it.
 - [R/container.R](https://rundel.github.io/creditor/R/container.R)
   defines the S7 handle classes: abstract `loro_container` (unexported)
   with children `loro_text`, `loro_map`, `loro_list`, `loro_counter`,
@@ -380,8 +386,23 @@ package.
     rejected (`abort_attached`), while a new detached one is stored. The
     empty string is a valid map key that `...` cannot express, so
     `map[[""]] = value` is the way to write it.
-- Mutating functions return their first argument invisibly, except the
-  `*_container` creators, which return the new handle.
+- Pipeable editing functions are a primary goal of the API. Every
+  exported function is one of three kinds: editors change something and
+  return their first argument invisibly (all `text_*` / `map_*` /
+  `list_*` / `counter_*` / `tree_*` edits, `doc_import*`, `doc_commit`,
+  `doc_checkout`, the `doc_set_*` functions, `undo` / `redo` /
+  `undo_group`, the `ephemeral_*` setters); constructors create
+  something new and return it (`loro_doc`, the `loro_*` container
+  constructors, `doc_fork`, `doc_undo_manager`, the `doc_subscribe*`
+  functions, `ephemeral_store`, and `tree_create`, which returns the new
+  node id); and accessors and predicates return a value without changing
+  anything (`*_get`, `*_length`, `doc_value`, `can_undo`, `doc_is_*`,
+  and so on; `list_pop` counts as an accessor that also removes). An
+  editor never returns a status: an extra outcome is stored with the
+  object and read through an accessor
+  ([`doc_import_status()`](https://rundel.github.io/creditor/reference/doc_sync.md)),
+  and a no-op that callers may want to catch is reported by a `strict`
+  argument that turns it into an error (`undo`, `redo`, `undo_group`).
 
 ## Toolchain
 
@@ -389,6 +410,11 @@ package.
   `SystemRequirements`). Bridge: `extendr-api` 0.9.
 - Crates are fetched by cargo at build time (no vendoring; not
   CRAN-targeted). `src/rust/Cargo.lock` is committed.
+- `README.md` is generated: edit `README.qmd` and run
+  `quarto render README.qmd` with the current package installed, so the
+  example output is real. It renders to GitHub markdown with
+  `wrap: none` and `smart` off: prose is never hard wrapped, and only
+  code comments in the chunks may be wrapped (within 100 characters).
 - Rebuild after Rust edits with
   [`devtools::document()`](https://devtools.r-lib.org/reference/document.html);
   set the `DEBUG=1` environment variable for a fast unoptimized build

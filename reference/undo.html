@@ -4,8 +4,9 @@ is created, and can undo and redo them. Changes imported from other
 replicas are never undone: an undo reverses only this replica's own
 edits, adjusted for whatever others have done since.
 doc_undo_manager() creates an undo manager for doc.
-undo() and redo() step backward and forward. They return TRUE
-if the document changed.
+undo() and redo() step backward and forward. If there is no
+step to take they do nothing, or with strict = TRUE raise an
+error.
 can_undo() and can_redo() report whether a step is available.
 undo_count() and redo_count() return the number of steps
 available.
@@ -15,7 +16,8 @@ group starts and when it ends, so the step contains exactly the
 edits made by code. Groups cannot be nested. If changes to the
 same container are imported from another replica while the group
 is open, Loro closes the step early and the group is recorded as
-more than one step.
+more than one step. With strict = TRUE it is an error for code
+to make no edits.
 undo_pause() stops recording local edits as undo steps until
 undo_resume(); undo_is_paused() reports the state. Edits made
 while paused cannot be undone.
@@ -35,8 +37,9 @@ is created, and can undo and redo them. Changes imported from other
 replicas are never undone: an undo reverses only this replica's own
 edits, adjusted for whatever others have done since.
 doc_undo_manager() creates an undo manager for doc.
-undo() and redo() step backward and forward. They return TRUE
-if the document changed.
+undo() and redo() step backward and forward. If there is no
+step to take they do nothing, or with strict = TRUE raise an
+error.
 can_undo() and can_redo() report whether a step is available.
 undo_count() and redo_count() return the number of steps
 available.
@@ -46,7 +49,8 @@ group starts and when it ends, so the step contains exactly the
 edits made by code. Groups cannot be nested. If changes to the
 same container are imported from another replica while the group
 is open, Loro closes the step early and the group is recorded as
-more than one step.
+more than one step. With strict = TRUE it is an error for code
+to make no edits.
 undo_pause() stops recording local edits as undo steps until
 undo_resume(); undo_is_paused() reports the state. Edits made
 while paused cannot be undone.
@@ -103,8 +107,9 @@ merge_interval are combined into one step."></head><body>
 is created, and can undo and redo them. Changes imported from other
 replicas are never undone: an undo reverses only this replica's own
 edits, adjusted for whatever others have done since.</p><ul><li><p><code>doc_undo_manager()</code> creates an undo manager for <code>doc</code>.</p></li>
-<li><p><code>undo()</code> and <code>redo()</code> step backward and forward. They return <code>TRUE</code>
-if the document changed.</p></li>
+<li><p><code>undo()</code> and <code>redo()</code> step backward and forward. If there is no
+step to take they do nothing, or with <code>strict = TRUE</code> raise an
+error.</p></li>
 <li><p><code>can_undo()</code> and <code>can_redo()</code> report whether a step is available.</p></li>
 <li><p><code>undo_count()</code> and <code>redo_count()</code> return the number of steps
 available.</p></li>
@@ -114,7 +119,8 @@ group starts and when it ends, so the step contains exactly the
 edits made by <code>code</code>. Groups cannot be nested. If changes to the
 same container are imported from another replica while the group
 is open, Loro closes the step early and the group is recorded as
-more than one step.</p></li>
+more than one step. With <code>strict = TRUE</code> it is an error for <code>code</code>
+to make no edits.</p></li>
 <li><p><code>undo_pause()</code> stops recording local edits as undo steps until
 <code>undo_resume()</code>; <code>undo_is_paused()</code> reports the state. Edits made
 while paused cannot be undone.</p></li>
@@ -151,15 +157,15 @@ that should be undone separately. Commits closer together than
 <span></span>
 <span><span class="fu">undo_clear</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">undo</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span>
+<span><span class="fu">undo</span><span class="op">(</span><span class="va">manager</span>, strict <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">redo</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span>
+<span><span class="fu">redo</span><span class="op">(</span><span class="va">manager</span>, strict <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">can_undo</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">can_redo</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">undo_group</span><span class="op">(</span><span class="va">manager</span>, <span class="va">code</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">undo_group</span><span class="op">(</span><span class="va">manager</span>, <span class="va">code</span>, strict <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -190,6 +196,12 @@ not recorded as undo steps.</p></dd>
 <dd><p>An undo manager from <code>doc_undo_manager()</code>.</p></dd>
 
 
+<dt id="arg-strict">strict<a class="anchor" aria-label="anchor" href="#arg-strict"></a></dt>
+<dd><p>Whether doing nothing is an error: for <code>undo()</code> and
+<code>redo()</code>, having no step to take, and for <code>undo_group()</code>, <code>code</code>
+making no edits.</p></dd>
+
+
 <dt id="arg-code">code<a class="anchor" aria-label="anchor" href="#arg-code"></a></dt>
 <dd><p>Code that edits the document.</p></dd>
 
@@ -197,11 +209,10 @@ not recorded as undo steps.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>doc_undo_manager()</code> returns an undo manager. <code>undo()</code>,
-<code>redo()</code>, <code>can_undo()</code>, <code>can_redo()</code>, and <code>undo_is_paused()</code> return
-a logical, and <code>undo_count()</code> and <code>redo_count()</code> an integer.
-<code>undo_pause()</code>, <code>undo_resume()</code>, and <code>undo_clear()</code> return
-<code>manager</code> invisibly.
-<code>undo_group()</code> returns the value of <code>code</code>.</p>
+<code>redo()</code>, <code>undo_group()</code>, <code>undo_pause()</code>, <code>undo_resume()</code>, and
+<code>undo_clear()</code> return <code>manager</code> invisibly. <code>can_undo()</code>,
+<code>can_redo()</code>, and <code>undo_is_paused()</code> return a logical, and
+<code>undo_count()</code> and <code>redo_count()</code> an integer.</p>
     </div>
 
     <div class="section level2">
@@ -216,11 +227,9 @@ a logical, and <code>undo_count()</code> and <code>redo_count()</code> an intege
 <span class="r-in"><span><span class="fu"><a href="doc.html">doc_commit</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">undo</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
 <span class="r-in"><span><span class="fu"><a href="text.html">text_get</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Hello"</span>
 <span class="r-in"><span><span class="fu">redo</span><span class="op">(</span><span class="va">manager</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
 <span class="r-in"><span><span class="fu"><a href="text.html">text_get</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Hello world"</span>
 <span class="r-in"><span></span></span>
