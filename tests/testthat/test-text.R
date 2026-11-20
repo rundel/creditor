@@ -82,7 +82,7 @@ test_that("text can be updated line by line", {
   new = "line one\nline 2\nline three\nline four\n"
   text_update(text, new, by = "line")
   expect_identical(text_get(text), new)
-  expect_identical(text_delta(text, 1, 8), list(list(insert = "line one", attributes = list(bold = TRUE))))
+  expect_identical(unclass(text_delta(text, 1, 8)), list(list(insert = "line one", attributes = list(bold = TRUE))))
   expect_error(text_update(text, new, by = "word"))
 })
 
@@ -142,7 +142,7 @@ test_that("an empty range is allowed only at a valid position", {
   expect_identical(text_sub(text, 4, 3), "")
   text_delete(text, 4, 3)
   text_replace(text, 4, 3, "")
-  expect_identical(text_delta(text, 4, 3), list())
+  expect_identical(unclass(text_delta(text, 4, 3)), list())
 
   expect_error(text_sub(text, 99, 98), "range is 99 to 98")
   expect_error(text_delete(text, 99, 98), "range is 99 to 98")

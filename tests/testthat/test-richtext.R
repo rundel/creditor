@@ -1,18 +1,19 @@
 plain = function(x) list(insert = x)
 marked = function(x, ...) list(insert = x, attributes = list(...))
+delta_ops = function(...) unclass(text_delta(...))
 
 test_that("marks can be added and removed", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "Hello world")
-  expect_identical(text_delta(text), list(plain("Hello world")))
+  expect_identical(delta_ops(text), list(plain("Hello world")))
 
   text_mark(text, 1, 5, bold = TRUE)
-  expect_identical(text_delta(text), list(marked("Hello", bold = TRUE), plain(" world")))
+  expect_identical(delta_ops(text), list(marked("Hello", bold = TRUE), plain(" world")))
 
   text_mark(text, 7, 11, link = "https://loro.dev")
   text_unmark(text, 1, 2, "bold")
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(
       plain("He"),
       marked("llo", bold = TRUE),
@@ -29,7 +30,7 @@ test_that("overlapping marks combine", {
   text_mark(text, 1, 4, bold = TRUE)
   text_mark(text, 3, 6, italic = TRUE)
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(
       marked("ab", bold = TRUE),
       marked("cd", bold = TRUE, italic = TRUE),
@@ -43,7 +44,7 @@ test_that("mark ranges count code points", {
   text_insert(text, 1, "a\U0001F600b")
   text_mark(text, 2, 2, bold = TRUE)
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(plain("a"), marked("\U0001F600", bold = TRUE), plain("b"))
   )
 })
@@ -53,13 +54,13 @@ test_that("expand behavior follows the style configuration", {
   text_insert(text, 1, "ab")
   text_mark(text, 1, 2, bold = TRUE)
   text_insert(text, 3, "c")
-  expect_identical(text_delta(text), list(marked("abc", bold = TRUE)))
+  expect_identical(delta_ops(text), list(marked("abc", bold = TRUE)))
 
   text = doc_text(loro_doc())
   text_insert(text, 1, "ab")
   text_mark(text, 1, 2, link = "u")
   text_insert(text, 3, "c")
-  expect_identical(text_delta(text), list(marked("ab", link = "u"), plain("c")))
+  expect_identical(delta_ops(text), list(marked("ab", link = "u"), plain("c")))
 })
 
 test_that("mark keys must be configured", {
@@ -72,14 +73,14 @@ test_that("mark keys must be configured", {
   text_mark(text, 1, 1, author = "x")
   text_mark(text, 2, 2, bold = TRUE)
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(marked("a", author = "x"), marked("b", bold = TRUE), plain("c"))
   )
 
   expect_error(text_mark(text, 1, 1, other = TRUE), "doc_config_text_style")
   doc_config_text_style(doc, .default = "after")
   text_mark(text, 3, 3, other = TRUE)
-  expect_identical(text_delta(text)[[3]], marked("c", other = TRUE))
+  expect_identical(delta_ops(text)[[3]], marked("c", other = TRUE))
 })
 
 test_that("style configuration is validated", {
@@ -98,7 +99,7 @@ test_that("invalid marks are errors", {
   expect_error(text_unmark(text, 1, 1, 1), "keys")
   expect_error(text_mark(text, 2, 11, bold = TRUE))
   expect_error(text_mark(text, 1, 1, "a:b" = TRUE), ":")
-  expect_identical(text_delta(text), list(plain("abc")))
+  expect_identical(delta_ops(text), list(plain("abc")))
 })
 
 test_that("a delta can be applied", {
@@ -117,7 +118,7 @@ test_that("a delta can be applied", {
     list(retain = 1, attributes = list(bold = NULL))
   ))
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(marked("Hello", italic = TRUE), plain(" \U0001F600!world"))
   )
 })
@@ -129,8 +130,8 @@ test_that("text_delta output rebuilds the same rich text", {
   text_mark(a, 4, 9, link = "u")
 
   b = doc_text(loro_doc())
-  text_apply_delta(b, text_delta(a))
-  expect_identical(text_delta(b), text_delta(a))
+  text_apply_delta(b, delta_ops(a))
+  expect_identical(delta_ops(b), delta_ops(a))
 })
 
 test_that("malformed deltas are errors", {
@@ -159,9 +160,9 @@ test_that("marks sync and merge with concurrent edits", {
   doc_import(b, doc_export_updates(a, from = doc_version(b)))
   doc_import(a, doc_export_updates(b, from = doc_version(a)))
 
-  expect_identical(text_delta(doc_text(a)), text_delta(doc_text(b)))
+  expect_identical(delta_ops(doc_text(a)), delta_ops(doc_text(b)))
   expect_identical(
-    text_delta(doc_text(a)),
+    delta_ops(doc_text(a)),
     list(marked("HeXXllo", bold = TRUE), plain(" world"))
   )
 })
@@ -176,7 +177,7 @@ test_that("text_update applies a minimal diff", {
   text_update(text, "Hello brave new world")
   expect_identical(text_get(text), "Hello brave new world")
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(plain("Hello brave new "), marked("world", bold = TRUE))
   )
   expect_identical(cursor_pos(doc, cursor), 17L)
@@ -191,15 +192,15 @@ test_that("a delta can be taken for a range", {
   text_mark(text, 1, 5, bold = TRUE)
 
   expect_identical(
-    text_delta(text, 4, 8),
+    delta_ops(text, 4, 8),
     list(marked("lo", bold = TRUE), plain(" wo"))
   )
-  expect_identical(text_delta(text, 7, 11), list(plain("world")))
-  expect_identical(text_delta(text, 1, 0), list())
-  expect_identical(text_delta(text, 1, 11), text_delta(text))
-  expect_identical(text_delta(text, 7), list(plain("world")))
-  expect_identical(text_delta(text, end = 2), list(marked("He", bold = TRUE)))
-  expect_error(text_delta(text, 2, 100))
+  expect_identical(delta_ops(text, 7, 11), list(plain("world")))
+  expect_identical(delta_ops(text, 1, 0), list())
+  expect_identical(delta_ops(text, 1, 11), delta_ops(text))
+  expect_identical(delta_ops(text, 7), list(plain("world")))
+  expect_identical(delta_ops(text, end = 2), list(marked("He", bold = TRUE)))
+  expect_error(delta_ops(text, 2, 100))
 })
 
 test_that("a delta that runs past the end is rejected before anything is applied", {
@@ -250,7 +251,7 @@ test_that("mark values keep their type, and NULL or NA removes the mark", {
   doc_config_text_style(doc, .default = "none")
   text = doc_text(doc)
   text_insert(text, 1, "abcd")
-  value_of = function() text_delta(text)[[1]]$attributes$v
+  value_of = function() delta_ops(text)[[1]]$attributes$v
 
   for (value in list(FALSE, 3L, 2.5, "s", as.raw(1:3))) {
     text_mark(text, 1, 4, v = value)
@@ -262,10 +263,10 @@ test_that("mark values keep their type, and NULL or NA removes the mark", {
   expect_identical(value_of(), list(a = 1, b = list("x", "y")))
 
   text_mark(text, 1, 4, v = NULL)
-  expect_identical(text_delta(text), list(plain("abcd")))
+  expect_identical(delta_ops(text), list(plain("abcd")))
   text_mark(text, 1, 4, v = TRUE)
   text_mark(text, 1, 4, v = NA)
-  expect_identical(text_delta(text), list(plain("abcd")))
+  expect_identical(delta_ops(text), list(plain("abcd")))
   expect_error(text_mark(text, 1, 4, v = factor("a")), "class")
 })
 
@@ -281,7 +282,7 @@ test_that("before and both expansion follow the configuration", {
   text_insert(text, 1, "L")
   text_insert(text, 4, "R")
   expect_identical(
-    text_delta(text),
+    delta_ops(text),
     list(
       marked("L", around = TRUE, pre = TRUE),
       marked("ab", around = TRUE, bold = TRUE, pre = TRUE),
@@ -297,11 +298,11 @@ test_that("style configuration carries over to a fork", {
 
   fork = doc_fork(doc)
   text_mark(doc_text(fork), 1, 2, note = "x")
-  expect_identical(text_delta(doc_text(fork)), list(marked("ab", note = "x")))
+  expect_identical(delta_ops(doc_text(fork)), list(marked("ab", note = "x")))
 
   fresh = loro_doc()
   doc_import(fresh, doc_export(fork))
-  expect_identical(text_delta(doc_text(fresh)), list(marked("ab", note = "x")))
+  expect_identical(delta_ops(doc_text(fresh)), list(marked("ab", note = "x")))
   expect_error(text_mark(doc_text(fresh), 1, 1, note = "y"), "doc_config_text_style")
 })
 
@@ -309,11 +310,11 @@ test_that("several marks are applied and removed at once", {
   text = doc_text(loro_doc())
   text_insert(text, 1, "Hello world")
   text_mark(text, 1, 5, bold = TRUE, link = "https://loro.dev")
-  expect_identical(text_delta(text)[[1]]$attributes, list(bold = TRUE, link = "https://loro.dev"))
+  expect_identical(delta_ops(text)[[1]]$attributes, list(bold = TRUE, link = "https://loro.dev"))
   text_unmark(text, 1, 5, c("bold", "link"))
-  expect_identical(text_delta(text), list(list(insert = "Hello world")))
+  expect_identical(delta_ops(text), list(list(insert = "Hello world")))
   text_mark(text, 1, 5)
-  expect_identical(text_delta(text), list(list(insert = "Hello world")))
+  expect_identical(delta_ops(text), list(list(insert = "Hello world")))
 })
 
 test_that("mark keys can look like the marking functions' own arguments", {
@@ -324,7 +325,7 @@ test_that("mark keys can look like the marking functions' own arguments", {
   text_insert(text, 1, "hello")
   text_mark(text, 1, 3, do = TRUE, e = TRUE, end = "b", start = "a", text = 1)
   expect_identical(
-    text_delta(text)[[1]]$attributes,
+    delta_ops(text)[[1]]$attributes,
     list(do = TRUE, e = TRUE, end = "b", start = "a", text = 1)
   )
   expect_error(text_mark(text, 3, 2, bold = TRUE), "`.start` and `.end`")

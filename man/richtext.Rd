@@ -5,6 +5,9 @@
 \alias{text_mark}
 \alias{text_unmark}
 \alias{text_delta}
+\alias{text_markdown}
+\alias{text_ansi}
+\alias{text_html}
 \alias{text_apply_delta}
 \alias{doc_config_text_style}
 \title{Rich text}
@@ -14,6 +17,12 @@ text_mark(.text, .start, .end, ...)
 text_unmark(text, start, end, keys)
 
 text_delta(text, start = 1, end = text_length(text))
+
+text_markdown(text, start = 1, end = text_length(text))
+
+text_ansi(text, start = 1, end = text_length(text))
+
+text_html(text, start = 1, end = text_length(text))
 
 text_apply_delta(text, delta)
 
@@ -37,7 +46,8 @@ A \code{\link{loro_doc}} is also accepted and stands for its default root
 container; see \code{\link[=doc_text]{doc_text()}}.}
 
 \item{start, end}{1-based positions of the first and last characters
-of the range. For \code{text_delta()} they default to the whole text.}
+of the range. For \code{text_delta()} and the rendering functions they
+default to the whole text.}
 
 \item{keys}{A character vector of mark names.}
 
@@ -52,7 +62,8 @@ that it cannot clash with a mark key given in \code{...}.}
 \value{
 \code{text_mark()} returns \code{.text} invisibly, \code{text_unmark()} and
 \code{text_apply_delta()} return \code{text} invisibly, \code{text_delta()} returns
-a list, and \code{doc_config_text_style()} returns \code{.doc} invisibly.
+a \code{loro_delta} list, \code{text_markdown()} and \code{text_html()} return a
+string, \code{text_ansi()} returns a \code{\link[cli:ansi_string]{cli::ansi_string()}}, and \code{doc_config_text_style()} returns \code{.doc} invisibly.
 }
 \description{
 Marks attach a key and value (a style such as \code{bold = TRUE}, or
@@ -66,7 +77,28 @@ marks given as \code{key = value} arguments.
 \item \code{text_delta()} returns the text as a list of runs, each a list
 with a string \code{insert} and, for marked runs, a named list
 \code{attributes}. This is the Quill delta format. With \code{start} and
-\code{end} it covers only that range.
+\code{end} it covers only that range. The list has class \code{loro_delta},
+which prints as Markdown (see \code{text_markdown()}) and keeps the
+plain list structure for \code{\link[utils:str]{str()}} and indexing. Its
+\code{print()} and \code{format()} methods take a \code{format} argument, one of
+\code{"markdown"}, \code{"html"}, \code{"ansi"}, or \code{"list"} (the \code{\link[utils:str]{str()}}
+view), whose default comes from the \code{creditor.delta_format} option,
+so \code{options(creditor.delta_format = "ansi")} changes how deltas
+autoprint.
+\item \code{text_markdown()} and \code{text_html()} render the text with its marks
+as a Markdown or HTML string. Both handle \code{bold}, \code{italic},
+\code{underline}, \code{code}, and \code{link} (whose value is the target URL);
+Markdown writes underline as \verb{<u>} tags. HTML also writes
+\code{highlight} as \verb{<mark>} and any other mark as a \verb{<span>} with a
+\verb{data-} attribute holding its value, for example
+\verb{<span data-comment="check this">}. Markdown drops the marks it
+cannot express.
+\item \code{text_ansi()} renders the text for the console with ANSI styles
+from cli: bold, italic, and underline as themselves, \code{code} in
+cyan, \code{highlight} on a yellow background, and \code{link} in blue as a
+hyperlink where the terminal supports one. Other marks are left
+unstyled. Styles appear only where cli detects color support (see
+\code{\link[cli:num_ansi_colors]{cli::num_ansi_colors()}}); elsewhere the result is the plain text.
 \item \code{text_apply_delta()} edits the text with a list of delta ops.
 Each op is a list with exactly one of \code{retain} (keep that many
 characters), \code{insert} (a string), or \code{delete} (remove that many
@@ -104,7 +136,12 @@ text_insert(text, 1, "Hello world")
 text_mark(text, 1, 5, bold = TRUE)
 text_mark(text, 7, 11, link = "https://loro.dev", italic = TRUE)
 text_unmark(text, 7, 11, "italic")
+text_delta(text)
+print(text_delta(text), format = "html")
 str(text_delta(text))
+text_markdown(text)
+text_html(text)
+cat(text_ansi(text), "\n")
 
 text_apply_delta(text, list(
   list(retain = 5),

@@ -86,15 +86,32 @@ sync(a, b) |>
 
 ### Rich text
 
-Text can carry marks: a key and a value attached to a range of characters. Marks are how formatting, links, and comments are represented. `text_delta()` returns the text as a sequence of runs, each with the marks that apply to it.
+Text can carry marks: a key and a value attached to a range of characters. Marks are how formatting, links, and comments are represented. `text_delta()` returns the text as a sequence of runs, each with the marks that apply to it. It prints as Markdown by default; `print()` with `format = "html"`, `"ansi"`, or `"list"` shows it another way, and the `creditor.delta_format` option changes the default.
 
 ```{r}
-loro_doc(peer_id = 1) |>
+doc = loro_doc(peer_id = 1) |>
   text_insert(1, "Read the docs today") |>
   text_mark(1, 4, bold = TRUE) |>
-  text_mark(10, 13, link = "https://loro.dev") |>
-  text_delta() |>
-  str()
+  text_mark(10, 13, link = "https://loro.dev")
+
+text_delta(doc)
+
+str(text_delta(doc))
+```
+
+`text_markdown()` returns that Markdown as a string, and `text_html()` renders the marks as HTML instead. In the console, `text_ansi()` shows the text with the marks as terminal styles (bold, italic, colored links, and so on); a rendered page like this one has no terminal styles, so it is not shown here.
+
+```{r}
+text_markdown(doc)
+
+text_html(doc)
+```
+
+The HTML can be written straight into a page, such as this one:
+
+```{r}
+#| output: asis
+cat(text_html(doc))
 ```
 
 Marks merge with concurrent edits. If one replica makes a phrase bold while another types inside it, the new characters are bold too.
@@ -108,8 +125,7 @@ text_mark(a, 1, 5, bold = TRUE)
 text_insert(b, 3, "XX")
 
 sync(a, b) |>
-  text_delta() |>
-  str()
+  text_markdown()
 ```
 
 Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands at its end, so typing after a bold word continues in bold. A link does not, so typing after a link produces plain text. Keys other than the built-in ones (`bold`, `italic`, `underline`, `link`, `highlight`, `comment`, and `code`) must be declared first with `doc_config_text_style()`.
@@ -119,9 +135,10 @@ loro_doc(peer_id = 1) |>
   doc_config_text_style(author = "none") |>
   text_insert(1, "Reviewed") |>
   text_mark(1, 8, author = "cr") |>
-  text_delta() |>
-  str()
+  text_html()
 ```
+
+Markdown has no way to write a mark like `author`, so `text_markdown()` leaves it out, while `text_html()` keeps it as a `data-` attribute.
 
 ## Map
 

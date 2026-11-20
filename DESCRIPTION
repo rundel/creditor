@@ -20,7 +20,8 @@ Imports:
     cli,
     rlang,
     S7,
-    tibble
+    tibble,
+    utils
 Suggests:
     bslib,
     knitr,

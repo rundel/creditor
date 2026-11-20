@@ -12,7 +12,28 @@
 #' * `text_delta()` returns the text as a list of runs, each a list
 #'   with a string `insert` and, for marked runs, a named list
 #'   `attributes`. This is the Quill delta format. With `start` and
-#'   `end` it covers only that range.
+#'   `end` it covers only that range. The list has class `loro_delta`,
+#'   which prints as Markdown (see `text_markdown()`) and keeps the
+#'   plain list structure for [`str()`][utils::str] and indexing. Its
+#'   `print()` and `format()` methods take a `format` argument, one of
+#'   `"markdown"`, `"html"`, `"ansi"`, or `"list"` (the [`str()`][utils::str]
+#'   view), whose default comes from the `creditor.delta_format` option,
+#'   so `options(creditor.delta_format = "ansi")` changes how deltas
+#'   autoprint.
+#' * `text_markdown()` and `text_html()` render the text with its marks
+#'   as a Markdown or HTML string. Both handle `bold`, `italic`,
+#'   `underline`, `code`, and `link` (whose value is the target URL);
+#'   Markdown writes underline as `<u>` tags. HTML also writes
+#'   `highlight` as `<mark>` and any other mark as a `<span>` with a
+#'   `data-` attribute holding its value, for example
+#'   `<span data-comment="check this">`. Markdown drops the marks it
+#'   cannot express.
+#' * `text_ansi()` renders the text for the console with ANSI styles
+#'   from cli: bold, italic, and underline as themselves, `code` in
+#'   cyan, `highlight` on a yellow background, and `link` in blue as a
+#'   hyperlink where the terminal supports one. Other marks are left
+#'   unstyled. Styles appear only where cli detects color support (see
+#'   [cli::num_ansi_colors()]); elsewhere the result is the plain text.
 #' * `text_apply_delta()` edits the text with a list of delta ops.
 #'   Each op is a list with exactly one of `retain` (keep that many
 #'   characters), `insert` (a string), or `delete` (remove that many
@@ -44,7 +65,8 @@
 #'   A [`loro_doc`] is also accepted and stands for its default root
 #'   container; see [`doc_text()`].
 #' @param start,end 1-based positions of the first and last characters
-#'   of the range. For `text_delta()` they default to the whole text.
+#'   of the range. For `text_delta()` and the rendering functions they
+#'   default to the whole text.
 #' @param .text,.start,.end The text handle and range for `text_mark()`,
 #'   as for `text`, `start`, and `end`. The argument names start with a
 #'   dot so that they cannot clash with a mark key given in `...`.
@@ -64,7 +86,8 @@
 #'
 #' @return `text_mark()` returns `.text` invisibly, `text_unmark()` and
 #'   `text_apply_delta()` return `text` invisibly, `text_delta()` returns
-#'   a list, and `doc_config_text_style()` returns `.doc` invisibly.
+#'   a `loro_delta` list, `text_markdown()` and `text_html()` return a
+#'   string, `text_ansi()` returns a [cli::ansi_string()], and `doc_config_text_style()` returns `.doc` invisibly.
 #'
 #' @examples
 #' doc = loro_doc()
@@ -73,7 +96,12 @@
 #' text_mark(text, 1, 5, bold = TRUE)
 #' text_mark(text, 7, 11, link = "https://loro.dev", italic = TRUE)
 #' text_unmark(text, 7, 11, "italic")
+#' text_delta(text)
+#' print(text_delta(text), format = "html")
 #' str(text_delta(text))
+#' text_markdown(text)
+#' text_html(text)
+#' cat(text_ansi(text), "\n")
 #'
 #' text_apply_delta(text, list(
 #'   list(retain = 5),
@@ -168,16 +196,39 @@ text_delta = function(text, start = 1, end = text_length(text)) {
   ptr = container_ptr(text, loro_text, "text")
   size = loro_text_length_impl(ptr)
   range = check_range(start, end, size, "text")
-  if (range$len == size) {
-    return(loro_text_delta_impl(ptr, NULL, NULL))
+  delta = if (range$len == size) {
+    loro_text_delta_impl(ptr, NULL, NULL)
+  } else {
+    loro_text_delta_impl(ptr, range$start, range$end)
   }
-  loro_text_delta_impl(ptr, range$start, range$end)
+  structure(delta, class = "loro_delta")
+}
+
+#' @rdname richtext
+#' @export
+text_markdown = function(text, start = 1, end = text_length(text)) {
+  delta_markdown(text_delta(text, start, end))
+}
+
+#' @rdname richtext
+#' @export
+text_ansi = function(text, start = 1, end = text_length(text)) {
+  delta_ansi(text_delta(text, start, end))
+}
+
+#' @rdname richtext
+#' @export
+text_html = function(text, start = 1, end = text_length(text)) {
+  delta_html(text_delta(text, start, end))
 }
 
 #' @rdname richtext
 #' @export
 text_apply_delta = function(text, delta) {
   ptr = container_ptr(text, loro_text, "text")
+  if (inherits(delta, "loro_delta")) {
+    delta = unclass(delta)
+  }
   if (!is.list(delta) || is.object(delta)) {
     cli::cli_abort("{.arg delta} must be a list of delta ops.")
   }
