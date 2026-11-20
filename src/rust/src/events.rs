@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use extendr_api::prelude::*;
+use loro::awareness::{EphemeralEventTrigger, EphemeralStoreEvent};
 use loro::event::DiffEvent;
 use loro::{EventTriggerKind, Subscription};
 
@@ -72,4 +73,19 @@ pub fn event_to_r(event: &DiffEvent) -> Robj {
     };
     let diff = diffs_to_r(event.events.iter().map(|e| (e.target, &e.diff)));
     list!(by = by, origin = event.origin, diff = diff).into()
+}
+
+pub fn ephemeral_event_to_r(event: &EphemeralStoreEvent) -> Robj {
+    let by = match event.by {
+        EphemeralEventTrigger::Local => "local",
+        EphemeralEventTrigger::Import => "import",
+        EphemeralEventTrigger::Timeout => "timeout",
+    };
+    list!(
+        by = by,
+        added = event.added.as_ref().clone(),
+        updated = event.updated.as_ref().clone(),
+        removed = event.removed.as_ref().clone()
+    )
+    .into()
 }

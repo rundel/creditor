@@ -1,0 +1,119 @@
+test_that("entries can be set, read, and deleted", {
+  store = ephemeral_store()
+  expect_identical(ephemeral_keys(store), character())
+  expect_identical(ephemeral_values(store), structure(list(), names = character()))
+  expect_null(ephemeral_get(store, "missing"))
+
+  ephemeral_set(store, "b", list(name = "B", cursor = 3L))
+  ephemeral_set(store, "a", "x")
+  expect_identical(ephemeral_keys(store), c("a", "b"))
+  expect_identical(ephemeral_get(store, "a"), "x")
+  expect_identical(
+    ephemeral_values(store),
+    list(a = "x", b = list(cursor = 3L, name = "B"))
+  )
+
+  ephemeral_delete(store, "a")
+  expect_identical(ephemeral_keys(store), "b")
+})
+
+test_that("encoded state transfers between stores", {
+  a = ephemeral_store()
+  b = ephemeral_store()
+  ephemeral_set(a, "one", 1L)
+  ephemeral_set(a, "two", 2L)
+
+  ephemeral_apply(b, ephemeral_encode(a, "one"))
+  expect_identical(ephemeral_keys(b), "one")
+
+  ephemeral_apply(b, ephemeral_encode(a))
+  expect_identical(ephemeral_values(b), ephemeral_values(a))
+})
+
+test_that("the last write wins on every store", {
+  a = ephemeral_store()
+  b = ephemeral_store()
+  ephemeral_set(a, "k", "from a")
+  Sys.sleep(0.02)
+  ephemeral_set(b, "k", "from b")
+
+  from_a = ephemeral_encode(a)
+  from_b = ephemeral_encode(b)
+  ephemeral_apply(a, from_b)
+  ephemeral_apply(b, from_a)
+  expect_identical(ephemeral_get(a, "k"), "from b")
+  expect_identical(ephemeral_get(b, "k"), "from b")
+})
+
+test_that("local updates drive live sync, including deletes", {
+  a = ephemeral_store()
+  b = ephemeral_store()
+  sub = ephemeral_subscribe_local_updates(a, function(bytes) ephemeral_apply(b, bytes))
+  on.exit(unsubscribe(sub))
+
+  ephemeral_set(a, "k", 1L)
+  expect_identical(ephemeral_get(b, "k"), 1L)
+  ephemeral_set(a, "k", 2L)
+  expect_identical(ephemeral_get(b, "k"), 2L)
+  ephemeral_delete(a, "k")
+  expect_identical(ephemeral_keys(b), character())
+})
+
+test_that("subscribers see added, updated, and removed keys", {
+  a = ephemeral_store()
+  b = ephemeral_store()
+  events = list()
+  sub = ephemeral_subscribe(b, function(event) events[[length(events) + 1]] <<- event)
+  on.exit(unsubscribe(sub))
+
+  ephemeral_set(b, "mine", TRUE)
+  ephemeral_set(a, "k", 1L)
+  ephemeral_apply(b, ephemeral_encode(a))
+  ephemeral_set(a, "k", 2L)
+  ephemeral_apply(b, ephemeral_encode(a))
+  ephemeral_delete(b, "k")
+
+  expect_identical(
+    events,
+    list(
+      list(by = "local", added = "mine", updated = character(), removed = character()),
+      list(by = "import", added = "k", updated = character(), removed = character()),
+      list(by = "import", added = character(), updated = "k", removed = character()),
+      list(by = "local", added = character(), updated = character(), removed = "k")
+    )
+  )
+})
+
+test_that("entries expire after the timeout", {
+  store = ephemeral_store(timeout = 50)
+  events = list()
+  sub = ephemeral_subscribe(store, function(event) events[[length(events) + 1]] <<- event)
+  on.exit(unsubscribe(sub))
+
+  ephemeral_set(store, "k", 1L)
+  full = length(ephemeral_encode(store))
+  Sys.sleep(0.25)
+  expect_lt(length(ephemeral_encode(store)), full)
+  expect_identical(ephemeral_keys(store), "k")
+
+  ephemeral_remove_outdated(store)
+  expect_identical(ephemeral_keys(store), character())
+  expect_identical(events[[2]]$by, "timeout")
+  expect_identical(events[[2]]$removed, "k")
+})
+
+test_that("ephemeral arguments are validated", {
+  store = ephemeral_store()
+  expect_error(ephemeral_store(timeout = 0), "timeout")
+  expect_error(ephemeral_set("x", "k", 1), "loro_ephemeral_store")
+  expect_error(ephemeral_set(store, 1, 1), "key")
+  expect_error(ephemeral_set(store, "k", factor("a")), "class")
+  expect_error(ephemeral_apply(store, "bytes"), "raw")
+  expect_error(ephemeral_apply(store, as.raw(1:9)))
+  expect_error(ephemeral_subscribe(store, 1), "callback")
+})
+
+test_that("the store prints its entry count", {
+  store = ephemeral_store()
+  expect_match(cli::cli_fmt(print(store)), "0 entries")
+})

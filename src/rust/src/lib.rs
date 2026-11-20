@@ -2,6 +2,7 @@ use extendr_api::Result;
 use extendr_api::prelude::*;
 use std::sync::Arc;
 
+use loro::awareness::EphemeralStore;
 use loro::cursor::{Cursor, Side};
 use loro::{
     Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroDoc, LoroList, LoroMap,
@@ -636,6 +637,114 @@ fn loro_undo_group_impl(mut manager: UndoPtr, start: bool) -> Result<()> {
     }
 }
 
+type EphemeralPtr = ExternalPtr<EphemeralStore>;
+
+/// Create an ephemeral store whose entries expire after `timeout` ms.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_new_impl(timeout: f64) -> EphemeralPtr {
+    ExternalPtr::new(EphemeralStore::new(timeout as i64))
+}
+
+/// Set `key` to a plain value.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_set_impl(store: EphemeralPtr, key: &str, value: Robj) -> Result<()> {
+    store.set(key, r_to_value(&value)?);
+    Ok(())
+}
+
+/// Value at `key`; `NULL` when absent.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_get_impl(store: EphemeralPtr, key: &str) -> Robj {
+    let store: &EphemeralStore = &store;
+    match store.get(key) {
+        Some(value) => value_to_r(&value),
+        None => ().into(),
+    }
+}
+
+/// Remove `key`.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_delete_impl(store: EphemeralPtr, key: &str) {
+    store.delete(key);
+}
+
+/// Sorted keys of the store.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_keys_impl(store: EphemeralPtr) -> Vec<String> {
+    let mut keys = store.keys();
+    keys.sort();
+    keys
+}
+
+/// All entries as a named list, sorted by key.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_values_impl(store: EphemeralPtr) -> Result<Robj> {
+    let mut entries: Vec<(String, Robj)> = store
+        .get_all_states()
+        .iter()
+        .map(|(key, value)| (key.clone(), value_to_r(value)))
+        .collect();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let (names, values): (Vec<String>, Vec<Robj>) = entries.into_iter().unzip();
+    Ok(List::from_names_and_values(names, values)?.into())
+}
+
+/// Encode one key, or every key when `key` is `NULL`.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_encode_impl(store: EphemeralPtr, key: Nullable<String>) -> Raw {
+    match key {
+        Nullable::NotNull(key) => Raw::from_bytes(&store.encode(&key)),
+        Nullable::Null => Raw::from_bytes(&store.encode_all()),
+    }
+}
+
+/// Apply entries encoded by another store.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_apply_impl(store: EphemeralPtr, bytes: Raw) -> Result<()> {
+    store.apply(bytes.as_slice()).map_err(to_r_error)
+}
+
+/// Drop entries that have not been updated within the timeout.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_remove_outdated_impl(store: EphemeralPtr) {
+    store.remove_outdated();
+}
+
+/// Queue the store's change events.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_subscribe_impl(store: EphemeralPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = store.subscribe(Box::new(move |event| {
+        sink.push(events::ephemeral_event_to_r(event));
+        true
+    }));
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
+/// Queue the encoded updates produced by each local change to the store.
+/// @noRd
+#[extendr]
+fn loro_ephemeral_subscribe_local_updates_impl(store: EphemeralPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = store.subscribe_local_updates(Box::new(move |bytes| {
+        sink.push(Raw::from_bytes(bytes).into());
+        true
+    }));
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
 extendr_module! {
     mod creditor;
     fn loro_doc_new_impl;
@@ -678,6 +787,17 @@ extendr_module! {
     fn loro_undo_redo_impl;
     fn loro_undo_counts_impl;
     fn loro_undo_group_impl;
+    fn loro_ephemeral_new_impl;
+    fn loro_ephemeral_set_impl;
+    fn loro_ephemeral_get_impl;
+    fn loro_ephemeral_delete_impl;
+    fn loro_ephemeral_keys_impl;
+    fn loro_ephemeral_values_impl;
+    fn loro_ephemeral_encode_impl;
+    fn loro_ephemeral_apply_impl;
+    fn loro_ephemeral_remove_outdated_impl;
+    fn loro_ephemeral_subscribe_impl;
+    fn loro_ephemeral_subscribe_local_updates_impl;
     fn loro_map_set_impl;
     fn loro_map_set_container_impl;
     fn loro_map_get_impl;

@@ -169,6 +169,50 @@ loro_undo_counts_impl <- function(manager) .Call(wrap__loro_undo_counts_impl, ma
 #' @noRd
 loro_undo_group_impl <- function(manager, start) .Call(wrap__loro_undo_group_impl, manager, start)
 
+#' Create an ephemeral store whose entries expire after `timeout` ms.
+#' @noRd
+loro_ephemeral_new_impl <- function(timeout) .Call(wrap__loro_ephemeral_new_impl, timeout)
+
+#' Set `key` to a plain value.
+#' @noRd
+loro_ephemeral_set_impl <- function(store, key, value) .Call(wrap__loro_ephemeral_set_impl, store, key, value)
+
+#' Value at `key`; `NULL` when absent.
+#' @noRd
+loro_ephemeral_get_impl <- function(store, key) .Call(wrap__loro_ephemeral_get_impl, store, key)
+
+#' Remove `key`.
+#' @noRd
+loro_ephemeral_delete_impl <- function(store, key) .Call(wrap__loro_ephemeral_delete_impl, store, key)
+
+#' Sorted keys of the store.
+#' @noRd
+loro_ephemeral_keys_impl <- function(store) .Call(wrap__loro_ephemeral_keys_impl, store)
+
+#' All entries as a named list, sorted by key.
+#' @noRd
+loro_ephemeral_values_impl <- function(store) .Call(wrap__loro_ephemeral_values_impl, store)
+
+#' Encode one key, or every key when `key` is `NULL`.
+#' @noRd
+loro_ephemeral_encode_impl <- function(store, key) .Call(wrap__loro_ephemeral_encode_impl, store, key)
+
+#' Apply entries encoded by another store.
+#' @noRd
+loro_ephemeral_apply_impl <- function(store, bytes) .Call(wrap__loro_ephemeral_apply_impl, store, bytes)
+
+#' Drop entries that have not been updated within the timeout.
+#' @noRd
+loro_ephemeral_remove_outdated_impl <- function(store) .Call(wrap__loro_ephemeral_remove_outdated_impl, store)
+
+#' Queue the store's change events.
+#' @noRd
+loro_ephemeral_subscribe_impl <- function(store) .Call(wrap__loro_ephemeral_subscribe_impl, store)
+
+#' Queue the encoded updates produced by each local change to the store.
+#' @noRd
+loro_ephemeral_subscribe_local_updates_impl <- function(store) .Call(wrap__loro_ephemeral_subscribe_local_updates_impl, store)
+
 #' Set `key` to a plain value.
 #' @noRd
 loro_map_set_impl <- function(map, key, value) .Call(wrap__loro_map_set_impl, map, key, value)
