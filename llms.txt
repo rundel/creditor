@@ -48,11 +48,20 @@ text_insert(b, 1, ">> ")
 b |>
   doc_import(doc_export_updates(a, from = doc_version(b))) |>
   text_get()
-#> [1] ">> Hello world"
+```
+
+``` R
+[1] ">> Hello world"
+```
+
+``` r
 a |>
   doc_import(doc_export_updates(b, from = doc_version(a))) |>
   text_get()
-#> [1] ">> Hello world"
+```
+
+``` R
+[1] ">> Hello world"
 ```
 
 Containers nest: a map or list can hold plain values or child
@@ -82,14 +91,17 @@ note$items |>
 doc |>
   doc_value() |>
   str()
-#> List of 1
-#>  $ note:List of 3
-#>   ..$ body : chr "Buy before Friday"
-#>   ..$ items:List of 3
-#>   .. ..$ : chr "milk"
-#>   .. ..$ : chr "eggs"
-#>   .. ..$ : chr "bread"
-#>   ..$ title: chr "Groceries"
+```
+
+``` R
+List of 1
+ $ note:List of 3
+  ..$ body : chr "Buy before Friday"
+  ..$ items:List of 3
+  .. ..$ : chr "milk"
+  .. ..$ : chr "eggs"
+  .. ..$ : chr "bread"
+  ..$ title: chr "Groceries"
 ```
 
 Text can carry marks, and a cursor keeps pointing at the same character
@@ -110,17 +122,25 @@ doc |>
   text_update("Hello brave new world") |>
   text_delta() |>
   str()
-#> List of 2
-#>  $ :List of 2
-#>   ..$ insert    : chr "Hello"
-#>   ..$ attributes:List of 1
-#>   .. ..$ bold: logi TRUE
-#>  $ :List of 1
-#>   ..$ insert: chr " brave new world"
+```
 
+``` R
+List of 2
+ $ :List of 2
+  ..$ insert    : chr "Hello"
+  ..$ attributes:List of 1
+  .. ..$ bold: logi TRUE
+ $ :List of 1
+  ..$ insert: chr " brave new world"
+```
+
+``` r
 # The cursor has moved with the "w", which is now character 17
 cursor_pos(doc, cursor)
-#> [1] 17
+```
+
+``` R
+[1] 17
 ```
 
 Every version stays reachable.
@@ -135,17 +155,25 @@ doc = loro_doc(peer_id = 1) |>
 
 # One row per change
 (changes = doc_changes(doc))
-#> # A tibble: 2 × 7
-#>   peer  counter lamport length timestamp message  frontiers
-#>   <chr>   <int>   <int>  <int> <dttm>    <chr>    <list>   
-#> 1 1           0       0      5 NA        greeting <4@1>    
-#> 2 1           5       5      6 NA        audience <10@1>
+```
 
+``` R
+# A tibble: 2 × 7
+  peer  counter lamport length timestamp message  frontiers
+  <chr>   <int>   <int>  <int> <dttm>    <chr>    <list>   
+1 1           0       0      5 NA        greeting <4@1>    
+2 1           5       5      6 NA        audience <10@1>   
+```
+
+``` r
 # Read the document as it was after the greeting commit, from a copy at that version
 doc |>
   doc_fork(at = "greeting") |>
   text_get()
-#> [1] "Hello"
+```
+
+``` R
+[1] "Hello"
 ```
 
 Subscriptions make live sync a one-liner, and undo reverses only local
@@ -166,13 +194,23 @@ a |>
   text_insert(1, "Hello") |>
   doc_commit()
 text_get(b)
-#> [1] "Hello"
+```
 
+``` R
+[1] "Hello"
+```
+
+``` r
 # Undo is itself an edit, so it syncs to `b` too
 undo(manager)
 text_get(b)
-#> [1] ""
+```
 
+``` R
+[1] ""
+```
+
+``` r
 # Stop syncing
 unsubscribe(sync)
 ```
