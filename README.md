@@ -134,7 +134,7 @@ unsubscribe(sync)
 
 ## Shiny example
 
-An example app shows two replicas of one document side by side. Each pane can be taken offline to make concurrent edits, which merge when it comes back online, and a history slider below the panes scrubs through the merged document's versions with each step's insertions and deletions highlighted.
+An example app shows two replicas of one document side by side. Each pane can be taken offline to make concurrent edits, which merge when it comes back online. Below the panes a timeline shows every edit as a bubble, in one row per replica above an axis of edit times; hovering a bubble shows what was changed and by whom, and selecting one shows the text at that point with the edit's insertions and deletions highlighted.
 
 ```r
 shiny::runApp(system.file("examples/sync-editors", package = "creditor"))
