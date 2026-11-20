@@ -38,7 +38,7 @@ jobs:
 
       # A debug install leaves src/rust/target in place, so caching it lets
       # cargo reuse the compiled dependencies and rebuild only creditor.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: src/rust/target
           key: pkgdown-cargo-${{ steps.rust.outputs.cachekey }}-${{ hashFiles('src/rust/Cargo.lock') }}
