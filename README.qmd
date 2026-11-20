@@ -77,6 +77,8 @@ doc |>
   str()
 ```
 
+The title is stored as a plain value: it changes only by being set again, so when two replicas set it concurrently one of the values wins. The items and body are containers, with handles (`note$items`, `note$body`) that the `list_*` and `text_*` functions edit in place, and concurrent edits to them from different replicas are all kept. The same goes for R lists: `list("milk", "eggs")` would store a plain value that comes back as an ordinary R list, which `list_push()` cannot extend. Use plain values for things that change as a whole and containers for things people edit piece by piece.
+
 Text can carry marks, and a cursor keeps pointing at the same character as the text changes.
 
 ```{r}
