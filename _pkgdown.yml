@@ -8,3 +8,50 @@ navbar:
   structure:
     left:  [intro, reference, articles, news]
     right: [search, github]
+
+reference:
+  - title: Documents
+    desc: Create a document, identify its replica, and read its contents.
+    contents:
+      - loro_doc
+      - doc
+      - creditor-package
+
+  - title: Containers
+    desc: Documents hold containers. Get a handle to a root container or create a new one to store inside a map or list.
+    contents:
+      - containers
+      - loro_text
+
+  - title: Editing containers
+    desc: Each container type has its own functions, which take a handle (or a document, standing for its default root container) as their first argument.
+    contents:
+      - text
+      - richtext
+      - cursor
+      - map
+      - list
+      - counter
+      - tree
+
+  - title: Synchronization
+    desc: Exchange snapshots and updates between replicas.
+    contents:
+      - doc_sync
+      - versions
+
+  - title: History
+    desc: List changes, compare versions, travel to earlier versions, and revert.
+    contents:
+      - history
+
+  - title: Events and undo
+    desc: React to changes as they are committed and reverse local edits.
+    contents:
+      - subscribe
+      - undo
+
+  - title: Presence
+    desc: Share short-lived state, such as cursors and user names, outside the document.
+    contents:
+      - ephemeral
