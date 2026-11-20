@@ -48,7 +48,7 @@ doc = loro_doc()
 text_insert(doc, 1, "a")
 frontiers = doc_frontiers(doc)
 frontiers
-#> <loro_frontiers> 01 9b b0 82 91 90 fb c2 cf 78 00
+#> <loro_frontiers> 01 dd 9e e4 f0 a6 c3 b8 c5 58 00
 
 saved = unclass(frontiers)
 identical(as_frontiers(saved), frontiers)
