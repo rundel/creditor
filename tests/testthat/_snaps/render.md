@@ -32,3 +32,17 @@
        $ :List of 1
         ..$ insert: chr " the docs"
 
+# printing notes left-out marks instead of warning
+
+    Code
+      print(delta)
+    Output
+      <loro_delta>
+      **a**b
+      (not shown: author; print with format = "html" to see it)
+    Code
+      print(delta, format = "html")
+    Output
+      <loro_delta>
+      <strong>a</strong><span data-author="cr">b</span>
+

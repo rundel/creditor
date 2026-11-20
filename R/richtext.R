@@ -19,20 +19,21 @@
 #'   `"markdown"`, `"html"`, `"ansi"`, or `"list"` (the [`str()`][utils::str]
 #'   view), whose default comes from the `creditor.delta_format` option,
 #'   so `options(creditor.delta_format = "ansi")` changes how deltas
-#'   autoprint.
+#'   autoprint. Printing never warns: when the chosen format leaves
+#'   marks out, a note at the end names them.
 #' * `text_markdown()` and `text_html()` render the text with its marks
 #'   as a Markdown or HTML string. Both handle `bold`, `italic`,
 #'   `underline`, `code`, and `link` (whose value is the target URL);
 #'   Markdown writes underline as `<u>` tags. HTML also writes
 #'   `highlight` as `<mark>` and any other mark as a `<span>` with a
 #'   `data-` attribute holding its value, for example
-#'   `<span data-comment="check this">`. Markdown drops the marks it
-#'   cannot express.
+#'   `<span data-comment="check this">`. Markdown cannot express the
+#'   other marks, so `text_markdown()` leaves them out with a warning.
 #' * `text_ansi()` renders the text for the console with ANSI styles
 #'   from cli: bold, italic, and underline as themselves, `code` in
 #'   cyan, `highlight` on a yellow background, and `link` in blue as a
-#'   hyperlink where the terminal supports one. Other marks are left
-#'   unstyled. Styles appear only where cli detects color support (see
+#'   hyperlink where the terminal supports one. Other marks have no
+#'   style and are left out with a warning. Styles appear only where cli detects color support (see
 #'   [cli::num_ansi_colors()]); elsewhere the result is the plain text.
 #' * `text_apply_delta()` edits the text with a list of delta ops.
 #'   Each op is a list with exactly one of `retain` (keep that many
@@ -77,6 +78,25 @@
 #'   as `text_unmark()` does. For `doc_config_text_style()`, strings
 #'   giving the expand behavior of each key, for example
 #'   `comment = "none"`. Both are [dynamic dots][rlang::dyn-dots].
+#' @param marks How to render marks, overriding the defaults or covering
+#'   marks the format cannot otherwise show: `NULL`, or a list named by
+#'   mark key. For `text_markdown()` and `text_html()`, each entry is a
+#'   character vector of two strings, the text written before and after
+#'   the marked range (`bold = c(before = "__", after = "__")`; the names
+#'   are optional), or a function that takes the mark's value and returns
+#'   them (`author = \(value) c(before = "<cite>", after = paste0(" (",
+#'   value, ")</cite>"))`). The mark's range decides where they are
+#'   written.
+#'   They are written as given, without escaping, so a function that puts
+#'   the value into HTML should escape it. For `text_ansi()`, each entry
+#'   is a function that takes the text and returns it styled, such as
+#'   [cli::col_magenta()]; a function with an argument named `value` is
+#'   also given the mark's value. A mark with an entry is never left out.
+#' @param strict For `text_markdown()` and `text_ansi()`, whether
+#'   leaving out a mark the format cannot show is an error rather than a
+#'   warning. Both conditions have class `creditor_dropped_marks`, so
+#'   the warning can be silenced on its own with
+#'   [`suppressWarnings(classes = "creditor_dropped_marks")`][base::suppressWarnings].
 #' @param keys A character vector of mark names.
 #' @param delta A list of delta ops.
 #' @param .doc A [`loro_doc`]. The argument name starts with a dot so
@@ -101,6 +121,7 @@
 #' str(text_delta(text))
 #' text_markdown(text)
 #' text_html(text)
+#' text_markdown(text, marks = list(bold = c(before = "__", after = "__")))
 #' cat(text_ansi(text), "\n")
 #'
 #' text_apply_delta(text, list(
@@ -206,20 +227,29 @@ text_delta = function(text, start = 1, end = text_length(text)) {
 
 #' @rdname richtext
 #' @export
-text_markdown = function(text, start = 1, end = text_length(text)) {
-  delta_markdown(text_delta(text, start, end))
+text_markdown = function(text, start = 1, end = text_length(text), marks = NULL, strict = FALSE) {
+  check_bool(strict, "strict")
+  marks = check_renderers(marks, "delims")
+  delta = text_delta(text, start, end)
+  check_dropped_marks(delta, markdown_marks, "text_markdown", strict, marks)
+  delta_markdown(delta, marks)
 }
 
 #' @rdname richtext
 #' @export
-text_ansi = function(text, start = 1, end = text_length(text)) {
-  delta_ansi(text_delta(text, start, end))
+text_ansi = function(text, start = 1, end = text_length(text), marks = NULL, strict = FALSE) {
+  check_bool(strict, "strict")
+  marks = check_renderers(marks, "style")
+  delta = text_delta(text, start, end)
+  check_dropped_marks(delta, ansi_marks, "text_ansi", strict, marks)
+  delta_ansi(delta, marks)
 }
 
 #' @rdname richtext
 #' @export
-text_html = function(text, start = 1, end = text_length(text)) {
-  delta_html(text_delta(text, start, end))
+text_html = function(text, start = 1, end = text_length(text), marks = NULL) {
+  marks = check_renderers(marks, "delims")
+  delta_html(text_delta(text, start, end), marks)
 }
 
 #' @rdname richtext

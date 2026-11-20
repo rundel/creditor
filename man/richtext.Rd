@@ -18,11 +18,23 @@ text_unmark(text, start, end, keys)
 
 text_delta(text, start = 1, end = text_length(text))
 
-text_markdown(text, start = 1, end = text_length(text))
+text_markdown(
+  text,
+  start = 1,
+  end = text_length(text),
+  marks = NULL,
+  strict = FALSE
+)
 
-text_ansi(text, start = 1, end = text_length(text))
+text_ansi(
+  text,
+  start = 1,
+  end = text_length(text),
+  marks = NULL,
+  strict = FALSE
+)
 
-text_html(text, start = 1, end = text_length(text))
+text_html(text, start = 1, end = text_length(text), marks = NULL)
 
 text_apply_delta(text, delta)
 
@@ -50,6 +62,26 @@ of the range. For \code{text_delta()} and the rendering functions they
 default to the whole text.}
 
 \item{keys}{A character vector of mark names.}
+
+\item{marks}{How to render marks, overriding the defaults or covering
+marks the format cannot otherwise show: \code{NULL}, or a list named by
+mark key. For \code{text_markdown()} and \code{text_html()}, each entry is a
+character vector of two strings, the text written before and after
+the marked range (\code{bold = c(before = "__", after = "__")}; the names
+are optional), or a function that takes the mark's value and returns
+them (\verb{author = \\(value) c(before = "<cite>", after = paste0(" (", value, ")</cite>"))}). The mark's range decides where they are
+written.
+They are written as given, without escaping, so a function that puts
+the value into HTML should escape it. For \code{text_ansi()}, each entry
+is a function that takes the text and returns it styled, such as
+\code{\link[cli:col_magenta]{cli::col_magenta()}}; a function with an argument named \code{value} is
+also given the mark's value. A mark with an entry is never left out.}
+
+\item{strict}{For \code{text_markdown()} and \code{text_ansi()}, whether
+leaving out a mark the format cannot show is an error rather than a
+warning. Both conditions have class \code{creditor_dropped_marks}, so
+the warning can be silenced on its own with
+\code{\link[base:suppressWarnings]{suppressWarnings(classes = "creditor_dropped_marks")}}.}
 
 \item{delta}{A list of delta ops.}
 
@@ -84,20 +116,21 @@ plain list structure for \code{\link[utils:str]{str()}} and indexing. Its
 \code{"markdown"}, \code{"html"}, \code{"ansi"}, or \code{"list"} (the \code{\link[utils:str]{str()}}
 view), whose default comes from the \code{creditor.delta_format} option,
 so \code{options(creditor.delta_format = "ansi")} changes how deltas
-autoprint.
+autoprint. Printing never warns: when the chosen format leaves
+marks out, a note at the end names them.
 \item \code{text_markdown()} and \code{text_html()} render the text with its marks
 as a Markdown or HTML string. Both handle \code{bold}, \code{italic},
 \code{underline}, \code{code}, and \code{link} (whose value is the target URL);
 Markdown writes underline as \verb{<u>} tags. HTML also writes
 \code{highlight} as \verb{<mark>} and any other mark as a \verb{<span>} with a
 \verb{data-} attribute holding its value, for example
-\verb{<span data-comment="check this">}. Markdown drops the marks it
-cannot express.
+\verb{<span data-comment="check this">}. Markdown cannot express the
+other marks, so \code{text_markdown()} leaves them out with a warning.
 \item \code{text_ansi()} renders the text for the console with ANSI styles
 from cli: bold, italic, and underline as themselves, \code{code} in
 cyan, \code{highlight} on a yellow background, and \code{link} in blue as a
-hyperlink where the terminal supports one. Other marks are left
-unstyled. Styles appear only where cli detects color support (see
+hyperlink where the terminal supports one. Other marks have no
+style and are left out with a warning. Styles appear only where cli detects color support (see
 \code{\link[cli:num_ansi_colors]{cli::num_ansi_colors()}}); elsewhere the result is the plain text.
 \item \code{text_apply_delta()} edits the text with a list of delta ops.
 Each op is a list with exactly one of \code{retain} (keep that many
@@ -141,6 +174,7 @@ print(text_delta(text), format = "html")
 str(text_delta(text))
 text_markdown(text)
 text_html(text)
+text_markdown(text, marks = list(bold = c(before = "__", after = "__")))
 cat(text_ansi(text), "\n")
 
 text_apply_delta(text, list(

@@ -128,17 +128,55 @@ sync(a, b) |>
   text_markdown()
 ```
 
-Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands at its end, so typing after a bold word continues in bold. A link does not, so typing after a link produces plain text. Keys other than the built-in ones (`bold`, `italic`, `underline`, `link`, `highlight`, `comment`, and `code`) must be declared first with `doc_config_text_style()`.
+Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands after its end, so typing straight after a bold word continues in bold. A link does not expand, so text typed after a link is plain.
 
 ```{r}
 loro_doc(peer_id = 1) |>
-  doc_config_text_style(author = "none") |>
-  text_insert(1, "Reviewed") |>
-  text_mark(1, 8, author = "cr") |>
-  text_html()
+  text_insert(1, "bold link") |>
+  text_mark(1, 4, bold = TRUE) |>
+  text_mark(6, 9, link = "https://loro.dev") |>
+  text_insert(5, "er") |>
+  text_push("s") |>
+  text_markdown()
 ```
 
-Markdown has no way to write a mark like `author`, so `text_markdown()` leaves it out, while `text_html()` keeps it as a `data-` attribute.
+The keys used so far (`bold`, `italic`, `underline`, `link`, `highlight`, `comment`, and `code`) are built in. Any other key, such as an `author` mark recording who wrote a passage, must be declared with `doc_config_text_style()` before it is used; marking with an undeclared key is an error. Each argument names a key and gives its expand rule: `"after"`, `"before"`, `"both"`, or `"none"`. The configuration belongs to the replica rather than the document, so it is not synced: every replica that edits marks should declare the same keys in the same way.
+
+An author mark should not spread to text that someone else types next to it, so it is declared with `"none"`.
+
+```{r}
+doc = loro_doc(peer_id = 1) |>
+  doc_config_text_style(author = "none") |>
+  text_insert(1, "Reviewed") |>
+  text_mark(1, 8, author = "cr")
+
+text_html(doc)
+
+text_markdown(doc)
+```
+
+Markdown has no way to write a mark like `author`. `text_html()` keeps it as a `data-` attribute on a `<span>`, an element with no styling of its own, so the value is there for CSS or JavaScript without changing how the text looks. `text_markdown()` leaves the mark out with a warning, or an error with `strict = TRUE`.
+
+The `marks` argument chooses how a mark is written. Where a mark is written is fixed by its range: here, characters 1 to 8, `"Reviewed"`. For Markdown and HTML an entry gives the two strings to write before and after that range, either directly or from a function of the mark's value (`"cr"`). For `text_ansi()` it is a function that styles the text, such as `cli::col_magenta`. Entries can also override the built-in marks.
+
+```{r}
+text_markdown(
+  doc, marks = list(
+    author = \(value) c(before = "", after = paste0(" (", value, ")"))
+  )
+)
+
+text_html(
+  doc, marks = list(
+    author = \(value) c(
+      before = "<cite>", 
+      after = paste0(" (", value, ")</cite>")
+    )
+  )
+)
+
+text_markdown(doc, marks = list(author = c(before = "_", after = "_")))
+```
 
 ## Map
 

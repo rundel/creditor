@@ -110,16 +110,19 @@ html_close = function(key, value) {
   "</span>"
 }
 
-delta_html = function(delta) {
+delta_html = function(delta, custom = list()) {
   pieces = vapply(
     delta_tokens(delta),
     function(token) {
-      switch(
-        token$type,
-        text = html_escape(token$text),
-        open = html_open(token$key, token$value),
-        close = html_close(token$key, token$value)
-      )
+      if (token$type == "text") {
+        return(html_escape(token$text))
+      }
+      delims = if (token$key %in% names(custom)) {
+        custom_delims(custom[[token$key]], token$value, token$key)
+      } else {
+        c(html_open(token$key, token$value), html_close(token$key, token$value))
+      }
+      if (token$type == "open") delims[1] else delims[2]
     },
     character(1)
   )
@@ -159,7 +162,7 @@ markdown_delims = function(key, value, code_text) {
   c("", "")
 }
 
-delta_markdown = function(delta) {
+delta_markdown = function(delta, custom = list()) {
   tokens = delta_tokens(delta)
   n = length(tokens)
   text = character(n)
@@ -170,6 +173,12 @@ delta_markdown = function(delta) {
     token = tokens[[i]]
     if (token$type == "text") {
       text[i] = if (in_code) token$text else markdown_escape(token$text)
+      next
+    }
+    if (token$key %in% names(custom)) {
+      delims = custom_delims(custom[[token$key]], token$value, token$key)
+      text[i] = if (token$type == "open") delims[1] else delims[2]
+      shift[i] = TRUE
       next
     }
     code_text = ""
@@ -219,9 +228,13 @@ delta_markdown = function(delta) {
   paste(text, collapse = "")
 }
 
-style_run = function(text, marks) {
+style_run = function(text, marks, custom = list()) {
   for (key in rev(names(marks))) {
     value = marks[[key]]
+    if (key %in% names(custom)) {
+      text = custom_style(custom[[key]], text, value, key)
+      next
+    }
     text = switch(
       key,
       bold = cli::style_bold(text),
@@ -240,13 +253,46 @@ style_run = function(text, marks) {
   text
 }
 
-delta_ansi = function(delta) {
+delta_ansi = function(delta, custom = list()) {
   styled = vapply(
     delta_runs(delta),
-    function(op) style_run(op$insert, run_marks(op$attributes)),
+    function(op) style_run(op$insert, run_marks(op$attributes), custom),
     character(1)
   )
   cli::ansi_string(paste(styled, collapse = ""))
+}
+
+markdown_marks = c("bold", "italic", "underline", "code", "link")
+ansi_marks = c(markdown_marks, "highlight")
+
+dropped_marks = function(delta, supported, custom = list()) {
+  keys = character()
+  for (op in delta_runs(delta)) {
+    marks = run_marks(op$attributes)
+    for (key in names(marks)) {
+      expressible = key %in% names(custom) || (key %in% supported &&
+        (key != "link" || (is.character(marks[[key]]) && length(marks[[key]]) == 1)))
+      if (!expressible) {
+        keys = c(keys, key)
+      }
+    }
+  }
+  unique(keys)
+}
+
+check_dropped_marks = function(delta, supported, fn, strict, custom = list(), call = rlang::caller_env()) {
+  keys = dropped_marks(delta, supported, custom)
+  if (length(keys) == 0) {
+    return(invisible())
+  }
+  message = c(
+    "{.fn {fn}} cannot show the {cli::qty(length(keys))}mark{?s} {.field {keys}}, so {?it is/they are} left out.",
+    i = "Use {.fn text_html} to keep every mark, or give {.arg marks} a way to show {cli::qty(length(keys))}{?it/them}."
+  )
+  if (strict) {
+    cli::cli_abort(message, class = "creditor_dropped_marks", call = call)
+  }
+  cli::cli_warn(message, class = "creditor_dropped_marks", call = call)
 }
 
 delta_formats = c("markdown", "html", "ansi", "list")
@@ -267,7 +313,20 @@ S7::method(format, S7::new_S3_class("loro_delta")) = function(
     ansi = delta_ansi(x),
     list = paste(utils::capture.output(utils::str(unclass(x))), collapse = "\n")
   )
-  c("<loro_delta>", strsplit(body, "\n", fixed = TRUE)[[1]])
+  lines = c("<loro_delta>", strsplit(body, "\n", fixed = TRUE)[[1]])
+  supported = switch(format, markdown = markdown_marks, ansi = ansi_marks, NULL)
+  if (!is.null(supported)) {
+    keys = dropped_marks(x, supported)
+    if (length(keys)) {
+      them = if (length(keys) == 1) "it" else "them"
+      note = paste0(
+        "(not shown: ", paste(keys, collapse = ", "),
+        "; print with format = \"html\" to see ", them, ")"
+      )
+      lines = c(lines, cli::col_grey(note))
+    }
+  }
+  lines
 }
 
 S7::method(print, S7::new_S3_class("loro_delta")) = function(
@@ -282,4 +341,54 @@ S7::method(print, S7::new_S3_class("loro_delta")) = function(
 #' @exportS3Method utils::str
 str.loro_delta = function(object, ...) {
   utils::str(unclass(object), ...)
+}
+
+check_renderers = function(marks, kind, arg = "marks", call = rlang::caller_env()) {
+  if (is.null(marks)) {
+    return(list())
+  }
+  keys = names(marks)
+  if (!is.list(marks) || is.object(marks) || length(marks) == 0 && !is.null(keys) ||
+    (length(marks) > 0 && (is.null(keys) || any(!nzchar(keys)) || anyDuplicated(keys)))) {
+    cli::cli_abort(
+      "{.arg {arg}} must be {.code NULL} or a list named by mark key, with each key once.",
+      call = call
+    )
+  }
+  for (key in keys) {
+    spec = marks[[key]]
+    ok = if (kind == "style") {
+      is.function(spec)
+    } else {
+      is.function(spec) || (is.character(spec) && length(spec) == 2 && !anyNA(spec))
+    }
+    if (!ok) {
+      want = if (kind == "style") {
+        "a function that styles the text"
+      } else {
+        "two strings (the opening and closing text) or a function of the mark value returning them"
+      }
+      cli::cli_abort("{.code {arg}${key}} must be {want}.", call = call)
+    }
+  }
+  marks
+}
+
+custom_delims = function(spec, value, key) {
+  out = if (is.function(spec)) spec(value) else spec
+  if (!is.character(out) || length(out) != 2 || anyNA(out)) {
+    cli::cli_abort(
+      "The function in {.code marks${key}} must return two strings, the opening and closing text.",
+      call = NULL
+    )
+  }
+  out
+}
+
+custom_style = function(spec, text, value, key) {
+  out = if ("value" %in% names(formals(spec))) spec(text, value = value) else spec(text)
+  if (!is.character(out) || length(out) != 1 || is.na(out)) {
+    cli::cli_abort("The function in {.code marks${key}} must return one string.", call = NULL)
+  }
+  out
 }
