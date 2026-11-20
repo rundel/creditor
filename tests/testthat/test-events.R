@@ -210,3 +210,55 @@ test_that("a commit origin reaches subscribers but not history", {
   expect_identical(remote$get()[[1]]$origin, "")
   expect_error(doc_commit(a, origin = 1), "origin")
 })
+
+test_that("peer id changes are reported", {
+  doc = loro_doc(peer_id = 1)
+  peers = character()
+  sub = doc_subscribe_peer_id(doc, function(peer) peers <<- c(peers, peer))
+  on.exit(unsubscribe(sub))
+
+  doc_set_peer_id(doc, 2)
+  doc_set_peer_id(doc, 3)
+  expect_identical(peers, c("2", "3"))
+})
+
+test_that("the first local commit under each peer id is reported", {
+  doc = loro_doc(peer_id = 1)
+  peers = character()
+  sub = doc_subscribe_first_commit(doc, function(peer) peers <<- c(peers, peer))
+  on.exit(unsubscribe(sub))
+
+  text_insert(doc_text(doc), 1, "a")
+  doc_commit(doc)
+  text_insert(doc_text(doc), 1, "b")
+  doc_commit(doc)
+  expect_identical(peers, "1")
+
+  doc_set_peer_id(doc, 2)
+  expect_identical(peers, "1")
+  text_insert(doc_text(doc), 1, "c")
+  doc_commit(doc)
+  expect_identical(peers, c("1", "2"))
+
+  other = loro_doc(peer_id = 7)
+  text_insert(doc_text(other), 1, "z")
+  doc_import(doc, doc_export(other))
+  expect_identical(peers, c("1", "2"))
+
+  expect_error(doc_subscribe_first_commit(doc, 1), "callback")
+  expect_error(doc_subscribe_peer_id("doc", identity), "loro_doc")
+})
+
+test_that("a first-commit callback can record the author", {
+  doc = loro_doc(peer_id = 5)
+  authors = doc_map(doc, "authors")
+  sub = doc_subscribe_first_commit(doc, function(peer) {
+    map_set(authors, peer, "Colin")
+    doc_commit(doc)
+  })
+  on.exit(unsubscribe(sub))
+
+  text_insert(doc_text(doc), 1, "a")
+  doc_commit(doc)
+  expect_identical(container_value(authors), list(`5` = "Colin"))
+})

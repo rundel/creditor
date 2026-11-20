@@ -13,6 +13,9 @@
 \alias{doc_compare_frontiers}
 \alias{doc_checkout}
 \alias{doc_is_detached}
+\alias{doc_detach}
+\alias{doc_set_detached_editing}
+\alias{doc_is_detached_editing}
 \alias{doc_revert_to}
 \alias{doc_diff}
 \alias{doc_apply_diff}
@@ -41,6 +44,12 @@ doc_checkout(doc, frontiers = NULL)
 
 doc_is_detached(doc)
 
+doc_detach(doc)
+
+doc_set_detached_editing(doc, enable = TRUE)
+
+doc_is_detached_editing(doc)
+
 doc_revert_to(doc, frontiers)
 
 doc_diff(doc, from, to)
@@ -63,12 +72,16 @@ operation counter.}
 
 \item{version}{A version vector from \code{\link[=doc_version]{doc_version()}}.}
 
+\item{enable}{Whether to allow editing while detached.}
+
 \item{source}{The \code{\link{loro_doc}} whose history \code{from} and \code{to} refer
 to.}
 
 \item{record}{Whether to record timestamps.}
 }
 \value{
+\code{doc_detach()} and \code{doc_set_detached_editing()} return \code{doc}
+invisibly, and \code{doc_is_detached_editing()} a logical.
 \code{doc_frontiers()}, \code{doc_frontiers_to_version()}, and
 \code{doc_version_to_frontiers()} return raw vectors.
 \code{doc_compare_frontiers()} returns an integer, \code{doc_change_count()}
@@ -105,6 +118,12 @@ to the latest when \code{frontiers} is \code{NULL}. While checked out at an
 earlier version the document is detached: it is read-only, and
 imported updates are stored but not shown until it returns to the
 latest version. \code{doc_is_detached()} reports this state.
+\item \code{doc_detach()} detaches the document at its current version,
+freezing what it shows while imports continue to be stored.
+\item \code{doc_set_detached_editing()} allows a detached document to be
+edited, which starts a new branch of history from the checked-out
+version; \code{doc_is_detached_editing()} reports the setting. See the
+Detached editing section.
 \item \code{doc_revert_to()} adds new changes that restore the contents of an
 earlier version. History is kept, and the revert synchronizes to
 other replicas like any other edit.
@@ -121,6 +140,21 @@ lands edits in the wrong place.
 time of each new change. It is off by default.
 }
 }
+\section{Detached editing}{
+
+With detached editing enabled, edits made while checked out at an
+earlier version are recorded as changes that follow that version,
+concurrent with everything that came after it. Returning to the
+latest version with \code{doc_checkout(doc)} merges the branch with the
+rest of the history, as if another replica had made those edits.
+
+To keep the branches distinct, the document takes a new random peer
+id at each checkout while this is enabled, and keeps the last one
+after returning to the latest version, so do not rely on
+\code{\link[=doc_peer_id]{doc_peer_id()}} staying fixed. The setting belongs to this
+\code{loro_doc} object and is not saved in exports.
+}
+
 \section{Changes}{
 
 \code{doc_changes()} returns a data frame, in causal order, with columns:

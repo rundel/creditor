@@ -11,6 +11,13 @@
 #'   local commit with the update it produced: a raw vector that another
 #'   replica can pass to [`doc_import()`]. This is the building block for
 #'   live synchronization.
+#' * `doc_subscribe_first_commit()` calls `callback(peer)` the first
+#'   time this document commits a local change under a given peer id,
+#'   which is a natural moment to record who that peer is (for example
+#'   in a map of authors). It fires again if the document's peer id
+#'   changes, but not for peers whose changes are imported.
+#' * `doc_subscribe_peer_id()` calls `callback(peer)` with the new peer
+#'   id whenever this document's own peer id changes.
 #' * `unsubscribe()` stops a subscription.
 #'
 #' @section Events:
@@ -36,11 +43,10 @@
 #' @param callback A function of one argument.
 #' @param container A container handle to limit the subscription to, or
 #'   `NULL` for the whole document.
-#' @param subscription An object returned by `doc_subscribe()` or
-#'   `doc_subscribe_local_updates()`.
+#' @param subscription An object returned by one of the subscribe
+#'   functions.
 #'
-#' @return `doc_subscribe()` and `doc_subscribe_local_updates()` return a
-#'   subscription object. `unsubscribe()` returns `NULL` invisibly.
+#' @return The subscribe functions return a subscription object. `unsubscribe()` returns `NULL` invisibly.
 #'
 #' @examples
 #' a = loro_doc()
@@ -129,6 +135,22 @@ doc_subscribe_local_updates = function(doc, callback) {
   check_doc(doc)
   check_callback(callback)
   register_subscription(loro_doc_subscribe_local_updates_impl(doc@ptr), callback)
+}
+
+#' @rdname subscribe
+#' @export
+doc_subscribe_first_commit = function(doc, callback) {
+  check_doc(doc)
+  check_callback(callback)
+  register_subscription(loro_doc_subscribe_first_commit_impl(doc@ptr), callback)
+}
+
+#' @rdname subscribe
+#' @export
+doc_subscribe_peer_id = function(doc, callback) {
+  check_doc(doc)
+  check_callback(callback)
+  register_subscription(loro_doc_subscribe_peer_id_impl(doc@ptr), callback)
 }
 
 #' @rdname subscribe

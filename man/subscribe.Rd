@@ -4,12 +4,18 @@
 \alias{subscribe}
 \alias{doc_subscribe}
 \alias{doc_subscribe_local_updates}
+\alias{doc_subscribe_first_commit}
+\alias{doc_subscribe_peer_id}
 \alias{unsubscribe}
 \title{Subscribe to changes}
 \usage{
 doc_subscribe(doc, callback, container = NULL)
 
 doc_subscribe_local_updates(doc, callback)
+
+doc_subscribe_first_commit(doc, callback)
+
+doc_subscribe_peer_id(doc, callback)
 
 unsubscribe(subscription)
 }
@@ -21,12 +27,11 @@ unsubscribe(subscription)
 \item{container}{A container handle to limit the subscription to, or
 \code{NULL} for the whole document.}
 
-\item{subscription}{An object returned by \code{doc_subscribe()} or
-\code{doc_subscribe_local_updates()}.}
+\item{subscription}{An object returned by one of the subscribe
+functions.}
 }
 \value{
-\code{doc_subscribe()} and \code{doc_subscribe_local_updates()} return a
-subscription object. \code{unsubscribe()} returns \code{NULL} invisibly.
+The subscribe functions return a subscription object. \code{unsubscribe()} returns \code{NULL} invisibly.
 }
 \description{
 Subscriptions call an R function when a document changes.
@@ -39,6 +44,13 @@ container and the containers nested inside it are reported.
 local commit with the update it produced: a raw vector that another
 replica can pass to \code{\link[=doc_import]{doc_import()}}. This is the building block for
 live synchronization.
+\item \code{doc_subscribe_first_commit()} calls \code{callback(peer)} the first
+time this document commits a local change under a given peer id,
+which is a natural moment to record who that peer is (for example
+in a map of authors). It fires again if the document's peer id
+changes, but not for peers whose changes are imported.
+\item \code{doc_subscribe_peer_id()} calls \code{callback(peer)} with the new peer
+id whenever this document's own peer id changes.
 \item \code{unsubscribe()} stops a subscription.
 }
 }

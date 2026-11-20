@@ -9,6 +9,7 @@
 \alias{text_slice}
 \alias{text_get}
 \alias{text_length}
+\alias{text_convert_pos}
 \title{Edit collaborative text}
 \usage{
 text_insert(text, pos, value)
@@ -23,7 +24,14 @@ text_slice(text, pos, len)
 
 text_get(text)
 
-text_length(text)
+text_length(text, unit = c("unicode", "utf16", "utf8"))
+
+text_convert_pos(
+  text,
+  pos,
+  from = c("unicode", "utf16", "utf8"),
+  to = c("utf16", "unicode", "utf8")
+)
 }
 \arguments{
 \item{text}{A text handle, from \code{\link[=doc_text]{doc_text()}} or a parent container.}
@@ -37,10 +45,14 @@ text_length(text)
 
 \item{by}{Whether \code{text_update()} compares the old and new text
 character by character (\code{"char"}) or line by line (\code{"line"}).}
+
+\item{unit, from, to}{A unit for counting: \code{"unicode"} (code points,
+used everywhere else in this package), \code{"utf16"} (UTF-16 code
+units), or \code{"utf8"} (bytes).}
 }
 \value{
 \code{text_insert()}, \code{text_delete()}, \code{text_splice()}, and
-\code{text_update()} return \code{text} invisibly, \code{text_slice()} a string,
+\code{text_update()} return \code{text} invisibly, \code{text_slice()} a string, \code{text_convert_pos()} an integer,
 \code{text_get()} a string, and \code{text_length()} an integer.
 }
 \description{
@@ -60,7 +72,16 @@ faster for long texts but replaces a line whole when any part of
 it changes.
 \item \code{text_slice()} returns \code{len} characters starting at \code{pos}.
 \item \code{text_get()} returns the current contents as a string.
-\item \code{text_length()} returns the number of characters.
+\item \code{text_length()} returns the number of characters, or the length
+in another \code{unit}.
+\item \code{text_convert_pos()} converts a position between units, for
+exchanging positions with software that counts differently:
+JavaScript, and so browser-based editors, counts UTF-16 code
+units, in which a character outside the basic plane (most emoji)
+counts as two. Positions stay 1-based in every unit, so subtract 1
+to get a 0-based JavaScript offset. A position in the middle of a
+character converts to the position of that character, and the
+result is \code{NA} if \code{pos} is out of range.
 }
 }
 \examples{

@@ -17,18 +17,30 @@
 #'   it changes.
 #' * `text_slice()` returns `len` characters starting at `pos`.
 #' * `text_get()` returns the current contents as a string.
-#' * `text_length()` returns the number of characters.
+#' * `text_length()` returns the number of characters, or the length
+#'   in another `unit`.
+#' * `text_convert_pos()` converts a position between units, for
+#'   exchanging positions with software that counts differently:
+#'   JavaScript, and so browser-based editors, counts UTF-16 code
+#'   units, in which a character outside the basic plane (most emoji)
+#'   counts as two. Positions stay 1-based in every unit, so subtract 1
+#'   to get a 0-based JavaScript offset. A position in the middle of a
+#'   character converts to the position of that character, and the
+#'   result is `NA` if `pos` is out of range.
 #'
 #' @param text A text handle, from [`doc_text()`] or a parent container.
 #' @param pos A 1-based character position.
 #' @param value A string: the text to insert, or the new contents for
 #'   `text_update()`.
 #' @param len Number of characters to delete, replace, or return.
+#' @param unit,from,to A unit for counting: `"unicode"` (code points,
+#'   used everywhere else in this package), `"utf16"` (UTF-16 code
+#'   units), or `"utf8"` (bytes).
 #' @param by Whether `text_update()` compares the old and new text
 #'   character by character (`"char"`) or line by line (`"line"`).
 #'
 #' @return `text_insert()`, `text_delete()`, `text_splice()`, and
-#'   `text_update()` return `text` invisibly, `text_slice()` a string,
+#'   `text_update()` return `text` invisibly, `text_slice()` a string, `text_convert_pos()` an integer,
 #'   `text_get()` a string, and `text_length()` an integer.
 #'
 #' @examples
@@ -102,7 +114,20 @@ text_get = function(text) {
 
 #' @rdname text
 #' @export
-text_length = function(text) {
+text_length = function(text, unit = c("unicode", "utf16", "utf8")) {
   check_container(text, loro_text, "text")
-  loro_text_length_impl(text@ptr)
+  loro_text_length_unit_impl(text@ptr, match.arg(unit))
+}
+
+#' @rdname text
+#' @export
+text_convert_pos = function(
+  text,
+  pos,
+  from = c("unicode", "utf16", "utf8"),
+  to = c("utf16", "unicode", "utf8")
+) {
+  check_container(text, loro_text, "text")
+  pos = check_count(pos, "pos", 1)
+  loro_text_convert_pos_impl(text@ptr, pos - 1L, match.arg(from), match.arg(to)) + 1L
 }

@@ -3,6 +3,7 @@
 \name{doc}
 \alias{doc}
 \alias{doc_peer_id}
+\alias{doc_set_peer_id}
 \alias{doc_fork}
 \alias{doc_commit}
 \alias{doc_value}
@@ -12,9 +13,11 @@
 \usage{
 doc_peer_id(doc)
 
+doc_set_peer_id(doc, peer_id)
+
 doc_fork(doc, at = NULL)
 
-doc_commit(doc, message = NULL, origin = NULL)
+doc_commit(doc, message = NULL, origin = NULL, timestamp = NULL)
 
 doc_value(doc)
 
@@ -25,6 +28,8 @@ doc_jsonpath(doc, path)
 \arguments{
 \item{doc}{A \code{\link{loro_doc}}.}
 
+\item{peer_id}{A peer id: a whole number or a string of digits.}
+
 \item{at}{A version from \code{\link[=doc_frontiers]{doc_frontiers()}} to fork at, or \code{NULL}
 for the current version.}
 
@@ -32,9 +37,13 @@ for the current version.}
 
 \item{origin}{A string labeling the source of the commit, or \code{NULL}.}
 
+\item{timestamp}{The time to record for the commit, as a \code{POSIXct}
+or a number of seconds since 1970, or \code{NULL}.}
+
 \item{path}{A path or JSONPath expression, as a string.}
 }
 \value{
+\code{doc_set_peer_id()} returns \code{doc} invisibly.
 \code{doc_peer_id()} returns a string, \code{doc_fork()} a new
 \code{loro_doc}, \code{doc_commit()} returns \code{doc} invisibly, and
 \code{doc_value()} a named list. \code{doc_get_path()} returns a value or
@@ -42,7 +51,9 @@ container handle, and \code{doc_jsonpath()} a list of them.
 }
 \description{
 \itemize{
-\item \code{doc_peer_id()} returns the peer id of this replica as a string.
+\item \code{doc_peer_id()} returns the peer id of this replica as a string,
+and \code{doc_set_peer_id()} changes it. Two replicas must never edit
+under the same peer id.
 \item \code{doc_fork()} returns an independent replica with the same history
 and a new peer id. With \code{at}, the replica holds the document as it
 was at that version.
@@ -51,7 +62,11 @@ labeled with a \code{message} that is kept in the history and shown by
 \code{\link[=doc_changes]{doc_changes()}}. An \code{origin} is a label for this commit that is
 not stored or synchronized: it is passed to subscribers on this
 replica as \code{event$origin}, so they can tell where a change came
-from, and an undo manager can be told to ignore commits by origin. Edits are also committed implicitly on export,
+from, and an undo manager can be told to ignore commits by origin.
+A \code{timestamp} is stored with the change in place of the current
+time, whether or not \code{\link[=doc_record_timestamps]{doc_record_timestamps()}} is on; Loro keeps
+timestamps non-decreasing, so one earlier than the latest existing
+timestamp is replaced by that latest one. Edits are also committed implicitly on export,
 import, and checkout.
 \item \code{doc_value()} returns the whole document as a named list with one
 element per root container.

@@ -82,3 +82,40 @@ test_that("text can be updated line by line", {
   expect_identical(text_delta(text, 1, 8), list(list(insert = "line one", attributes = list(bold = TRUE))))
   expect_error(text_update(text, new, by = "word"))
 })
+
+test_that("length is available in each unit", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "a\U0001F600éb")
+  expect_identical(text_length(text), 4L)
+  expect_identical(text_length(text, "unicode"), 4L)
+  expect_identical(text_length(text, "utf16"), 5L)
+  expect_identical(text_length(text, "utf8"), 8L)
+  expect_error(text_length(text, "words"))
+})
+
+test_that("positions convert between units", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "a\U0001F600éb")
+  convert = function(pos, from, to) {
+    vapply(pos, function(p) text_convert_pos(text, p, from, to), integer(1))
+  }
+
+  expect_identical(convert(1:5, "unicode", "utf16"), c(1L, 2L, 4L, 5L, 6L))
+  expect_identical(convert(c(1, 2, 4, 5, 6), "utf16", "unicode"), 1:5)
+  expect_identical(convert(1:5, "unicode", "utf8"), c(1L, 2L, 6L, 8L, 9L))
+  expect_identical(convert(c(1, 2, 6, 8, 9), "utf8", "unicode"), 1:5)
+  expect_identical(text_convert_pos(text, 3), 4L)
+
+  expect_identical(text_convert_pos(text, 3, "utf16", "unicode"), 2L)
+  expect_identical(text_convert_pos(text, 99), NA_integer_)
+  expect_error(text_convert_pos(text, 0), "pos")
+  expect_error(text_convert_pos(text, 1, "utf16", "words"))
+})
+
+test_that("a converted position addresses the same character", {
+  text = doc_text(loro_doc())
+  text_insert(text, 1, "\U0001F600\U0001F600x")
+  utf16_offset_of_x = 4L
+  pos = text_convert_pos(text, utf16_offset_of_x + 1L, "utf16", "unicode")
+  expect_identical(text_slice(text, pos, 1), "x")
+})

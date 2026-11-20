@@ -285,3 +285,80 @@ test_that("the containers touched by changes are reported", {
   expect_error(doc_changed_containers(h$doc, "x"), "data frame")
   expect_error(doc_changed_containers(h$doc, data.frame(peer = "1")), "columns")
 })
+
+test_that("detached editing is off by default", {
+  h = history_doc()
+  expect_false(doc_is_detached_editing(h$doc))
+  doc_checkout(h$doc, h$v1)
+  expect_error(text_insert(h$text, 1, "x"), "detached")
+  expect_error(doc_set_detached_editing(h$doc, NA), "enable")
+})
+
+test_that("edits made while detached form a branch that merges", {
+  h = history_doc()
+  doc_set_detached_editing(h$doc)
+  expect_true(doc_is_detached_editing(h$doc))
+
+  doc_checkout(h$doc, h$v1)
+  expect_false(identical(doc_peer_id(h$doc), "1"))
+  text_insert(h$text, 6, "!")
+  doc_commit(h$doc, "branch")
+  expect_identical(text_get(h$text), "Hello!")
+  expect_true(doc_is_detached(h$doc))
+
+  branch = doc_frontiers(h$doc)
+  expect_identical(doc_compare_frontiers(h$doc, h$v2, branch), NA_integer_)
+  expect_identical(doc_compare_frontiers(h$doc, h$v1, branch), -1L)
+
+  doc_checkout(h$doc)
+  expect_false(doc_is_detached(h$doc))
+  expect_identical(text_get(h$text), "Hello world!")
+  expect_identical(doc_changes(h$doc)$message, c("greeting", "audience", "branch"))
+
+  other = loro_doc()
+  doc_import(other, doc_export(h$doc))
+  expect_identical(text_get(doc_text(other)), "Hello world!")
+
+  doc_set_detached_editing(h$doc, FALSE)
+  doc_checkout(h$doc, h$v1)
+  expect_error(text_insert(h$text, 1, "x"), "detached")
+})
+
+test_that("a document can be detached at its current version", {
+  doc = loro_doc(peer_id = 3)
+  text = doc_text(doc)
+  text_insert(text, 1, "a")
+  other = doc_fork(doc)
+  text_insert(doc_text(other), 2, "b")
+
+  doc_detach(doc)
+  expect_true(doc_is_detached(doc))
+  expect_error(text_insert(text, 1, "x"), "detached")
+  doc_import(doc, doc_export(other, "updates"))
+  expect_identical(text_get(text), "a")
+
+  doc_checkout(doc)
+  expect_identical(text_get(text), "ab")
+})
+
+test_that("a commit can carry an explicit timestamp", {
+  doc = loro_doc(peer_id = 1)
+  text = doc_text(doc)
+  when = as.POSIXct("2020-01-02 03:04:05", tz = "UTC")
+
+  text_insert(text, 1, "a")
+  doc_commit(doc, "first", timestamp = when)
+  text_insert(text, 1, "b")
+  doc_commit(doc, "second", timestamp = 1600000000)
+  text_insert(text, 1, "c")
+  doc_commit(doc, "earlier", timestamp = 1000)
+
+  changes = doc_changes(doc)
+  expect_identical(changes$timestamp[1], when)
+  expect_identical(as.numeric(changes$timestamp[2]), 1600000000)
+  expect_identical(as.numeric(changes$timestamp[3]), 1600000000)
+
+  expect_error(doc_commit(doc, timestamp = "2020"), "timestamp")
+  expect_error(doc_commit(doc, timestamp = -5), "timestamp")
+  expect_error(doc_commit(doc, timestamp = c(1, 2)), "timestamp")
+})

@@ -202,16 +202,25 @@ fn loro_doc_set_peer_id_impl(doc: DocPtr, peer_id: &str) -> Result<()> {
     doc.set_peer_id(id).map_err(to_r_error)
 }
 
-/// Commit the pending transaction, optionally with a message kept in
-/// history and an origin label passed to subscribers.
+/// Commit the pending transaction, optionally with a message and a
+/// timestamp (seconds since the epoch) kept in history, and an origin
+/// label passed to subscribers.
 /// @noRd
 #[extendr]
-fn loro_doc_commit_impl(doc: DocPtr, message: Nullable<String>, origin: Nullable<String>) {
+fn loro_doc_commit_impl(
+    doc: DocPtr,
+    message: Nullable<String>,
+    origin: Nullable<String>,
+    timestamp: Nullable<f64>,
+) {
     if let Nullable::NotNull(message) = message {
         doc.set_next_commit_message(&message);
     }
     if let Nullable::NotNull(origin) = origin {
         doc.set_next_commit_origin(&origin);
+    }
+    if let Nullable::NotNull(timestamp) = timestamp {
+        doc.set_next_commit_timestamp(timestamp as i64);
     }
     doc.commit();
 }
@@ -1338,6 +1347,87 @@ fn loro_list_cursor_impl(list: ContainerPtr, pos: i32, side: i32) -> Result<Raw>
     }
 }
 
+/// Allow (`TRUE`) or forbid (`FALSE`) editing while detached.
+/// @noRd
+#[extendr]
+fn loro_doc_set_detached_editing_impl(doc: DocPtr, enable: bool) {
+    doc.set_detached_editing(enable);
+}
+
+/// Whether editing while detached is allowed.
+/// @noRd
+#[extendr]
+fn loro_doc_is_detached_editing_impl(doc: DocPtr) -> bool {
+    doc.is_detached_editing_enabled()
+}
+
+/// Stop the document state from following newly imported changes.
+/// @noRd
+#[extendr]
+fn loro_doc_detach_impl(doc: DocPtr) {
+    doc.detach();
+}
+
+fn to_pos_type(unit: &str) -> Result<PosType> {
+    match unit {
+        "unicode" => Ok(PosType::Unicode),
+        "utf16" => Ok(PosType::Utf16),
+        "utf8" => Ok(PosType::Bytes),
+        _ => Err(Error::Other(format!("unknown unit: {unit}"))),
+    }
+}
+
+/// Length of a text container in the given unit.
+/// @noRd
+#[extendr]
+fn loro_text_length_unit_impl(text: ContainerPtr, unit: &str) -> Result<i32> {
+    let text = as_text(&text)?;
+    Ok(match to_pos_type(unit)? {
+        PosType::Utf16 => text.len_utf16(),
+        PosType::Bytes => text.len_utf8(),
+        _ => text.len_unicode(),
+    } as i32)
+}
+
+/// Convert a 0-based offset between units; `NA` when it is out of bounds
+/// or falls inside a character.
+/// @noRd
+#[extendr]
+fn loro_text_convert_pos_impl(text: ContainerPtr, pos: i32, from: &str, to: &str) -> Result<Rint> {
+    let converted =
+        as_text(&text)?.convert_pos(to_index(pos, "pos")?, to_pos_type(from)?, to_pos_type(to)?);
+    Ok(match converted {
+        Some(pos) => Rint::from(pos as i32),
+        None => Rint::na(),
+    })
+}
+
+/// Queue the new peer id each time the document's peer id changes.
+/// @noRd
+#[extendr]
+fn loro_doc_subscribe_peer_id_impl(doc: DocPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = doc.subscribe_peer_id_change(Box::new(move |id| {
+        sink.push(id.peer.to_string().into());
+        true
+    }));
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
+/// Queue the peer id the first time each peer commits to this document.
+/// @noRd
+#[extendr]
+fn loro_doc_subscribe_first_commit_impl(doc: DocPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = doc.subscribe_first_commit_from_peer(Box::new(move |payload| {
+        sink.push(payload.peer.to_string().into());
+        true
+    }));
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
 extendr_module! {
     mod creditor;
     fn loro_doc_new_impl;
@@ -1388,6 +1478,13 @@ extendr_module! {
     fn loro_text_insert_impl;
     fn loro_text_delete_impl;
     fn loro_text_length_impl;
+    fn loro_text_length_unit_impl;
+    fn loro_text_convert_pos_impl;
+    fn loro_doc_set_detached_editing_impl;
+    fn loro_doc_is_detached_editing_impl;
+    fn loro_doc_detach_impl;
+    fn loro_doc_subscribe_peer_id_impl;
+    fn loro_doc_subscribe_first_commit_impl;
     fn loro_doc_config_text_style_impl;
     fn loro_doc_cursor_pos_impl;
     fn loro_text_cursor_impl;

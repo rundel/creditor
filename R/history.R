@@ -26,6 +26,12 @@
 #'   earlier version the document is detached: it is read-only, and
 #'   imported updates are stored but not shown until it returns to the
 #'   latest version. `doc_is_detached()` reports this state.
+#' * `doc_detach()` detaches the document at its current version,
+#'   freezing what it shows while imports continue to be stored.
+#' * `doc_set_detached_editing()` allows a detached document to be
+#'   edited, which starts a new branch of history from the checked-out
+#'   version; `doc_is_detached_editing()` reports the setting. See the
+#'   Detached editing section.
 #' * `doc_revert_to()` adds new changes that restore the contents of an
 #'   earlier version. History is kept, and the revert synchronizes to
 #'   other replicas like any other edit.
@@ -40,6 +46,19 @@
 #'   lands edits in the wrong place.
 #' * `doc_record_timestamps()` turns on recording of the wall-clock
 #'   time of each new change. It is off by default.
+#'
+#' @section Detached editing:
+#' With detached editing enabled, edits made while checked out at an
+#' earlier version are recorded as changes that follow that version,
+#' concurrent with everything that came after it. Returning to the
+#' latest version with `doc_checkout(doc)` merges the branch with the
+#' rest of the history, as if another replica had made those edits.
+#'
+#' To keep the branches distinct, the document takes a new random peer
+#' id at each checkout while this is enabled, and keeps the last one
+#' after returning to the latest version, so do not rely on
+#' [`doc_peer_id()`] staying fixed. The setting belongs to this
+#' `loro_doc` object and is not saved in exports.
 #'
 #' @section Changes:
 #' `doc_changes()` returns a data frame, in causal order, with columns:
@@ -80,6 +99,7 @@
 #' @param frontiers,from,to A version: a raw vector from
 #'   `doc_frontiers()` or the `frontiers` column of `doc_changes()`.
 #' @param record Whether to record timestamps.
+#' @param enable Whether to allow editing while detached.
 #' @param version A version vector from [`doc_version()`].
 #' @param peer,counter The id of an operation: a peer id string and an
 #'   operation counter.
@@ -88,7 +108,9 @@
 #' @param source The [`loro_doc`] whose history `from` and `to` refer
 #'   to.
 #'
-#' @return `doc_frontiers()`, `doc_frontiers_to_version()`, and
+#' @return `doc_detach()` and `doc_set_detached_editing()` return `doc`
+#'   invisibly, and `doc_is_detached_editing()` a logical.
+#'   `doc_frontiers()`, `doc_frontiers_to_version()`, and
 #'   `doc_version_to_frontiers()` return raw vectors.
 #'   `doc_compare_frontiers()` returns an integer, `doc_change_count()`
 #'   and `doc_op_count()` integers, and `doc_changed_containers()` a
@@ -257,6 +279,33 @@ doc_checkout = function(doc, frontiers = NULL) {
 doc_is_detached = function(doc) {
   check_doc(doc)
   loro_doc_is_detached_impl(doc@ptr)
+}
+
+#' @rdname history
+#' @export
+doc_detach = function(doc) {
+  check_doc(doc)
+  loro_doc_detach_impl(doc@ptr)
+  deliver_events()
+  invisible(doc)
+}
+
+#' @rdname history
+#' @export
+doc_set_detached_editing = function(doc, enable = TRUE) {
+  check_doc(doc)
+  if (!is.logical(enable) || length(enable) != 1 || is.na(enable)) {
+    cli::cli_abort("{.arg enable} must be {.code TRUE} or {.code FALSE}.")
+  }
+  loro_doc_set_detached_editing_impl(doc@ptr, enable)
+  invisible(doc)
+}
+
+#' @rdname history
+#' @export
+doc_is_detached_editing = function(doc) {
+  check_doc(doc)
+  loro_doc_is_detached_editing_impl(doc@ptr)
 }
 
 #' @rdname history

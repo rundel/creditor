@@ -66,7 +66,9 @@ check_doc = function(doc, call = sys.call(-1)) {
 #' Document identity, replicas, and contents
 #'
 #' @description
-#' * `doc_peer_id()` returns the peer id of this replica as a string.
+#' * `doc_peer_id()` returns the peer id of this replica as a string,
+#'   and `doc_set_peer_id()` changes it. Two replicas must never edit
+#'   under the same peer id.
 #' * `doc_fork()` returns an independent replica with the same history
 #'   and a new peer id. With `at`, the replica holds the document as it
 #'   was at that version.
@@ -75,7 +77,11 @@ check_doc = function(doc, call = sys.call(-1)) {
 #'   [`doc_changes()`]. An `origin` is a label for this commit that is
 #'   not stored or synchronized: it is passed to subscribers on this
 #'   replica as `event$origin`, so they can tell where a change came
-#'   from, and an undo manager can be told to ignore commits by origin. Edits are also committed implicitly on export,
+#'   from, and an undo manager can be told to ignore commits by origin.
+#'   A `timestamp` is stored with the change in place of the current
+#'   time, whether or not [`doc_record_timestamps()`] is on; Loro keeps
+#'   timestamps non-decreasing, so one earlier than the latest existing
+#'   timestamp is replaced by that latest one. Edits are also committed implicitly on export,
 #'   import, and checkout.
 #' * `doc_value()` returns the whole document as a named list with one
 #'   element per root container.
@@ -91,9 +97,13 @@ check_doc = function(doc, call = sys.call(-1)) {
 #'   for the current version.
 #' @param message A string describing the change, or `NULL`.
 #' @param origin A string labeling the source of the commit, or `NULL`.
+#' @param timestamp The time to record for the commit, as a `POSIXct`
+#'   or a number of seconds since 1970, or `NULL`.
+#' @param peer_id A peer id: a whole number or a string of digits.
 #' @param path A path or JSONPath expression, as a string.
 #'
-#' @return `doc_peer_id()` returns a string, `doc_fork()` a new
+#' @return `doc_set_peer_id()` returns `doc` invisibly.
+#'   `doc_peer_id()` returns a string, `doc_fork()` a new
 #'   `loro_doc`, `doc_commit()` returns `doc` invisibly, and
 #'   `doc_value()` a named list. `doc_get_path()` returns a value or
 #'   container handle, and `doc_jsonpath()` a list of them.
@@ -116,6 +126,15 @@ doc_peer_id = function(doc) {
 
 #' @rdname doc
 #' @export
+doc_set_peer_id = function(doc, peer_id) {
+  check_doc(doc)
+  loro_doc_set_peer_id_impl(doc@ptr, as_peer_id(peer_id))
+  deliver_events()
+  invisible(doc)
+}
+
+#' @rdname doc
+#' @export
 doc_fork = function(doc, at = NULL) {
   check_doc(doc)
   if (!is.null(at)) {
@@ -128,7 +147,7 @@ doc_fork = function(doc, at = NULL) {
 
 #' @rdname doc
 #' @export
-doc_commit = function(doc, message = NULL, origin = NULL) {
+doc_commit = function(doc, message = NULL, origin = NULL, timestamp = NULL) {
   check_doc(doc)
   if (!is.null(message)) {
     message = check_string(message, "message")
@@ -136,7 +155,18 @@ doc_commit = function(doc, message = NULL, origin = NULL) {
   if (!is.null(origin)) {
     origin = check_string(origin, "origin")
   }
-  loro_doc_commit_impl(doc@ptr, message, origin)
+  if (!is.null(timestamp)) {
+    if (inherits(timestamp, "POSIXct")) {
+      timestamp = as.numeric(timestamp)
+    }
+    if (!is.numeric(timestamp) || length(timestamp) != 1 || !is.finite(timestamp) || timestamp < 0) {
+      cli::cli_abort(
+        "{.arg timestamp} must be a single {.cls POSIXct} or a non-negative number of seconds."
+      )
+    }
+    timestamp = floor(timestamp)
+  }
+  loro_doc_commit_impl(doc@ptr, message, origin, timestamp)
   deliver_events()
   invisible(doc)
 }

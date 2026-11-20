@@ -91,3 +91,19 @@ test_that("print shows the peer and contents", {
   expect_match(header[1], "peer 7")
   expect_match(contents, "hi")
 })
+
+test_that("the peer id can be changed", {
+  doc = loro_doc(peer_id = 1)
+  text_insert(doc_text(doc), 1, "a")
+  doc_commit(doc)
+  doc_set_peer_id(doc, 2)
+  expect_identical(doc_peer_id(doc), "2")
+  text_insert(doc_text(doc), 1, "b")
+  doc_commit(doc)
+  expect_identical(doc_changes(doc)$peer, c("1", "2"))
+
+  doc_set_peer_id(doc, "18446744073709551000")
+  expect_identical(doc_peer_id(doc), "18446744073709551000")
+  expect_error(doc_set_peer_id(doc, -1), "peer_id")
+  expect_error(doc_set_peer_id(doc, "x"), "peer_id")
+})

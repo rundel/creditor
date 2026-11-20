@@ -17,10 +17,11 @@ loro_doc_peer_id_impl <- function(doc) .Call(wrap__loro_doc_peer_id_impl, doc)
 #' @noRd
 loro_doc_set_peer_id_impl <- function(doc, peer_id) .Call(wrap__loro_doc_set_peer_id_impl, doc, peer_id)
 
-#' Commit the pending transaction, optionally with a message kept in
-#' history and an origin label passed to subscribers.
+#' Commit the pending transaction, optionally with a message and a
+#' timestamp (seconds since the epoch) kept in history, and an origin
+#' label passed to subscribers.
 #' @noRd
-loro_doc_commit_impl <- function(doc, message, origin) .Call(wrap__loro_doc_commit_impl, doc, message, origin)
+loro_doc_commit_impl <- function(doc, message, origin, timestamp) .Call(wrap__loro_doc_commit_impl, doc, message, origin, timestamp)
 
 #' Fork a document into an independent replica with a new peer id,
 #' optionally at an earlier version given as encoded frontiers.
@@ -203,6 +204,35 @@ loro_text_delete_impl <- function(text, pos, len) .Call(wrap__loro_text_delete_i
 #' Length of a text container in Unicode code points.
 #' @noRd
 loro_text_length_impl <- function(text) .Call(wrap__loro_text_length_impl, text)
+
+#' Length of a text container in the given unit.
+#' @noRd
+loro_text_length_unit_impl <- function(text, unit) .Call(wrap__loro_text_length_unit_impl, text, unit)
+
+#' Convert a 0-based offset between units; `NA` when it is out of bounds
+#' or falls inside a character.
+#' @noRd
+loro_text_convert_pos_impl <- function(text, pos, from, to) .Call(wrap__loro_text_convert_pos_impl, text, pos, from, to)
+
+#' Allow (`TRUE`) or forbid (`FALSE`) editing while detached.
+#' @noRd
+loro_doc_set_detached_editing_impl <- function(doc, enable) .Call(wrap__loro_doc_set_detached_editing_impl, doc, enable)
+
+#' Whether editing while detached is allowed.
+#' @noRd
+loro_doc_is_detached_editing_impl <- function(doc) .Call(wrap__loro_doc_is_detached_editing_impl, doc)
+
+#' Stop the document state from following newly imported changes.
+#' @noRd
+loro_doc_detach_impl <- function(doc) .Call(wrap__loro_doc_detach_impl, doc)
+
+#' Queue the new peer id each time the document's peer id changes.
+#' @noRd
+loro_doc_subscribe_peer_id_impl <- function(doc) .Call(wrap__loro_doc_subscribe_peer_id_impl, doc)
+
+#' Queue the peer id the first time each peer commits to this document.
+#' @noRd
+loro_doc_subscribe_first_commit_impl <- function(doc) .Call(wrap__loro_doc_subscribe_first_commit_impl, doc)
 
 #' Set the document's text style configuration to Loro's built-in styles
 #' overlaid with `keys` / `expands` (parallel vectors); `default` applies
