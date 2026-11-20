@@ -16,20 +16,21 @@ print() and format() methods take a format argument, one of
 "markdown", "html", "ansi", or "list" (the str()
 view), whose default comes from the creditor.delta_format option,
 so options(creditor.delta_format = "ansi") changes how deltas
-autoprint.
+autoprint. Printing never warns: when the chosen format leaves
+marks out, a note at the end names them.
 text_markdown() and text_html() render the text with its marks
 as a Markdown or HTML string. Both handle bold, italic,
 underline, code, and link (whose value is the target URL);
 Markdown writes underline as &amp;lt;u&amp;gt; tags. HTML also writes
 highlight as &amp;lt;mark&amp;gt; and any other mark as a &amp;lt;span&amp;gt; with a
 data- attribute holding its value, for example
-&amp;lt;span data-comment="check this"&amp;gt;. Markdown drops the marks it
-cannot express.
+&amp;lt;span data-comment="check this"&amp;gt;. Markdown cannot express the
+other marks, so text_markdown() leaves them out with a warning.
 text_ansi() renders the text for the console with ANSI styles
 from cli: bold, italic, and underline as themselves, code in
 cyan, highlight on a yellow background, and link in blue as a
-hyperlink where the terminal supports one. Other marks are left
-unstyled. Styles appear only where cli detects color support (see
+hyperlink where the terminal supports one. Other marks have no
+style and are left out with a warning. Styles appear only where cli detects color support (see
 cli::num_ansi_colors()); elsewhere the result is the plain text.
 text_apply_delta() edits the text with a list of delta ops.
 Each op is a list with exactly one of retain (keep that many
@@ -60,20 +61,21 @@ print() and format() methods take a format argument, one of
 "markdown", "html", "ansi", or "list" (the str()
 view), whose default comes from the creditor.delta_format option,
 so options(creditor.delta_format = "ansi") changes how deltas
-autoprint.
+autoprint. Printing never warns: when the chosen format leaves
+marks out, a note at the end names them.
 text_markdown() and text_html() render the text with its marks
 as a Markdown or HTML string. Both handle bold, italic,
 underline, code, and link (whose value is the target URL);
 Markdown writes underline as &amp;lt;u&amp;gt; tags. HTML also writes
 highlight as &amp;lt;mark&amp;gt; and any other mark as a &amp;lt;span&amp;gt; with a
 data- attribute holding its value, for example
-&amp;lt;span data-comment="check this"&amp;gt;. Markdown drops the marks it
-cannot express.
+&amp;lt;span data-comment="check this"&amp;gt;. Markdown cannot express the
+other marks, so text_markdown() leaves them out with a warning.
 text_ansi() renders the text for the console with ANSI styles
 from cli: bold, italic, and underline as themselves, code in
 cyan, highlight on a yellow background, and link in blue as a
-hyperlink where the terminal supports one. Other marks are left
-unstyled. Styles appear only where cli detects color support (see
+hyperlink where the terminal supports one. Other marks have no
+style and are left out with a warning. Styles appear only where cli detects color support (see
 cli::num_ansi_colors()); elsewhere the result is the plain text.
 text_apply_delta() edits the text with a list of delta ops.
 Each op is a list with exactly one of retain (keep that many
@@ -141,20 +143,21 @@ plain list structure for <code><a href="https://rdrr.io/r/utils/str.html" class=
 <code>"markdown"</code>, <code>"html"</code>, <code>"ansi"</code>, or <code>"list"</code> (the <code><a href="https://rdrr.io/r/utils/str.html" class="external-link">str()</a></code>
 view), whose default comes from the <code>creditor.delta_format</code> option,
 so <code>options(creditor.delta_format = "ansi")</code> changes how deltas
-autoprint.</p></li>
+autoprint. Printing never warns: when the chosen format leaves
+marks out, a note at the end names them.</p></li>
 <li><p><code>text_markdown()</code> and <code>text_html()</code> render the text with its marks
 as a Markdown or HTML string. Both handle <code>bold</code>, <code>italic</code>,
 <code>underline</code>, <code>code</code>, and <code>link</code> (whose value is the target URL);
 Markdown writes underline as <code>&lt;u&gt;</code> tags. HTML also writes
 <code>highlight</code> as <code>&lt;mark&gt;</code> and any other mark as a <code>&lt;span&gt;</code> with a
 <code>data-</code> attribute holding its value, for example
-<code>&lt;span data-comment="check this"&gt;</code>. Markdown drops the marks it
-cannot express.</p></li>
+<code>&lt;span data-comment="check this"&gt;</code>. Markdown cannot express the
+other marks, so <code>text_markdown()</code> leaves them out with a warning.</p></li>
 <li><p><code>text_ansi()</code> renders the text for the console with ANSI styles
 from cli: bold, italic, and underline as themselves, <code>code</code> in
 cyan, <code>highlight</code> on a yellow background, and <code>link</code> in blue as a
-hyperlink where the terminal supports one. Other marks are left
-unstyled. Styles appear only where cli detects color support (see
+hyperlink where the terminal supports one. Other marks have no
+style and are left out with a warning. Styles appear only where cli detects color support (see
 <code><a href="https://cli.r-lib.org/reference/num_ansi_colors.html" class="external-link">cli::num_ansi_colors()</a></code>); elsewhere the result is the plain text.</p></li>
 <li><p><code>text_apply_delta()</code> edits the text with a list of delta ops.
 Each op is a list with exactly one of <code>retain</code> (keep that many
@@ -177,11 +180,23 @@ when text is inserted at the edge of a marked range.</p></li>
 <span></span>
 <span><span class="fu">text_delta</span><span class="op">(</span><span class="va">text</span>, start <span class="op">=</span> <span class="fl">1</span>, end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">text_markdown</span><span class="op">(</span><span class="va">text</span>, start <span class="op">=</span> <span class="fl">1</span>, end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">text_markdown</span><span class="op">(</span></span>
+<span>  <span class="va">text</span>,</span>
+<span>  start <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span>,</span>
+<span>  marks <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  strict <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">text_ansi</span><span class="op">(</span><span class="va">text</span>, start <span class="op">=</span> <span class="fl">1</span>, end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">text_ansi</span><span class="op">(</span></span>
+<span>  <span class="va">text</span>,</span>
+<span>  start <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span>,</span>
+<span>  marks <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  strict <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">text_html</span><span class="op">(</span><span class="va">text</span>, start <span class="op">=</span> <span class="fl">1</span>, end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">text_html</span><span class="op">(</span><span class="va">text</span>, start <span class="op">=</span> <span class="fl">1</span>, end <span class="op">=</span> <span class="fu"><a href="text.html">text_length</a></span><span class="op">(</span><span class="va">text</span><span class="op">)</span>, marks <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">text_apply_delta</span><span class="op">(</span><span class="va">text</span>, <span class="va">delta</span><span class="op">)</span></span>
 <span></span>
@@ -222,6 +237,30 @@ default to the whole text.</p></dd>
 
 <dt id="arg-keys">keys<a class="anchor" aria-label="anchor" href="#arg-keys"></a></dt>
 <dd><p>A character vector of mark names.</p></dd>
+
+
+<dt id="arg-marks">marks<a class="anchor" aria-label="anchor" href="#arg-marks"></a></dt>
+<dd><p>How to render marks, overriding the defaults or covering
+marks the format cannot otherwise show: <code>NULL</code>, or a list named by
+mark key. For <code>text_markdown()</code> and <code>text_html()</code>, each entry is a
+character vector of two strings, the text written before and after
+the marked range (<code>bold = c(before = "__", after = "__")</code>; the names
+are optional), or a function that takes the mark's value and returns
+them (<code>author = \(value) c(before = "&lt;cite&gt;", after = paste0(" (", value, ")&lt;/cite&gt;"))</code>). The mark's range decides where they are
+written.
+They are written as given, without escaping, so a function that puts
+the value into HTML should escape it. For <code>text_ansi()</code>, each entry
+is a function that takes the text and returns it styled, such as
+<code><a href="https://cli.r-lib.org/reference/ansi-styles.html" class="external-link">cli::col_magenta()</a></code>; a function with an argument named <code>value</code> is
+also given the mark's value. A mark with an entry is never left out.</p></dd>
+
+
+<dt id="arg-strict">strict<a class="anchor" aria-label="anchor" href="#arg-strict"></a></dt>
+<dd><p>For <code>text_markdown()</code> and <code>text_ansi()</code>, whether
+leaving out a mark the format cannot show is an error rather than a
+warning. Both conditions have class <code>creditor_dropped_marks</code>, so
+the warning can be silenced on its own with
+<code><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings(classes = "creditor_dropped_marks")</a></code>.</p></dd>
 
 
 <dt id="arg-delta">delta<a class="anchor" aria-label="anchor" href="#arg-delta"></a></dt>
@@ -292,6 +331,8 @@ synchronized, so every replica should configure a key the same way.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "**Hello** [world](https://loro.dev)"</span>
 <span class="r-in"><span><span class="fu">text_html</span><span class="op">(</span><span class="va">text</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "&lt;strong&gt;Hello&lt;/strong&gt; &lt;a href=\"https://loro.dev\"&gt;world&lt;/a&gt;"</span>
+<span class="r-in"><span><span class="fu">text_markdown</span><span class="op">(</span><span class="va">text</span>, marks <span class="op">=</span> <span class="fu"><a href="list.html">list</a></span><span class="op">(</span>bold <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>before <span class="op">=</span> <span class="st">"__"</span>, after <span class="op">=</span> <span class="st">"__"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "__Hello__ [world](https://loro.dev)"</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu">text_ansi</span><span class="op">(</span><span class="va">text</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Hello</span> <span style="color: #0000BB;">world</span> </span>
 <span class="r-in"><span></span></span>

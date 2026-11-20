@@ -314,9 +314,18 @@ package.
   turn the runs into open/close tokens with a stack, opening the mark
   that lasts longest outermost so tags nest, and Markdown moves spaces
   outside `**` / `*` / link delimiters, which would otherwise not parse.
-  A delta prints as its Markdown rendering, or another one chosen by
-  `print(x, format =)` or the `creditor.delta_format` option; its
-  `format` / `print` methods are registered through S7 like the
+  All three take `marks`, user renderers by key (two strings or a
+  function of the value for Markdown and HTML, a styling function for
+  ANSI) checked by `check_renderers`; a key with a renderer is never
+  reported as dropped, and given Markdown delimiters get the same space
+  shifting as the built-in ones. Marks a format cannot show make
+  [`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
+  /
+  [`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)
+  warn once per call (class `creditor_dropped_marks`; `strict = TRUE`
+  errors). A delta prints as its Markdown rendering, or another one
+  chosen by `print(x, format =)` or the `creditor.delta_format` option;
+  its `format` / `print` methods are registered through S7 like the
   package’s other print methods (see `R/history.R`), and
   [`str()`](https://rdrr.io/r/utils/str.html) is an S3 method that drops
   the class. [R/cursor.R](https://rundel.github.io/creditor/R/cursor.R)

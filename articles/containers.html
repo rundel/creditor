@@ -189,22 +189,64 @@
 <span>  <span class="fu"><a href="../reference/richtext.html">text_markdown</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "**HeXXllo** world"</span></span></code></pre></div>
 </div>
-<p>Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands at its end, so typing after a bold word continues in bold. A link does not, so typing after a link produces plain text. Keys other than the built-in ones (<code>bold</code>, <code>italic</code>, <code>underline</code>, <code>link</code>, <code>highlight</code>, <code>comment</code>, and <code>code</code>) must be declared first with <code><a href="../reference/richtext.html">doc_config_text_style()</a></code>.</p>
+<p>Each mark key has an expand rule that decides whether text typed at the edge of a marked range joins the mark. Bold expands after its end, so typing straight after a bold word continues in bold. A link does not expand, so text typed after a link is plain.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"bold link"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">4</span>, bold <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">6</span>, <span class="fl">9</span>, link <span class="op">=</span> <span class="st">"https://loro.dev"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">5</span>, <span class="st">"er"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/text.html">text_push</a></span><span class="op">(</span><span class="st">"s"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_markdown</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "**bolder** [link](https://loro.dev)s"</span></span></code></pre></div>
+</div>
+<p>The keys used so far (<code>bold</code>, <code>italic</code>, <code>underline</code>, <code>link</code>, <code>highlight</code>, <code>comment</code>, and <code>code</code>) are built in. Any other key, such as an <code>author</code> mark recording who wrote a passage, must be declared with <code><a href="../reference/richtext.html">doc_config_text_style()</a></code> before it is used; marking with an undeclared key is an error. Each argument names a key and gives its expand rule: <code>"after"</code>, <code>"before"</code>, <code>"both"</code>, or <code>"none"</code>. The configuration belongs to the replica rather than the document, so it is not synced: every replica that edits marks should declare the same keys in the same way.</p>
+<p>An author mark should not spread to text that someone else types next to it, so it is declared with <code>"none"</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/richtext.html">doc_config_text_style</a></span><span class="op">(</span>author <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/text.html">text_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"Reviewed"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">8</span>, author <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="../reference/richtext.html">text_html</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "&lt;span data-author=\"cr\"&gt;Reviewed&lt;/span&gt;"</span></span></code></pre></div>
+<span>  <span class="fu"><a href="../reference/richtext.html">text_mark</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">8</span>, author <span class="op">=</span> <span class="st">"cr"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/richtext.html">text_html</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "&lt;span data-author=\"cr\"&gt;Reviewed&lt;/span&gt;"</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/richtext.html">text_markdown</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning in text_markdown(doc): `text_markdown()` cannot show the mark author, so it is left out.</span></span>
+<span><span class="co">#&gt; ℹ Use `text_html()` to keep every mark, or give `marks` a way to show it.</span></span>
+<span><span class="co">#&gt; [1] "Reviewed"</span></span></code></pre></div>
 </div>
-<p>Markdown has no way to write a mark like <code>author</code>, so <code><a href="../reference/richtext.html">text_markdown()</a></code> leaves it out, while <code><a href="../reference/richtext.html">text_html()</a></code> keeps it as a <code>data-</code> attribute.</p>
+<p>Markdown has no way to write a mark like <code>author</code>. <code><a href="../reference/richtext.html">text_html()</a></code> keeps it as a <code>data-</code> attribute on a <code>&lt;span&gt;</code>, an element with no styling of its own, so the value is there for CSS or JavaScript without changing how the text looks. <code><a href="../reference/richtext.html">text_markdown()</a></code> leaves the mark out with a warning, or an error with <code>strict = TRUE</code>.</p>
+<p>The <code>marks</code> argument chooses how a mark is written. Where a mark is written is fixed by its range: here, characters 1 to 8, <code>"Reviewed"</code>. For Markdown and HTML an entry gives the two strings to write before and after that range, either directly or from a function of the mark’s value (<code>"cr"</code>). For <code><a href="../reference/richtext.html">text_ansi()</a></code> it is a function that styles the text, such as <code><a href="https://cli.r-lib.org/reference/ansi-styles.html" class="external-link">cli::col_magenta</a></code>. Entries can also override the built-in marks.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/richtext.html">text_markdown</a></span><span class="op">(</span></span>
+<span>  <span class="va">doc</span>, marks <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span></span>
+<span>    author <span class="op">=</span> \<span class="op">(</span><span class="va">value</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>before <span class="op">=</span> <span class="st">""</span>, after <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">" ("</span>, <span class="va">value</span>, <span class="st">")"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "Reviewed (cr)"</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/richtext.html">text_html</a></span><span class="op">(</span></span>
+<span>  <span class="va">doc</span>, marks <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span></span>
+<span>    author <span class="op">=</span> \<span class="op">(</span><span class="va">value</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>      before <span class="op">=</span> <span class="st">"&lt;cite&gt;"</span>, </span>
+<span>      after <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">" ("</span>, <span class="va">value</span>, <span class="st">")&lt;/cite&gt;"</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "&lt;cite&gt;Reviewed (cr)&lt;/cite&gt;"</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/richtext.html">text_markdown</a></span><span class="op">(</span><span class="va">doc</span>, marks <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>author <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>before <span class="op">=</span> <span class="st">"_"</span>, after <span class="op">=</span> <span class="st">"_"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "_Reviewed_"</span></span></code></pre></div>
+</div>
 </section></section><section class="level2"><h2 id="map">Map<a class="anchor" aria-label="anchor" href="#map"></a>
 </h2>
 <p>A map holds values under string keys, like a named list. Values can be scalars, vectors, or nested lists. This example uses a handle to a root map named <code>settings</code>.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">settings</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"settings"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"dark"</span>, font_size <span class="op">=</span> <span class="fl">12L</span>, recent <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a.qmd"</span>, <span class="st">"b.qmd"</span><span class="op">)</span><span class="op">)</span></span>
@@ -227,7 +269,7 @@
 </div>
 <p>A map handle also answers to the functions that work on a named list, so the same reads and writes can be spelled the base R way.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">settings</span><span class="op">$</span><span class="va">theme</span></span>
 <span><span class="co">#&gt; [1] "dark"</span></span>
 <span></span>
@@ -246,7 +288,7 @@
 <p>A vector is stored as a list and comes back as one, so <code>recent</code> above reads back as a list of two strings.</p>
 <p>Concurrent writes to different keys are both kept. Concurrent writes to the same key cannot both be kept, so one of them wins, and it is the same one on every replica.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>theme <span class="op">=</span> <span class="st">"light"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -271,7 +313,7 @@
 </h2>
 <p>A list is an ordered sequence of values, addressed by 1-based position.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"milk"</span>, <span class="st">"eggs"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_insert</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"bread"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -285,7 +327,7 @@
 </div>
 <p>Concurrent insertions are all kept, even at the same position. Their relative order is decided the same way on every replica.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"milk"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -304,7 +346,7 @@
 </div>
 <p>A plain list has no way to move or replace an element. You can imitate a move by deleting an element and inserting it elsewhere, but if two replicas do that to the same element, each insertion is kept and the element is duplicated.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -333,7 +375,7 @@
 </h2>
 <p>A movable list supports everything a list does, plus two operations that merge cleanly: <code><a href="../reference/list.html">list_move()</a></code> moves an element, and <code><a href="../reference/list.html">list_set()</a></code> replaces one in place. It uses the same <code>list_*</code> functions as a plain list. A document on its own stands for its plain list, so a movable list always needs a handle, from <code><a href="../reference/containers.html">doc_movable_list()</a></code> or a parent container.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -348,7 +390,7 @@
 </div>
 <p>Repeating the concurrent move from the previous section with a movable list leaves one copy of the element. The two replicas disagreed about where it should go, so one destination wins.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
@@ -369,7 +411,7 @@
 </div>
 <p>A move and an edit to the same element also combine: if one replica reorders a task while another rewrites it, the result is the rewritten task in its new position.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">tasks</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_movable_list</a></span><span class="op">(</span><span class="va">a</span>, <span class="st">"tasks"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/list.html">list_push</a></span><span class="op">(</span><span class="st">"write"</span>, <span class="st">"test"</span>, <span class="st">"ship"</span><span class="op">)</span></span>
@@ -393,7 +435,7 @@
 </h2>
 <p>A counter holds a number that is changed by adding to it. Concurrent increments are all applied, so the total is the sum of what every replica added.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span></span>
@@ -408,7 +450,7 @@
 </div>
 <p>Compare that with keeping the count as a number in a map. Each replica reads the current value, adds to it, and writes the result back. After a merge only one of those writes survives, and the other replica’s votes are lost.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>votes <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu">replica</span><span class="op">(</span><span class="va">a</span>, peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -427,7 +469,7 @@
 </h2>
 <p>A tree is a hierarchy of nodes, such as an outline, a folder structure, or a set of nested comments. <code><a href="../reference/tree.html">tree_create()</a></code> adds a node and returns its id. Each node has a metadata map that holds its contents, reached with <code><a href="../reference/tree.html">tree_meta()</a></code> and edited with the <code>map_*</code> functions.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">outline</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_tree</a></span><span class="op">(</span><span class="va">doc</span><span class="op">)</span></span>
 <span></span>
@@ -451,7 +493,7 @@
 </div>
 <p><code><a href="../reference/tree.html">tree_nodes()</a></code> gives a flat table of the structure. A small recursive function prints it as an outline.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">show_outline</span> <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">tree</span>, <span class="va">parent</span> <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">depth</span> <span class="op">=</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="kw">for</span> <span class="op">(</span><span class="va">node</span> <span class="kw">in</span> <span class="fu"><a href="../reference/tree.html">tree_children</a></span><span class="op">(</span><span class="va">tree</span>, <span class="va">parent</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="va">title</span> <span class="op">=</span> <span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="fu"><a href="../reference/tree.html">tree_meta</a></span><span class="op">(</span><span class="va">tree</span>, <span class="va">node</span><span class="op">)</span>, <span class="st">"title"</span><span class="op">)</span></span>
@@ -467,7 +509,7 @@
 </div>
 <p>Moving a node carries its whole subtree with it.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">outline</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">methods</span>, parent <span class="op">=</span> <span class="va">intro</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">show_outline</span><span class="op">(</span><span class="op">)</span></span>
@@ -478,7 +520,7 @@
 </div>
 <p>The hard case for a tree is two replicas making moves that are each valid alone but contradictory together. Here one replica moves “Methods” under “Introduction” while the other moves “Introduction” under “Methods”. Applying both would create a cycle with no path to the top level. Loro keeps one of the moves and drops the other, so the result is always a valid tree and no node is lost.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">intro</span> <span class="op">=</span> <span class="fu">add_section</span><span class="op">(</span><span class="va">a</span>, <span class="st">"Introduction"</span><span class="op">)</span></span>
 <span><span class="va">methods</span> <span class="op">=</span> <span class="fu">add_section</span><span class="op">(</span><span class="va">a</span>, <span class="st">"Methods"</span><span class="op">)</span></span>
@@ -497,7 +539,7 @@
 </div>
 <p>Edits to a node’s metadata are independent of moves, because the metadata is an ordinary map. Here one replica moves “Methods” back to the top level while the other retitles it, and both changes apply.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/tree.html">tree_move</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">methods</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/tree.html">tree_meta</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">methods</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"Approach"</span><span class="op">)</span></span>
@@ -512,7 +554,7 @@
 <p>Maps, lists, movable lists, and tree metadata can hold child containers as well as plain values. This is what lets a real document be more than one flat structure, and it controls how finely concurrent edits merge.</p>
 <p><code><a href="../reference/loro_text.html">loro_text()</a></code>, <code><a href="../reference/loro_text.html">loro_map()</a></code>, <code><a href="../reference/loro_text.html">loro_list()</a></code>, <code><a href="../reference/loro_text.html">loro_movable_list()</a></code>, <code><a href="../reference/loro_text.html">loro_counter()</a></code>, and <code><a href="../reference/loro_text.html">loro_tree()</a></code> create a new container, optionally with initial contents, that can be stored anywhere a plain value can. New containers nest the way R lists do.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">doc</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">note</span> <span class="op">=</span> <span class="fu"><a href="../reference/containers.html">doc_map</a></span><span class="op">(</span><span class="va">doc</span>, <span class="st">"note"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span></span>
@@ -537,7 +579,7 @@
 </div>
 <p>Once stored, a handle refers to the container in the document, so it can keep being used for edits.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">body</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_text.html">loro_text</a></span><span class="op">(</span><span class="st">"Flights"</span><span class="op">)</span></span>
 <span><span class="va">note</span><span class="op">$</span><span class="va">body</span> <span class="op">=</span> <span class="va">body</span></span>
 <span><span class="va">body</span> <span class="op">|&gt;</span></span>
@@ -547,7 +589,7 @@
 </div>
 <p>Reading a child container back gives a handle, so nested structures can be navigated step by step or reached directly by path.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="fu"><a href="../reference/map.html">map_get</a></span><span class="op">(</span><span class="va">note</span>, <span class="st">"body"</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
 <span><span class="co">#&gt; [1] "creditor::loro_text"</span></span>
 <span></span>
@@ -561,7 +603,7 @@
 </div>
 <p>The difference between a plain value and a child container is the unit of merging. Below, the same data is stored twice: once as a plain nested list under one key, and once as a child map. Two replicas then change different fields.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/map.html">map_set</a></span><span class="op">(</span></span>
 <span>    plain <span class="op">=</span> <span class="fu"><a href="../reference/list.html">list</a></span><span class="op">(</span>label <span class="op">=</span> <span class="st">"Book hotel"</span>, done <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>,</span>
@@ -594,7 +636,7 @@
 </h3>
 <p>When replicas create a child container lazily, the first time it is needed, two of them may each create one under the same key before they have synced. Storing a new container with <code><a href="../reference/map.html">map_set()</a></code> makes those two different containers, and after a merge only one is visible. <code><a href="../reference/map.html">map_ensure_container()</a></code> creates the child in a way that makes both replicas end up with the same container, so the edits from both are kept.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">=</span> <span class="fu"><a href="../reference/loro_doc.html">loro_doc</a></span><span class="op">(</span>peer_id <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span></span>

@@ -204,27 +204,88 @@ sync(a, b) |>
 ```
 
 Each mark key has an expand rule that decides whether text typed at the
-edge of a marked range joins the mark. Bold expands at its end, so
-typing after a bold word continues in bold. A link does not, so typing
-after a link produces plain text. Keys other than the built-in ones
-(`bold`, `italic`, `underline`, `link`, `highlight`, `comment`, and
-`code`) must be declared first with
-[`doc_config_text_style()`](https://rundel.github.io/creditor/reference/richtext.md).
+edge of a marked range joins the mark. Bold expands after its end, so
+typing straight after a bold word continues in bold. A link does not
+expand, so text typed after a link is plain.
 
 ``` r
 loro_doc(peer_id = 1) |>
-  doc_config_text_style(author = "none") |>
-  text_insert(1, "Reviewed") |>
-  text_mark(1, 8, author = "cr") |>
-  text_html()
-#> [1] "<span data-author=\"cr\">Reviewed</span>"
+  text_insert(1, "bold link") |>
+  text_mark(1, 4, bold = TRUE) |>
+  text_mark(6, 9, link = "https://loro.dev") |>
+  text_insert(5, "er") |>
+  text_push("s") |>
+  text_markdown()
+#> [1] "**bolder** [link](https://loro.dev)s"
 ```
 
-Markdown has no way to write a mark like `author`, so
-[`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
-leaves it out, while
+The keys used so far (`bold`, `italic`, `underline`, `link`,
+`highlight`, `comment`, and `code`) are built in. Any other key, such as
+an `author` mark recording who wrote a passage, must be declared with
+[`doc_config_text_style()`](https://rundel.github.io/creditor/reference/richtext.md)
+before it is used; marking with an undeclared key is an error. Each
+argument names a key and gives its expand rule: `"after"`, `"before"`,
+`"both"`, or `"none"`. The configuration belongs to the replica rather
+than the document, so it is not synced: every replica that edits marks
+should declare the same keys in the same way.
+
+An author mark should not spread to text that someone else types next to
+it, so it is declared with `"none"`.
+
+``` r
+doc = loro_doc(peer_id = 1) |>
+  doc_config_text_style(author = "none") |>
+  text_insert(1, "Reviewed") |>
+  text_mark(1, 8, author = "cr")
+
+text_html(doc)
+#> [1] "<span data-author=\"cr\">Reviewed</span>"
+
+text_markdown(doc)
+#> Warning in text_markdown(doc): `text_markdown()` cannot show the mark author, so it is left out.
+#> ℹ Use `text_html()` to keep every mark, or give `marks` a way to show it.
+#> [1] "Reviewed"
+```
+
+Markdown has no way to write a mark like `author`.
 [`text_html()`](https://rundel.github.io/creditor/reference/richtext.md)
-keeps it as a `data-` attribute.
+keeps it as a `data-` attribute on a `<span>`, an element with no
+styling of its own, so the value is there for CSS or JavaScript without
+changing how the text looks.
+[`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
+leaves the mark out with a warning, or an error with `strict = TRUE`.
+
+The `marks` argument chooses how a mark is written. Where a mark is
+written is fixed by its range: here, characters 1 to 8, `"Reviewed"`.
+For Markdown and HTML an entry gives the two strings to write before and
+after that range, either directly or from a function of the mark’s value
+(`"cr"`). For
+[`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)
+it is a function that styles the text, such as
+[`cli::col_magenta`](https://cli.r-lib.org/reference/ansi-styles.html).
+Entries can also override the built-in marks.
+
+``` r
+text_markdown(
+  doc, marks = list(
+    author = \(value) c(before = "", after = paste0(" (", value, ")"))
+  )
+)
+#> [1] "Reviewed (cr)"
+
+text_html(
+  doc, marks = list(
+    author = \(value) c(
+      before = "<cite>", 
+      after = paste0(" (", value, ")</cite>")
+    )
+  )
+)
+#> [1] "<cite>Reviewed (cr)</cite>"
+
+text_markdown(doc, marks = list(author = c(before = "_", after = "_")))
+#> [1] "_Reviewed_"
+```
 
 ## Map
 

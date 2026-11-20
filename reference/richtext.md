@@ -22,21 +22,24 @@ and are 1-based, and a range runs from `start` to `end`.
   `"list"` (the [`str()`](https://rdrr.io/r/utils/str.html) view), whose
   default comes from the `creditor.delta_format` option, so
   `options(creditor.delta_format = "ansi")` changes how deltas
-  autoprint.
+  autoprint. Printing never warns: when the chosen format leaves marks
+  out, a note at the end names them.
 
 - `text_markdown()` and `text_html()` render the text with its marks as
   a Markdown or HTML string. Both handle `bold`, `italic`, `underline`,
   `code`, and `link` (whose value is the target URL); Markdown writes
   underline as `<u>` tags. HTML also writes `highlight` as `<mark>` and
   any other mark as a `<span>` with a `data-` attribute holding its
-  value, for example `<span data-comment="check this">`. Markdown drops
-  the marks it cannot express.
+  value, for example `<span data-comment="check this">`. Markdown cannot
+  express the other marks, so `text_markdown()` leaves them out with a
+  warning.
 
 - `text_ansi()` renders the text for the console with ANSI styles from
   cli: bold, italic, and underline as themselves, `code` in cyan,
   `highlight` on a yellow background, and `link` in blue as a hyperlink
-  where the terminal supports one. Other marks are left unstyled. Styles
-  appear only where cli detects color support (see
+  where the terminal supports one. Other marks have no style and are
+  left out with a warning. Styles appear only where cli detects color
+  support (see
   [`cli::num_ansi_colors()`](https://cli.r-lib.org/reference/num_ansi_colors.html));
   elsewhere the result is the plain text.
 
@@ -61,11 +64,23 @@ text_unmark(text, start, end, keys)
 
 text_delta(text, start = 1, end = text_length(text))
 
-text_markdown(text, start = 1, end = text_length(text))
+text_markdown(
+  text,
+  start = 1,
+  end = text_length(text),
+  marks = NULL,
+  strict = FALSE
+)
 
-text_ansi(text, start = 1, end = text_length(text))
+text_ansi(
+  text,
+  start = 1,
+  end = text_length(text),
+  marks = NULL,
+  strict = FALSE
+)
 
-text_html(text, start = 1, end = text_length(text))
+text_html(text, start = 1, end = text_length(text), marks = NULL)
 
 text_apply_delta(text, delta)
 
@@ -110,6 +125,31 @@ doc_config_text_style(.doc, ..., .default = NULL)
 - keys:
 
   A character vector of mark names.
+
+- marks:
+
+  How to render marks, overriding the defaults or covering marks the
+  format cannot otherwise show: `NULL`, or a list named by mark key. For
+  `text_markdown()` and `text_html()`, each entry is a character vector
+  of two strings, the text written before and after the marked range
+  (`bold = c(before = "__", after = "__")`; the names are optional), or
+  a function that takes the mark's value and returns them
+  (`author = \(value) c(before = "<cite>", after = paste0(" (", value, ")</cite>"))`).
+  The mark's range decides where they are written. They are written as
+  given, without escaping, so a function that puts the value into HTML
+  should escape it. For `text_ansi()`, each entry is a function that
+  takes the text and returns it styled, such as
+  [`cli::col_magenta()`](https://cli.r-lib.org/reference/ansi-styles.html);
+  a function with an argument named `value` is also given the mark's
+  value. A mark with an entry is never left out.
+
+- strict:
+
+  For `text_markdown()` and `text_ansi()`, whether leaving out a mark
+  the format cannot show is an error rather than a warning. Both
+  conditions have class `creditor_dropped_marks`, so the warning can be
+  silenced on its own with
+  [`suppressWarnings(classes = "creditor_dropped_marks")`](https://rdrr.io/r/base/warning.html).
 
 - delta:
 
@@ -183,6 +223,8 @@ text_markdown(text)
 #> [1] "**Hello** [world](https://loro.dev)"
 text_html(text)
 #> [1] "<strong>Hello</strong> <a href=\"https://loro.dev\">world</a>"
+text_markdown(text, marks = list(bold = c(before = "__", after = "__")))
+#> [1] "__Hello__ [world](https://loro.dev)"
 cat(text_ansi(text), "\n")
 #> Hello world 
 
