@@ -3,7 +3,7 @@ use std::ops::ControlFlow;
 use extendr_api::Result;
 use extendr_api::prelude::*;
 use loro::event::{Diff, DiffBatch, ListDiffItem};
-use loro::{ChangeMeta, Frontiers, ID, LoroDoc, ValueOrContainer};
+use loro::{ChangeMeta, ContainerID, Frontiers, ID, LoroDoc, ValueOrContainer};
 
 use crate::delta::delta_to_r;
 use crate::value_to_r::value_to_r;
@@ -27,10 +27,17 @@ fn list_diff_to_r(items: &[ListDiffItem]) -> Robj {
     List::from_values(ops).into()
 }
 
+fn typed(kind: &str, field: &str, value: Robj) -> Robj {
+    match List::from_names_and_values(["type", field], [Robj::from(kind), value]) {
+        Ok(list) => list.into(),
+        Err(_) => ().into(),
+    }
+}
+
 fn diff_to_r(diff: &Diff) -> Robj {
     match diff {
-        Diff::Text(delta) => list!(type_ = "text", delta = delta_to_r(delta.clone())).into(),
-        Diff::List(items) => list!(type_ = "list", delta = list_diff_to_r(items)).into(),
+        Diff::Text(delta) => typed("text", "delta", delta_to_r(delta.clone())),
+        Diff::List(items) => typed("list", "delta", list_diff_to_r(items)),
         Diff::Map(map) => {
             let mut entries: Vec<(&str, Robj)> = map
                 .updated
@@ -49,20 +56,30 @@ fn diff_to_r(diff: &Diff) -> Robj {
                 Ok(list) => list.into(),
                 Err(_) => ().into(),
             };
-            list!(type_ = "map", updated = updated).into()
+            typed("map", "updated", updated)
         }
-        _ => list!(type_ = "unsupported").into(),
+        _ => match List::from_names_and_values(["type"], [Robj::from("unsupported")]) {
+            Ok(list) => list.into(),
+            Err(_) => ().into(),
+        },
     }
 }
 
 /// Named list with one entry per changed container, keyed by container id.
-/// The `type_` field is renamed to `type` in R (`type` is a Rust keyword).
-pub fn diff_batch_to_r(batch: &DiffBatch) -> Result<Robj> {
-    let (names, values): (Vec<String>, Vec<Robj>) = batch
-        .iter()
+pub fn diffs_to_r<'a, 'b: 'a>(
+    diffs: impl Iterator<Item = (&'a ContainerID, &'a Diff<'b>)>,
+) -> Robj {
+    let (names, values): (Vec<String>, Vec<Robj>) = diffs
         .map(|(id, diff)| (id.to_string(), diff_to_r(diff)))
         .unzip();
-    Ok(List::from_names_and_values(names, values)?.into())
+    match List::from_names_and_values(names, values) {
+        Ok(list) => list.into(),
+        Err(_) => ().into(),
+    }
+}
+
+pub fn diff_batch_to_r(batch: &DiffBatch) -> Robj {
+    diffs_to_r(batch.iter())
 }
 
 /// Column-wise metadata for every change in the oplog.

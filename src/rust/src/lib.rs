@@ -1,12 +1,16 @@
 use extendr_api::Result;
 use extendr_api::prelude::*;
+use std::sync::Arc;
+
 use loro::cursor::{Cursor, Side};
 use loro::{
     Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroDoc, LoroList, LoroMap,
-    LoroText, StyleConfig, StyleConfigMap, UpdateOptions, ValueOrContainer, VersionVector,
+    LoroText, StyleConfig, StyleConfigMap, UndoManager, UpdateOptions, ValueOrContainer,
+    VersionVector,
 };
 
 mod delta;
+mod events;
 mod history;
 mod r_to_value;
 mod value_to_r;
@@ -141,9 +145,7 @@ fn loro_doc_frontiers_impl(doc: DocPtr) -> Raw {
 #[extendr]
 fn loro_doc_checkout_impl(doc: DocPtr, frontiers: Nullable<Raw>) -> Result<()> {
     match frontiers {
-        Nullable::Null => {
-            doc.try_checkout_to_latest().map_err(to_r_error)
-        }
+        Nullable::Null => doc.try_checkout_to_latest().map_err(to_r_error),
         Nullable::NotNull(frontiers) => {
             doc.checkout(&to_frontiers(&frontiers)?).map_err(to_r_error)
         }
@@ -172,7 +174,7 @@ fn loro_doc_diff_impl(doc: DocPtr, from: Raw, to: Raw) -> Result<Robj> {
     let batch = doc
         .diff(&to_frontiers(&from)?, &to_frontiers(&to)?)
         .map_err(to_r_error)?;
-    history::diff_batch_to_r(&batch)
+    Ok(history::diff_batch_to_r(&batch))
 }
 
 /// Metadata for every change in the document's history, column-wise.
@@ -533,6 +535,107 @@ fn loro_text_update_impl(text: ContainerPtr, value: &str) -> Result<()> {
         .map_err(to_r_error)
 }
 
+type SubscriptionPtr = ExternalPtr<events::QueuedSubscription>;
+
+/// Queue change events for the whole document.
+/// @noRd
+#[extendr]
+fn loro_doc_subscribe_impl(doc: DocPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = doc.subscribe_root(Arc::new(move |event| {
+        sink.push(events::event_to_r(&event));
+    }));
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
+/// Queue change events for one container and its descendants.
+/// @noRd
+#[extendr]
+fn loro_doc_subscribe_container_impl(doc: DocPtr, container: ContainerPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = doc.subscribe(
+        &container.id(),
+        Arc::new(move |event| {
+            sink.push(events::event_to_r(&event));
+        }),
+    );
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
+/// Queue the encoded updates produced by each local commit.
+/// @noRd
+#[extendr]
+fn loro_doc_subscribe_local_updates_impl(doc: DocPtr) -> SubscriptionPtr {
+    let queue = events::EventQueue::new();
+    let sink = queue.clone();
+    let subscription = doc.subscribe_local_update(Box::new(move |bytes| {
+        sink.push(Raw::from_bytes(bytes).into());
+        true
+    }));
+    ExternalPtr::new(events::QueuedSubscription::new(subscription, queue))
+}
+
+/// Remove and return the queued events of a subscription.
+/// @noRd
+#[extendr]
+fn loro_subscription_take_impl(subscription: SubscriptionPtr) -> List {
+    subscription.take()
+}
+
+/// Stop a subscription and discard its queued events.
+/// @noRd
+#[extendr]
+fn loro_subscription_cancel_impl(subscription: SubscriptionPtr) {
+    subscription.cancel();
+}
+
+type UndoPtr = ExternalPtr<UndoManager>;
+
+/// Create an undo manager tracking local changes to `doc`.
+/// @noRd
+#[extendr]
+fn loro_undo_new_impl(doc: DocPtr, merge_interval: f64, max_steps: i32) -> Result<UndoPtr> {
+    let mut manager = UndoManager::new(&doc);
+    manager.set_merge_interval(merge_interval as i64);
+    manager.set_max_undo_steps(to_index(max_steps, "max_steps")?);
+    Ok(ExternalPtr::new(manager))
+}
+
+/// Undo one step; returns whether anything changed.
+/// @noRd
+#[extendr]
+fn loro_undo_undo_impl(mut manager: UndoPtr) -> Result<bool> {
+    manager.undo().map_err(to_r_error)
+}
+
+/// Redo one step; returns whether anything changed.
+/// @noRd
+#[extendr]
+fn loro_undo_redo_impl(mut manager: UndoPtr) -> Result<bool> {
+    manager.redo().map_err(to_r_error)
+}
+
+/// Number of available undo and redo steps.
+/// @noRd
+#[extendr]
+fn loro_undo_counts_impl(manager: UndoPtr) -> Vec<i32> {
+    vec![manager.undo_count() as i32, manager.redo_count() as i32]
+}
+
+/// Start (`TRUE`) or end (`FALSE`) a group of changes undone as one step.
+/// @noRd
+#[extendr]
+fn loro_undo_group_impl(mut manager: UndoPtr, start: bool) -> Result<()> {
+    if start {
+        manager.group_start().map_err(to_r_error)
+    } else {
+        manager.group_end();
+        Ok(())
+    }
+}
+
 extendr_module! {
     mod creditor;
     fn loro_doc_new_impl;
@@ -565,6 +668,16 @@ extendr_module! {
     fn loro_text_delta_impl;
     fn loro_text_apply_delta_impl;
     fn loro_text_update_impl;
+    fn loro_doc_subscribe_impl;
+    fn loro_doc_subscribe_container_impl;
+    fn loro_doc_subscribe_local_updates_impl;
+    fn loro_subscription_take_impl;
+    fn loro_subscription_cancel_impl;
+    fn loro_undo_new_impl;
+    fn loro_undo_undo_impl;
+    fn loro_undo_redo_impl;
+    fn loro_undo_counts_impl;
+    fn loro_undo_group_impl;
     fn loro_map_set_impl;
     fn loro_map_set_container_impl;
     fn loro_map_get_impl;

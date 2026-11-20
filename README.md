@@ -1,6 +1,6 @@
 # creditor
 
-Exploratory R bindings to [Loro](https://loro.dev), a Rust library of conflict-free replicated data types (CRDTs). Replicas of a document edit independently, exchange updates as raw vectors, and converge to the same contents. Text (including rich text marks and cursors), map, and list containers are supported, and they can be nested. Documents keep their full history, which can be listed, compared, checked out, and reverted.
+Exploratory R bindings to [Loro](https://loro.dev), a Rust library of conflict-free replicated data types (CRDTs). Replicas of a document edit independently, exchange updates as raw vectors, and converge to the same contents. Text (including rich text marks and cursors), map, and list containers are supported, and they can be nested. Documents keep their full history, which can be listed, compared, checked out, and reverted. Subscriptions report changes as they are committed, and an undo manager reverses local edits.
 
 ## Installation
 
@@ -104,4 +104,25 @@ text_get(text)
 doc_checkout(doc)
 text_get(text)
 #> [1] "Hello world"
+```
+
+Subscriptions make live sync a one-liner, and undo reverses only local edits.
+
+```r
+a = loro_doc()
+b = loro_doc()
+sync = doc_subscribe_local_updates(a, function(bytes) doc_import(b, bytes))
+manager = doc_undo_manager(a)
+
+text_insert(doc_text(a), 1, "Hello")
+doc_commit(a)
+text_get(doc_text(b))
+#> [1] "Hello"
+
+undo(manager)
+#> [1] TRUE
+text_get(doc_text(b))
+#> [1] ""
+
+unsubscribe(sync)
 ```

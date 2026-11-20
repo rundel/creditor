@@ -129,6 +129,7 @@ doc_checkout = function(doc, frontiers = NULL) {
     check_frontiers(frontiers, "frontiers")
   }
   loro_doc_checkout_impl(doc@ptr, frontiers)
+  deliver_events()
   invisible(doc)
 }
 
@@ -145,6 +146,7 @@ doc_revert_to = function(doc, frontiers) {
   check_doc(doc)
   check_frontiers(frontiers, "frontiers")
   loro_doc_revert_to_impl(doc@ptr, frontiers)
+  deliver_events()
   invisible(doc)
 }
 
@@ -154,10 +156,9 @@ doc_diff = function(doc, from, to) {
   check_doc(doc)
   check_frontiers(from, "from")
   check_frontiers(to, "to")
-  lapply(loro_doc_diff_impl(doc@ptr, from, to), function(diff) {
-    names(diff)[names(diff) == "type_"] = "type"
-    diff
-  })
+  diff = loro_doc_diff_impl(doc@ptr, from, to)
+  deliver_events()
+  diff
 }
 
 #' @rdname history

@@ -129,6 +129,46 @@ loro_text_apply_delta_impl <- function(text, delta) .Call(wrap__loro_text_apply_
 #' @noRd
 loro_text_update_impl <- function(text, value) .Call(wrap__loro_text_update_impl, text, value)
 
+#' Queue change events for the whole document.
+#' @noRd
+loro_doc_subscribe_impl <- function(doc) .Call(wrap__loro_doc_subscribe_impl, doc)
+
+#' Queue change events for one container and its descendants.
+#' @noRd
+loro_doc_subscribe_container_impl <- function(doc, container) .Call(wrap__loro_doc_subscribe_container_impl, doc, container)
+
+#' Queue the encoded updates produced by each local commit.
+#' @noRd
+loro_doc_subscribe_local_updates_impl <- function(doc) .Call(wrap__loro_doc_subscribe_local_updates_impl, doc)
+
+#' Remove and return the queued events of a subscription.
+#' @noRd
+loro_subscription_take_impl <- function(subscription) .Call(wrap__loro_subscription_take_impl, subscription)
+
+#' Stop a subscription and discard its queued events.
+#' @noRd
+loro_subscription_cancel_impl <- function(subscription) .Call(wrap__loro_subscription_cancel_impl, subscription)
+
+#' Create an undo manager tracking local changes to `doc`.
+#' @noRd
+loro_undo_new_impl <- function(doc, merge_interval, max_steps) .Call(wrap__loro_undo_new_impl, doc, merge_interval, max_steps)
+
+#' Undo one step; returns whether anything changed.
+#' @noRd
+loro_undo_undo_impl <- function(manager) .Call(wrap__loro_undo_undo_impl, manager)
+
+#' Redo one step; returns whether anything changed.
+#' @noRd
+loro_undo_redo_impl <- function(manager) .Call(wrap__loro_undo_redo_impl, manager)
+
+#' Number of available undo and redo steps.
+#' @noRd
+loro_undo_counts_impl <- function(manager) .Call(wrap__loro_undo_counts_impl, manager)
+
+#' Start (`TRUE`) or end (`FALSE`) a group of changes undone as one step.
+#' @noRd
+loro_undo_group_impl <- function(manager, start) .Call(wrap__loro_undo_group_impl, manager, start)
+
 #' Set `key` to a plain value.
 #' @noRd
 loro_map_set_impl <- function(map, key, value) .Call(wrap__loro_map_set_impl, map, key, value)

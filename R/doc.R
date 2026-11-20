@@ -109,7 +109,9 @@ doc_fork = function(doc, at = NULL) {
   if (!is.null(at)) {
     check_frontiers(at, "at")
   }
-  doc_from_ptr(loro_doc_fork_impl(doc@ptr, at))
+  fork = doc_from_ptr(loro_doc_fork_impl(doc@ptr, at))
+  deliver_events()
+  fork
 }
 
 #' @rdname doc
@@ -120,6 +122,7 @@ doc_commit = function(doc, message = NULL) {
     message = check_string(message, "message")
   }
   loro_doc_commit_impl(doc@ptr, message)
+  deliver_events()
   invisible(doc)
 }
 
@@ -181,7 +184,9 @@ doc_export = function(doc, mode = c("snapshot", "updates"), from = NULL) {
   if (!is.null(from) && !is.raw(from)) {
     cli::cli_abort("{.arg from} must be a raw vector from {.fn doc_version} or {.code NULL}.")
   }
-  loro_doc_export_impl(doc@ptr, mode, from)
+  bytes = loro_doc_export_impl(doc@ptr, mode, from)
+  deliver_events()
+  bytes
 }
 
 #' @rdname doc_sync
@@ -192,6 +197,7 @@ doc_import = function(doc, bytes) {
     cli::cli_abort("{.arg bytes} must be a raw vector from {.fn doc_export}.")
   }
   loro_doc_import_impl(doc@ptr, bytes)
+  deliver_events()
   invisible(doc)
 }
 
