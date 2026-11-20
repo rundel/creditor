@@ -53,6 +53,9 @@ if the document changed.
 makes as a single undo step.
 }
 
+Checking out another version with \code{\link[=doc_checkout]{doc_checkout()}} clears the undo
+and redo history.
+
 Each commit is one undo step, so call \code{\link[=doc_commit]{doc_commit()}} between edits
 that should be undone separately. Commits closer together than
 \code{merge_interval} are combined into one step.

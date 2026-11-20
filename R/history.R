@@ -43,10 +43,11 @@
 #' element has a `type` and:
 #'
 #' * for text, `delta`: delta ops as in [`text_apply_delta()`];
-#' * for a list, `delta`: ops with `retain` or `delete` counts, or
+#' * for a list or movable list (both have type `"list"`), `delta`: ops with `retain` or `delete` counts, or
 #'   `insert` holding a list of new elements;
 #' * for a map, `updated`: a named list of new values, where `NULL`
-#'   marks a deleted key.
+#'   marks a deleted key;
+#' * for a counter, `increment`: the net amount added.
 #'
 #' Child containers appear by their contents.
 #'

@@ -87,10 +87,11 @@ container, named by container id (see \code{\link[=container_id]{container_id()}
 element has a \code{type} and:
 \itemize{
 \item for text, \code{delta}: delta ops as in \code{\link[=text_apply_delta]{text_apply_delta()}};
-\item for a list, \code{delta}: ops with \code{retain} or \code{delete} counts, or
+\item for a list or movable list (both have type \code{"list"}), \code{delta}: ops with \code{retain} or \code{delete} counts, or
 \code{insert} holding a list of new elements;
 \item for a map, \code{updated}: a named list of new values, where \code{NULL}
-marks a deleted key.
+marks a deleted key;
+\item for a counter, \code{increment}: the net amount added.
 }
 
 Child containers appear by their contents.

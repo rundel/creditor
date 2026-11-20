@@ -153,6 +153,23 @@ test_that("merge_interval combines nearby commits", {
   expect_identical(text_get(text), "")
 })
 
+test_that("a checkout clears the undo history", {
+  doc = loro_doc()
+  text = doc_text(doc)
+  manager = doc_undo_manager(doc)
+  text_insert(text, 1, "a")
+  doc_commit(doc)
+  version = doc_frontiers(doc)
+  text_insert(text, 2, "b")
+  doc_commit(doc)
+  expect_true(can_undo(manager))
+
+  doc_checkout(doc, version)
+  doc_checkout(doc)
+  expect_false(can_undo(manager))
+  expect_identical(text_get(text), "ab")
+})
+
 test_that("undo arguments are validated", {
   doc = loro_doc()
   expect_error(doc_undo_manager("doc"), "loro_doc")

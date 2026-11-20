@@ -9,6 +9,9 @@
 \alias{list_get}
 \alias{list_delete}
 \alias{list_length}
+\alias{list_move}
+\alias{list_set}
+\alias{list_set_container}
 \title{Edit lists}
 \usage{
 list_insert(list, pos, value)
@@ -24,23 +27,34 @@ list_get(list, pos)
 list_delete(list, pos, len = 1)
 
 list_length(list)
+
+list_move(list, from, to)
+
+list_set(list, pos, value)
+
+list_set_container(list, pos, type)
 }
 \arguments{
-\item{list}{A list handle, from \code{\link[=doc_list]{doc_list()}} or a parent container.}
+\item{list}{A list handle, from \code{\link[=doc_list]{doc_list()}}, \code{\link[=doc_movable_list]{doc_movable_list()}},
+or a parent container. \code{list_move()}, \code{list_set()}, and
+\code{list_set_container()} need a movable list.}
 
 \item{pos}{A 1-based position.}
 
 \item{value}{A plain value.}
 
-\item{type}{Type of the child container: \code{"text"}, \code{"map"}, or
-\code{"list"}.}
+\item{type}{Type of the child container: \code{"text"}, \code{"map"},
+\code{"list"}, \code{"movable_list"}, or \code{"counter"}.}
 
 \item{len}{Number of elements to delete.}
+
+\item{from, to}{1-based positions.}
 }
 \value{
-\code{list_insert()}, \code{list_push()}, and \code{list_delete()} return
-\code{list} invisibly. \code{list_insert_container()} and
-\code{list_push_container()} return the new container handle.
+\code{list_insert()}, \code{list_push()}, \code{list_delete()},
+\code{list_move()}, and \code{list_set()} return \code{list} invisibly.
+\code{list_insert_container()}, \code{list_push_container()}, and
+\code{list_set_container()} return the new container handle.
 \code{list_get()} returns a value or handle, and \code{list_length()} an
 integer.
 }
@@ -59,6 +73,19 @@ container.
 \item \code{list_length()} returns the number of elements.
 }
 
+A movable list, from \code{\link[=doc_movable_list]{doc_movable_list()}}, works with all of the
+functions above and adds two operations that merge cleanly across
+replicas. In a plain list they can only be imitated by deleting and
+re-inserting, which duplicates the element when two replicas do it
+at once.
+\itemize{
+\item \code{list_move()} moves the element at \code{from} so that it ends up at
+position \code{to}. Concurrent moves of one element leave a single copy.
+\item \code{list_set()} replaces the element at \code{pos} in place, and
+\code{list_set_container()} replaces it with a new, empty child
+container. Concurrent sets resolve to one winner.
+}
+
 Plain values are converted as described in the Values section of
 \code{\link[=map_set]{map_set()}}.
 }
@@ -74,5 +101,13 @@ map_set(item, "done", FALSE)
 list_get(items, 1)
 list_delete(items, 2)
 container_value(items)
+
+tasks = doc_movable_list(doc, "tasks")
+list_push(tasks, "write")
+list_push(tasks, "test")
+list_push(tasks, "ship")
+list_move(tasks, 3, 1)
+list_set(tasks, 2, "write docs")
+container_value(tasks)
 
 }

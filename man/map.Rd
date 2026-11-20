@@ -29,8 +29,8 @@ map_length(map)
 
 \item{value}{A plain value; see the Values section.}
 
-\item{type}{Type of the child container: \code{"text"}, \code{"map"}, or
-\code{"list"}.}
+\item{type}{Type of the child container: \code{"text"}, \code{"map"},
+\code{"list"}, \code{"movable_list"}, or \code{"counter"}.}
 }
 \value{
 \code{map_set()} and \code{map_delete()} return \code{map} invisibly.

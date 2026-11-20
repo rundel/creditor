@@ -8,6 +8,8 @@ loro_container = S7::new_class(
 loro_text = S7::new_class("loro_text", parent = loro_container, package = "creditor")
 loro_map = S7::new_class("loro_map", parent = loro_container, package = "creditor")
 loro_list = S7::new_class("loro_list", parent = loro_container, package = "creditor")
+loro_movable_list = S7::new_class("loro_movable_list", parent = loro_list, package = "creditor")
+loro_counter = S7::new_class("loro_counter", parent = loro_container, package = "creditor")
 
 container_from_ref = function(x) {
   if (!inherits(x, "creditor_container_ref")) {
@@ -17,7 +19,9 @@ container_from_ref = function(x) {
     x$kind,
     text = loro_text(ptr = x$ptr),
     map = loro_map(ptr = x$ptr),
-    list = loro_list(ptr = x$ptr)
+    list = loro_list(ptr = x$ptr),
+    movable_list = loro_movable_list(ptr = x$ptr),
+    counter = loro_counter(ptr = x$ptr)
   )
 }
 
@@ -34,19 +38,21 @@ check_container = function(x, class, arg, call = sys.call(-1)) {
 #' Container handles
 #'
 #' @description
-#' A document's data lives in containers. `doc_text()`, `doc_map()`, and
-#' `doc_list()` return a handle to the root container with the given
-#' name, creating it on first use. Handles to nested containers come
+#' A document's data lives in containers. `doc_text()`, `doc_map()`,
+#' `doc_list()`, `doc_movable_list()`, and `doc_counter()` return a
+#' handle to the root container with the given name, creating it on
+#' first use. Handles to nested containers come
 #' from [`map_set_container()`], [`list_insert_container()`],
 #' [`map_get()`], and [`list_get()`].
 #'
-#' A handle is a `loro_text`, `loro_map`, or `loro_list` object. Like a
+#' A handle is a `loro_text`, `loro_map`, `loro_list`,
+#' `loro_movable_list`, or `loro_counter` object. Like a
 #' [`loro_doc`], it has reference semantics: editing through a handle
 #' changes the document it belongs to.
 #'
 #' * `container_value()` returns the contents of a container: a string
-#'   for text, and a list for a map or list, with nested containers
-#'   expanded to their contents.
+#'   for text, a number for a counter, and a list for a map or list,
+#'   with nested containers expanded to their contents.
 #' * `container_id()` returns the container's unique id as a string.
 #'
 #' Root container names are shared across types within a document's
@@ -56,8 +62,8 @@ check_container = function(x, class, arg, call = sys.call(-1)) {
 #' @param name Name of the root container.
 #' @param x A container handle.
 #'
-#' @return `doc_text()`, `doc_map()`, and `doc_list()` return container
-#'   handles; `container_value()` returns a string or list; and
+#' @return `doc_text()`, `doc_map()`, `doc_list()`,
+#'   `doc_movable_list()`, and `doc_counter()` return container handles; `container_value()` returns a string or list; and
 #'   `container_id()` returns a string.
 #'
 #' @examples
@@ -99,6 +105,22 @@ doc_list = function(doc, name = "list") {
 
 #' @rdname containers
 #' @export
+doc_movable_list = function(doc, name = "list") {
+  check_doc(doc)
+  container_from_ref(
+    loro_doc_container_impl(doc@ptr, check_string(name, "name"), "movable_list")
+  )
+}
+
+#' @rdname containers
+#' @export
+doc_counter = function(doc, name = "counter") {
+  check_doc(doc)
+  container_from_ref(loro_doc_container_impl(doc@ptr, check_string(name, "name"), "counter"))
+}
+
+#' @rdname containers
+#' @export
 container_value = function(x) {
   check_container(x, loro_container, "x")
   loro_container_value_impl(x@ptr)
@@ -114,7 +136,7 @@ container_id = function(x) {
 S7::method(print, loro_container) = function(x, ...) {
   cli::cli_text("{.cls {class(x)[1]}} {container_id(x)}")
   value = container_value(x)
-  if (is.character(value)) {
+  if (is.character(value) || is.numeric(value)) {
     print(value)
   } else if (length(value) == 0) {
     cli::cli_text("(empty)")

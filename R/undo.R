@@ -13,6 +13,9 @@
 #' * `undo_group()` evaluates `code` and records all the changes it
 #'   makes as a single undo step.
 #'
+#' Checking out another version with [`doc_checkout()`] clears the undo
+#' and redo history.
+#'
 #' Each commit is one undo step, so call [`doc_commit()`] between edits
 #' that should be undone separately. Commits closer together than
 #' `merge_interval` are combined into one step.

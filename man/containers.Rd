@@ -5,6 +5,8 @@
 \alias{doc_text}
 \alias{doc_map}
 \alias{doc_list}
+\alias{doc_movable_list}
+\alias{doc_counter}
 \alias{container_value}
 \alias{container_id}
 \title{Container handles}
@@ -14,6 +16,10 @@ doc_text(doc, name = "text")
 doc_map(doc, name = "map")
 
 doc_list(doc, name = "list")
+
+doc_movable_list(doc, name = "list")
+
+doc_counter(doc, name = "counter")
 
 container_value(x)
 
@@ -27,24 +33,26 @@ container_id(x)
 \item{x}{A container handle.}
 }
 \value{
-\code{doc_text()}, \code{doc_map()}, and \code{doc_list()} return container
-handles; \code{container_value()} returns a string or list; and
+\code{doc_text()}, \code{doc_map()}, \code{doc_list()},
+\code{doc_movable_list()}, and \code{doc_counter()} return container handles; \code{container_value()} returns a string or list; and
 \code{container_id()} returns a string.
 }
 \description{
-A document's data lives in containers. \code{doc_text()}, \code{doc_map()}, and
-\code{doc_list()} return a handle to the root container with the given
-name, creating it on first use. Handles to nested containers come
+A document's data lives in containers. \code{doc_text()}, \code{doc_map()},
+\code{doc_list()}, \code{doc_movable_list()}, and \code{doc_counter()} return a
+handle to the root container with the given name, creating it on
+first use. Handles to nested containers come
 from \code{\link[=map_set_container]{map_set_container()}}, \code{\link[=list_insert_container]{list_insert_container()}},
 \code{\link[=map_get]{map_get()}}, and \code{\link[=list_get]{list_get()}}.
 
-A handle is a \code{loro_text}, \code{loro_map}, or \code{loro_list} object. Like a
+A handle is a \code{loro_text}, \code{loro_map}, \code{loro_list},
+\code{loro_movable_list}, or \code{loro_counter} object. Like a
 \code{\link{loro_doc}}, it has reference semantics: editing through a handle
 changes the document it belongs to.
 \itemize{
 \item \code{container_value()} returns the contents of a container: a string
-for text, and a list for a map or list, with nested containers
-expanded to their contents.
+for text, a number for a counter, and a list for a map or list,
+with nested containers expanded to their contents.
 \item \code{container_id()} returns the container's unique id as a string.
 }
 

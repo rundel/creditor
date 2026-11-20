@@ -58,6 +58,7 @@ fn diff_to_r(diff: &Diff) -> Robj {
             };
             typed("map", "updated", updated)
         }
+        Diff::Counter(increment) => typed("counter", "increment", (*increment).into()),
         _ => match List::from_names_and_values(["type"], [Robj::from("unsupported")]) {
             Ok(list) => list.into(),
             Err(_) => ().into(),

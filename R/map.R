@@ -29,8 +29,8 @@
 #' @param map A map handle, from [`doc_map()`] or a parent container.
 #' @param key A string.
 #' @param value A plain value; see the Values section.
-#' @param type Type of the child container: `"text"`, `"map"`, or
-#'   `"list"`.
+#' @param type Type of the child container: `"text"`, `"map"`,
+#'   `"list"`, `"movable_list"`, or `"counter"`.
 #'
 #' @return `map_set()` and `map_delete()` return `map` invisibly.
 #'   `map_set_container()` returns the new container handle. `map_get()`

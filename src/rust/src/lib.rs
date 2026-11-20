@@ -5,9 +5,9 @@ use std::sync::Arc;
 use loro::awareness::EphemeralStore;
 use loro::cursor::{Cursor, Side};
 use loro::{
-    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroDoc, LoroList, LoroMap,
-    LoroText, StyleConfig, StyleConfigMap, UndoManager, UpdateOptions, ValueOrContainer,
-    VersionVector,
+    Container, ContainerTrait, ExpandType, ExportMode, Frontiers, LoroCounter, LoroDoc, LoroList,
+    LoroMap, LoroMovableList, LoroText, StyleConfig, StyleConfigMap, UndoManager, UpdateOptions,
+    ValueOrContainer, VersionVector,
 };
 
 mod delta;
@@ -40,6 +40,8 @@ fn kind_of(container: &Container) -> Option<&'static str> {
         Container::Text(_) => Some("text"),
         Container::Map(_) => Some("map"),
         Container::List(_) => Some("list"),
+        Container::MovableList(_) => Some("movable_list"),
+        Container::Counter(_) => Some("counter"),
         _ => None,
     }
 }
@@ -62,11 +64,60 @@ fn as_map(container: &Container) -> Result<&LoroMap> {
     }
 }
 
-fn as_list(container: &Container) -> Result<&LoroList> {
+fn as_movable_list(container: &Container) -> Result<&LoroMovableList> {
     match container {
-        Container::List(list) => Ok(list),
-        _ => wrong_kind("list"),
+        Container::MovableList(list) => Ok(list),
+        _ => wrong_kind("movable list"),
     }
+}
+
+fn as_counter(container: &Container) -> Result<&LoroCounter> {
+    match container {
+        Container::Counter(counter) => Ok(counter),
+        _ => wrong_kind("counter"),
+    }
+}
+
+/// Run `$body` with `$list` bound to a `LoroList` or `LoroMovableList`,
+/// which share method names but no trait.
+macro_rules! with_list {
+    ($container:expr, |$list:ident| $body:expr) => {
+        match &*$container {
+            Container::List($list) => $body,
+            Container::MovableList($list) => $body,
+            _ => return wrong_kind("list"),
+        }
+    };
+}
+
+/// Create an empty container of `$kind`, bind it to `$child`, attach it
+/// with `$insert`, and wrap the attached handle.
+macro_rules! new_child {
+    ($kind:expr, |$child:ident| $insert:expr) => {
+        match $kind {
+            "text" => {
+                let $child = LoroText::new();
+                Container::Text($insert.map_err(to_r_error)?)
+            }
+            "map" => {
+                let $child = LoroMap::new();
+                Container::Map($insert.map_err(to_r_error)?)
+            }
+            "list" => {
+                let $child = LoroList::new();
+                Container::List($insert.map_err(to_r_error)?)
+            }
+            "movable_list" => {
+                let $child = LoroMovableList::new();
+                Container::MovableList($insert.map_err(to_r_error)?)
+            }
+            "counter" => {
+                let $child = LoroCounter::new();
+                Container::Counter($insert.map_err(to_r_error)?)
+            }
+            _ => return Err(Error::Other(format!("unknown container type: {}", $kind))),
+        }
+    };
 }
 
 /// A container handle crosses to R as `list(kind, ptr)` with class
@@ -240,7 +291,7 @@ fn loro_doc_value_impl(doc: DocPtr) -> Robj {
     value_to_r(&doc.get_deep_value())
 }
 
-/// Root container of the given `kind` ("text", "map", or "list").
+/// Root container of the given `kind`.
 /// @noRd
 #[extendr]
 fn loro_doc_container_impl(doc: DocPtr, name: &str, kind: &str) -> Result<Robj> {
@@ -248,6 +299,8 @@ fn loro_doc_container_impl(doc: DocPtr, name: &str, kind: &str) -> Result<Robj> 
         "text" => Container::Text(doc.get_text(name)),
         "map" => Container::Map(doc.get_map(name)),
         "list" => Container::List(doc.get_list(name)),
+        "movable_list" => Container::MovableList(doc.get_movable_list(name)),
+        "counter" => Container::Counter(doc.get_counter(name)),
         _ => return Err(Error::Other(format!("unknown container type: {kind}"))),
     };
     container_ref(container)
@@ -268,6 +321,8 @@ fn loro_container_value_impl(container: ContainerPtr) -> Result<Robj> {
         Container::Text(text) => Ok(text.to_string().into()),
         Container::Map(map) => Ok(value_to_r(&map.get_deep_value())),
         Container::List(list) => Ok(value_to_r(&list.get_deep_value())),
+        Container::MovableList(list) => Ok(value_to_r(&list.get_deep_value())),
+        Container::Counter(counter) => Ok(counter.get_value().into()),
         _ => Err(Error::Other("unsupported container type".to_string())),
     }
 }
@@ -309,21 +364,7 @@ fn loro_map_set_impl(map: ContainerPtr, key: &str, value: Robj) -> Result<()> {
 #[extendr]
 fn loro_map_set_container_impl(map: ContainerPtr, key: &str, kind: &str) -> Result<Robj> {
     let map = as_map(&map)?;
-    let child = match kind {
-        "text" => Container::Text(
-            map.insert_container(key, LoroText::new())
-                .map_err(to_r_error)?,
-        ),
-        "map" => Container::Map(
-            map.insert_container(key, LoroMap::new())
-                .map_err(to_r_error)?,
-        ),
-        "list" => Container::List(
-            map.insert_container(key, LoroList::new())
-                .map_err(to_r_error)?,
-        ),
-        _ => return Err(Error::Other(format!("unknown container type: {kind}"))),
-    };
+    let child = new_child!(kind, |c| map.insert_container(key, c));
     container_ref(child)
 }
 
@@ -366,7 +407,7 @@ fn loro_map_length_impl(map: ContainerPtr) -> Result<i32> {
 fn loro_list_insert_impl(list: ContainerPtr, pos: i32, value: Robj) -> Result<()> {
     let pos = to_index(pos, "pos")?;
     let value = r_to_value(&value)?;
-    as_list(&list)?.insert(pos, value).map_err(to_r_error)
+    with_list!(list, |l| l.insert(pos, value).map_err(to_r_error))
 }
 
 /// Insert a new child container of the given `kind` at a 0-based position.
@@ -374,22 +415,7 @@ fn loro_list_insert_impl(list: ContainerPtr, pos: i32, value: Robj) -> Result<()
 #[extendr]
 fn loro_list_insert_container_impl(list: ContainerPtr, pos: i32, kind: &str) -> Result<Robj> {
     let pos = to_index(pos, "pos")?;
-    let list = as_list(&list)?;
-    let child = match kind {
-        "text" => Container::Text(
-            list.insert_container(pos, LoroText::new())
-                .map_err(to_r_error)?,
-        ),
-        "map" => Container::Map(
-            list.insert_container(pos, LoroMap::new())
-                .map_err(to_r_error)?,
-        ),
-        "list" => Container::List(
-            list.insert_container(pos, LoroList::new())
-                .map_err(to_r_error)?,
-        ),
-        _ => return Err(Error::Other(format!("unknown container type: {kind}"))),
-    };
+    let child = with_list!(list, |l| new_child!(kind, |c| l.insert_container(pos, c)));
     container_ref(child)
 }
 
@@ -398,7 +424,7 @@ fn loro_list_insert_container_impl(list: ContainerPtr, pos: i32, kind: &str) -> 
 #[extendr]
 fn loro_list_get_impl(list: ContainerPtr, pos: i32) -> Result<Robj> {
     let pos = to_index(pos, "pos")?;
-    match as_list(&list)?.get(pos) {
+    match with_list!(list, |l| l.get(pos)) {
         Some(item) => value_or_container_to_r(item),
         None => Err(Error::Other("pos is out of bounds".to_string())),
     }
@@ -410,14 +436,49 @@ fn loro_list_get_impl(list: ContainerPtr, pos: i32) -> Result<Robj> {
 fn loro_list_delete_impl(list: ContainerPtr, pos: i32, len: i32) -> Result<()> {
     let pos = to_index(pos, "pos")?;
     let len = to_index(len, "len")?;
-    as_list(&list)?.delete(pos, len).map_err(to_r_error)
+    with_list!(list, |l| l.delete(pos, len).map_err(to_r_error))
 }
 
 /// Number of elements in a list.
 /// @noRd
 #[extendr]
 fn loro_list_length_impl(list: ContainerPtr) -> Result<i32> {
-    Ok(as_list(&list)?.len() as i32)
+    Ok(with_list!(list, |l| l.len()) as i32)
+}
+
+/// Replace the element of a movable list at a 0-based position.
+/// @noRd
+#[extendr]
+fn loro_list_set_impl(list: ContainerPtr, pos: i32, value: Robj) -> Result<()> {
+    let pos = to_index(pos, "pos")?;
+    let value = r_to_value(&value)?;
+    as_movable_list(&list)?.set(pos, value).map_err(to_r_error)
+}
+
+/// Replace the element of a movable list with a new child container.
+/// @noRd
+#[extendr]
+fn loro_list_set_container_impl(list: ContainerPtr, pos: i32, kind: &str) -> Result<Robj> {
+    let pos = to_index(pos, "pos")?;
+    let list = as_movable_list(&list)?;
+    let child = new_child!(kind, |c| list.set_container(pos, c));
+    container_ref(child)
+}
+
+/// Move an element of a movable list between 0-based positions.
+/// @noRd
+#[extendr]
+fn loro_list_move_impl(list: ContainerPtr, from: i32, to: i32) -> Result<()> {
+    let from = to_index(from, "from")?;
+    let to = to_index(to, "to")?;
+    as_movable_list(&list)?.mov(from, to).map_err(to_r_error)
+}
+
+/// Add `by` to a counter.
+/// @noRd
+#[extendr]
+fn loro_counter_increment_impl(counter: ContainerPtr, by: f64) -> Result<()> {
+    as_counter(&counter)?.increment(by).map_err(to_r_error)
 }
 
 fn to_expand(expand: &str) -> Result<ExpandType> {
@@ -809,4 +870,8 @@ extendr_module! {
     fn loro_list_get_impl;
     fn loro_list_delete_impl;
     fn loro_list_length_impl;
+    fn loro_list_set_impl;
+    fn loro_list_set_container_impl;
+    fn loro_list_move_impl;
+    fn loro_counter_increment_impl;
 }

@@ -71,7 +71,7 @@ loro_doc_import_impl <- function(doc, bytes) .Call(wrap__loro_doc_import_impl, d
 #' @noRd
 loro_doc_value_impl <- function(doc) .Call(wrap__loro_doc_value_impl, doc)
 
-#' Root container of the given `kind` ("text", "map", or "list").
+#' Root container of the given `kind`.
 #' @noRd
 loro_doc_container_impl <- function(doc, name, kind) .Call(wrap__loro_doc_container_impl, doc, name, kind)
 
@@ -256,5 +256,21 @@ loro_list_delete_impl <- function(list, pos, len) .Call(wrap__loro_list_delete_i
 #' Number of elements in a list.
 #' @noRd
 loro_list_length_impl <- function(list) .Call(wrap__loro_list_length_impl, list)
+
+#' Replace the element of a movable list at a 0-based position.
+#' @noRd
+loro_list_set_impl <- function(list, pos, value) .Call(wrap__loro_list_set_impl, list, pos, value)
+
+#' Replace the element of a movable list with a new child container.
+#' @noRd
+loro_list_set_container_impl <- function(list, pos, kind) .Call(wrap__loro_list_set_container_impl, list, pos, kind)
+
+#' Move an element of a movable list between 0-based positions.
+#' @noRd
+loro_list_move_impl <- function(list, from, to) .Call(wrap__loro_list_move_impl, list, from, to)
+
+#' Add `by` to a counter.
+#' @noRd
+loro_counter_increment_impl <- function(counter, by) .Call(wrap__loro_counter_increment_impl, counter, by)
 
 # nolint end
