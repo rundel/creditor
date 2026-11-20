@@ -24,6 +24,14 @@
 #' * `ephemeral_subscribe_local_updates()` calls `callback(bytes)` after
 #'   each local change with an update to send to other stores.
 #'
+#' Writes are ordered by a timestamp with millisecond resolution, and a
+#' store ignores an incoming write that is not newer than the one it
+#' holds. Two writes to one key within the same millisecond can
+#' therefore leave other stores with the first value until the key is
+#' written again. This is harmless for state that is refreshed
+#' continually, but do not rely on an ephemeral store to deliver every
+#' intermediate value.
+#'
 #' Keys are usually chosen per replica (for example the peer id) so that
 #' replicas do not overwrite each other. Subscriptions behave as
 #' described in [`doc_subscribe()`] and are stopped with

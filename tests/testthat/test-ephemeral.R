@@ -1,3 +1,8 @@
+# A store timestamps writes in whole milliseconds and ignores an incoming
+# write that is not newer than what it holds, so successive writes to one key
+# are spaced out wherever a test checks that the second one arrives.
+tick = function() Sys.sleep(0.02)
+
 test_that("entries can be set, read, and deleted", {
   store = ephemeral_store()
   expect_identical(ephemeral_keys(store), character())
@@ -34,7 +39,7 @@ test_that("the last write wins on every store", {
   a = ephemeral_store()
   b = ephemeral_store()
   ephemeral_set(a, "k", "from a")
-  Sys.sleep(0.02)
+  tick()
   ephemeral_set(b, "k", "from b")
 
   from_a = ephemeral_encode(a)
@@ -53,8 +58,10 @@ test_that("local updates drive live sync, including deletes", {
 
   ephemeral_set(a, "k", 1L)
   expect_identical(ephemeral_get(b, "k"), 1L)
+  tick()
   ephemeral_set(a, "k", 2L)
   expect_identical(ephemeral_get(b, "k"), 2L)
+  tick()
   ephemeral_delete(a, "k")
   expect_identical(ephemeral_keys(b), character())
 })
@@ -69,8 +76,10 @@ test_that("subscribers see added, updated, and removed keys", {
   ephemeral_set(b, "mine", TRUE)
   ephemeral_set(a, "k", 1L)
   ephemeral_apply(b, ephemeral_encode(a))
+  tick()
   ephemeral_set(a, "k", 2L)
   ephemeral_apply(b, ephemeral_encode(a))
+  tick()
   ephemeral_delete(b, "k")
 
   expect_identical(
@@ -116,4 +125,19 @@ test_that("ephemeral arguments are validated", {
 test_that("the store prints its entry count", {
   store = ephemeral_store()
   expect_match(cli::cli_fmt(print(store)), "0 entries")
+})
+
+test_that("a write in the same millisecond as the last one is not applied", {
+  stale = 0L
+  for (i in 1:20) {
+    a = ephemeral_store()
+    b = ephemeral_store()
+    ephemeral_set(a, "k", 1L)
+    ephemeral_apply(b, ephemeral_encode(a))
+    ephemeral_set(a, "k", 2L)
+    ephemeral_apply(b, ephemeral_encode(a))
+    stale = stale + !identical(ephemeral_get(b, "k"), 2L)
+  }
+  skip_if(stale == 0L, "writes never landed in the same millisecond")
+  expect_gt(stale, 0L)
 })
