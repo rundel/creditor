@@ -6,6 +6,7 @@
 \alias{doc_export_updates}
 \alias{doc_export_shallow}
 \alias{doc_import}
+\alias{doc_merge}
 \alias{doc_import_status}
 \alias{doc_version}
 \alias{doc_is_shallow}
@@ -21,6 +22,8 @@ doc_export_updates(doc, from = NULL)
 doc_export_shallow(doc, since = NULL)
 
 doc_import(doc, bytes)
+
+doc_merge(doc, source)
 
 doc_import_status(doc)
 
@@ -39,7 +42,8 @@ doc_import_json(doc, json)
 
 \item{from}{A version returned by \code{doc_version()} to start from,
 typically that of the replica the updates are destined for, or
-\code{NULL} for the beginning.}
+\code{NULL} for the beginning. \code{doc_export_updates()} also accepts a
+\code{\link{loro_doc}}, standing for its current version.}
 
 \item{since}{A version: frontiers from \code{\link[=doc_frontiers]{doc_frontiers()}}, or the version
 after one change, named by its number in \code{\link[=doc_changes]{doc_changes()}} order or by
@@ -48,6 +52,8 @@ latest version, keeps no earlier history at all.}
 
 \item{bytes}{A raw vector produced by one of the export functions,
 or for \code{doc_import()} a list of them.}
+
+\item{source}{The \code{\link{loro_doc}} to merge changes from.}
 
 \item{to}{A version returned by \code{doc_version()} to stop at, or \code{NULL}
 for the latest.}
@@ -58,7 +64,8 @@ for the latest.}
 \code{doc_export()}, \code{doc_export_updates()}, and
 \code{doc_export_shallow()} return a raw vector and \code{doc_version()} a
 version vector.
-\code{doc_import()} and \code{doc_import_json()} return \code{doc} invisibly, and
+\code{doc_import()}, \code{doc_merge()}, and \code{doc_import_json()} return \code{doc}
+invisibly, and
 \code{doc_import_status()} returns an import status or \code{NULL}; see the
 Import status section. \code{doc_is_shallow()} returns a
 logical, \code{doc_export_json()} a string, and \code{blob_metadata()} a list
@@ -74,6 +81,8 @@ or sent over any transport.
 contents and full history.
 \item \code{doc_export_updates()} serializes only the changes made since the
 version \code{from}, or the complete history when \code{from} is \code{NULL}.
+\code{from} may also be a document, which stands for its current version:
+the export then holds exactly the changes that document is missing.
 \item \code{doc_export_shallow()} serializes a shallow snapshot: the contents
 plus only the history after the version \code{since}. Dropping old
 history can make the export much smaller for a document with a
@@ -83,6 +92,11 @@ versions before \code{since} or merge edits that branch off before it.
 Importing is commutative and idempotent, so replicas that have seen
 the same updates hold the same contents. \code{bytes} may also be a list
 of raw vectors, which are imported together in one step.
+\item \code{doc_merge()} imports into \code{doc} every change from the document
+\code{source} that \code{doc} does not have yet. It is short for
+\code{doc_import(doc, doc_export_updates(source, from = doc))}, for replicas
+in the same R session; replicas in different processes exchange the
+raw vectors instead.
 \item \code{doc_version()} returns the document's current version vector, for
 use as the \code{from} argument of \code{doc_export_updates()}. See
 \code{\link[=as_version]{as_version()}}.
@@ -101,7 +115,7 @@ containers created with \code{\link[=map_ensure_container]{map_ensure_container(
 }
 \section{Import status}{
 
-\code{doc_import()} and \code{doc_import_json()} return the document invisibly,
+\code{doc_import()}, \code{doc_merge()}, and \code{doc_import_json()} return the document invisibly,
 so they can be used in a pipe. The outcome of the most recent import
 into a document is kept with it, and \code{doc_import_status()} returns
 it, or \code{NULL} if nothing has been imported. Like the document, it is
@@ -126,11 +140,15 @@ doc_import(b, doc_export(a))
 text_insert(a, 6, " world")
 text_insert(b, 1, ">> ")
 
-doc_import(b, doc_export_updates(a, from = doc_version(b)))
-doc_import(a, doc_export_updates(b, from = doc_version(a)))
-text_get(a)
-text_get(b)
+# Send `b` the changes it is missing, as raw bytes
+bytes = doc_export_updates(a, from = doc_version(b))
+doc_import(b, bytes)
 doc_import_status(b)
+
+# In one R session, merge directly
+doc_merge(a, b) |>
+  text_get()
+text_get(b)
 
 # Imports return the document, so they can be piped
 loro_doc() |> doc_import(doc_export(a)) |> text_get()

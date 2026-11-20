@@ -50,13 +50,14 @@ b = loro_doc() |>                    # replica `b` starts from a snapshot of `a`
 text_push(a, " world")               # concurrent edits, not yet synced
 text_insert(b, 1, ">> ")
 
-b |>                                 # each replica imports the updates it is missing
-  doc_import(doc_export_updates(a, from = doc_version(b))) |>
+doc_merge(b, a) |>                   # each replica merges the changes it is missing
   text_get()
-a |>
-  doc_import(doc_export_updates(b, from = doc_version(a))) |>
+
+doc_merge(a, b) |>
   text_get()
 ```
+
+`doc_merge()` is for replicas in the same R session. Replicas in different processes send each other raw vectors instead: `doc_export_updates(a, from = version)` holds the changes made to `a` since a version the other replica reported with `doc_version()`, and `doc_import()` applies them.
 
 Containers nest: a map or list can hold plain values or child containers, each of which merges independently. New containers are made with `loro_text()`, `loro_list()`, `loro_map()`, and friends, and stored like any other value.
 

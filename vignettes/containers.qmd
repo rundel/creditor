@@ -18,7 +18,7 @@ This vignette walks through every container type creditor supports: text, map, l
 
 ## Setup
 
-A replica is a copy of a document that can be edited independently. Two small helpers keep the examples short. `replica()` makes a second copy of a document under its own peer id, and `sync()` exchanges whatever each side is missing and returns the first document.
+A replica is a copy of a document that can be edited independently. Two small helpers keep the examples short. `replica()` makes a second copy of a document under its own peer id, and `sync()` uses `doc_merge()` to give each side the changes it is missing, returning the first document.
 
 ```{r}
 library(creditor)
@@ -29,8 +29,8 @@ replica = function(doc, peer_id) {
 }
 
 sync = function(a, b) {
-  doc_import(b, doc_export_updates(a, from = doc_version(b)))
-  doc_import(a, doc_export_updates(b, from = doc_version(a)))
+  doc_merge(b, a)
+  doc_merge(a, b)
 }
 ```
 

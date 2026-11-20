@@ -271,6 +271,7 @@ test_that("every function that can commit delivers the events it causes", {
     doc_export_updates = function(doc, v) doc_export_updates(doc),
     doc_export_json = function(doc, v) doc_export_json(doc),
     doc_import = function(doc, v) doc_import(doc, doc_export(loro_doc())),
+    doc_merge = function(doc, v) doc_merge(doc, loro_doc()),
     doc_fork = function(doc, v) doc_fork(doc),
     doc_checkout = function(doc, v) doc_checkout(doc, v),
     doc_detach = function(doc, v) doc_detach(doc),

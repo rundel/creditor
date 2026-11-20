@@ -271,7 +271,7 @@ server = function(input, output, session) {
   }
 
   sync = function(from, to) {
-    doc_import(to$doc, doc_export_updates(from$doc, from = doc_version(to$doc)))
+    doc_merge(to$doc, from$doc)
   }
 
   push = function(side) {

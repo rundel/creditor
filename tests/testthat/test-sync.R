@@ -24,6 +24,41 @@ test_that("import reports the operations it applied", {
   expect_invisible(doc_import(b, doc_export(a)))
 })
 
+test_that("export_updates takes a document as the version to start from", {
+  a = loro_doc(peer_id = 1)
+  text_insert(a, 1, "Hello")
+  b = loro_doc(peer_id = 2) |>
+    doc_import(doc_export(a))
+  text_push(a, " world")
+
+  expect_identical(
+    doc_export_updates(a, from = b),
+    doc_export_updates(a, from = doc_version(b))
+  )
+})
+
+test_that("merge imports only the changes the document is missing", {
+  a = loro_doc(peer_id = 1)
+  text_insert(a, 1, "Hello")
+  b = loro_doc(peer_id = 2) |>
+    doc_import(doc_export(a))
+  text_push(a, " world")
+  text_insert(b, 1, ">> ")
+
+  expect_invisible(doc_merge(b, a))
+  expect_identical(doc_merge(b, a), b)
+  doc_merge(a, b)
+  expect_identical(text_get(a), ">> Hello world")
+  expect_identical(text_get(b), ">> Hello world")
+  expect_identical(doc_import_status(a)$success, tibble::tibble(peer = "2", start = 0L, end = 3L))
+})
+
+test_that("merge checks its arguments", {
+  doc = loro_doc()
+  expect_error(doc_merge(doc, doc_export(doc)), "`source` must be a <loro_doc>")
+  expect_error(doc_merge("x", doc), "`doc` must be a <loro_doc>")
+})
+
 test_that("updates that arrive early are pending until their dependencies do", {
   a = loro_doc(peer_id = 5)
   text = doc_text(a)

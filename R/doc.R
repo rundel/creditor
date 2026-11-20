@@ -307,6 +307,8 @@ doc_jsonpath = function(doc, path) {
 #'   contents and full history.
 #' * `doc_export_updates()` serializes only the changes made since the
 #'   version `from`, or the complete history when `from` is `NULL`.
+#'   `from` may also be a document, which stands for its current version:
+#'   the export then holds exactly the changes that document is missing.
 #' * `doc_export_shallow()` serializes a shallow snapshot: the contents
 #'   plus only the history after the version `since`. Dropping old
 #'   history can make the export much smaller for a document with a
@@ -316,6 +318,11 @@ doc_jsonpath = function(doc, path) {
 #'   Importing is commutative and idempotent, so replicas that have seen
 #'   the same updates hold the same contents. `bytes` may also be a list
 #'   of raw vectors, which are imported together in one step.
+#' * `doc_merge()` imports into `doc` every change from the document
+#'   `source` that `doc` does not have yet. It is short for
+#'   `doc_import(doc, doc_export_updates(source, from = doc))`, for replicas
+#'   in the same R session; replicas in different processes exchange the
+#'   raw vectors instead.
 #' * `doc_version()` returns the document's current version vector, for
 #'   use as the `from` argument of `doc_export_updates()`. See
 #'   [`as_version()`].
@@ -332,7 +339,7 @@ doc_jsonpath = function(doc, path) {
 #'   `doc_export_json()` refuses to export changes that create one.
 #'
 #' @section Import status:
-#' `doc_import()` and `doc_import_json()` return the document invisibly,
+#' `doc_import()`, `doc_merge()`, and `doc_import_json()` return the document invisibly,
 #' so they can be used in a pipe. The outcome of the most recent import
 #' into a document is kept with it, and `doc_import_status()` returns
 #' it, or `NULL` if nothing has been imported. Like the document, it is
@@ -349,7 +356,9 @@ doc_jsonpath = function(doc, path) {
 #' @param doc A [`loro_doc`].
 #' @param from A version returned by `doc_version()` to start from,
 #'   typically that of the replica the updates are destined for, or
-#'   `NULL` for the beginning.
+#'   `NULL` for the beginning. `doc_export_updates()` also accepts a
+#'   [`loro_doc`], standing for its current version.
+#' @param source The [`loro_doc`] to merge changes from.
 #' @param since A version: frontiers from [`doc_frontiers()`], or the version
 #'   after one change, named by its number in [`doc_changes()`] order or by
 #'   its commit message. The default, the
@@ -363,7 +372,8 @@ doc_jsonpath = function(doc, path) {
 #' @return `doc_export()`, `doc_export_updates()`, and
 #'   `doc_export_shallow()` return a raw vector and `doc_version()` a
 #'   version vector.
-#'   `doc_import()` and `doc_import_json()` return `doc` invisibly, and
+#'   `doc_import()`, `doc_merge()`, and `doc_import_json()` return `doc`
+#'   invisibly, and
 #'   `doc_import_status()` returns an import status or `NULL`; see the
 #'   Import status section. `doc_is_shallow()` returns a
 #'   logical, `doc_export_json()` a string, and `blob_metadata()` a list
@@ -381,11 +391,15 @@ doc_jsonpath = function(doc, path) {
 #' text_insert(a, 6, " world")
 #' text_insert(b, 1, ">> ")
 #'
-#' doc_import(b, doc_export_updates(a, from = doc_version(b)))
-#' doc_import(a, doc_export_updates(b, from = doc_version(a)))
-#' text_get(a)
-#' text_get(b)
+#' # Send `b` the changes it is missing, as raw bytes
+#' bytes = doc_export_updates(a, from = doc_version(b))
+#' doc_import(b, bytes)
 #' doc_import_status(b)
+#'
+#' # In one R session, merge directly
+#' doc_merge(a, b) |>
+#'   text_get()
+#' text_get(b)
 #'
 #' # Imports return the document, so they can be piped
 #' loro_doc() |> doc_import(doc_export(a)) |> text_get()
@@ -415,7 +429,9 @@ doc_export = function(doc) {
 doc_export_updates = function(doc, from = NULL) {
   check_doc(doc)
   on.exit(deliver_events(), add = TRUE)
-  if (!is.null(from)) {
+  if (S7::S7_inherits(from, loro_doc)) {
+    from = doc_version(from)
+  } else if (!is.null(from)) {
     check_version(from, "from")
   }
   loro_doc_export_impl(doc@ptr, "updates", from, NULL)
@@ -448,6 +464,15 @@ doc_import = function(doc, bytes) {
   }
   doc@state$import_status = import_status(status)
   invisible(doc)
+}
+
+#' @rdname doc_sync
+#' @export
+doc_merge = function(doc, source) {
+  check_doc(doc)
+  on.exit(deliver_events(), add = TRUE)
+  check_doc(source, "source")
+  doc_import(doc, doc_export_updates(source, from = doc))
 }
 
 #' @rdname doc_sync
