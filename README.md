@@ -2,7 +2,7 @@
 
 <!-- README.md is generated from README.qmd. Please edit that file. -->
 
-# creditor
+# creditor <img src="man/figures/logo.png" align="right" height="139" alt="creditor hex logo: two parrots on a wire saying the same thing" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/rundel/creditor/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/rundel/creditor/actions/workflows/R-CMD-check.yaml)

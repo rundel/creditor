@@ -11,7 +11,7 @@ knitr:
 
 <!-- README.md is generated from README.qmd. Please edit that file. -->
 
-# creditor
+# creditor <img src="man/figures/logo.png" align="right" height="139" alt="creditor hex logo: two parrots on a wire saying the same thing" />
 
 ```{=markdown}
 <!-- badges: start -->
