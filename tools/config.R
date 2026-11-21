@@ -16,6 +16,23 @@ if (is_debug) {
 .profile <- ifelse(is_debug, "", "--release")
 .clean_targets <- ifelse(is_debug, "", "$(TARGET_DIR)")
 
+# CREDITOR_CARGO_CACHE names a directory that holds the cargo target
+# directory and CARGO_HOME across installs, so CI can cache compiled
+# dependencies. Both must stay fixed: cargo rebuilds every dependency
+# when the registry sources move. Nothing is cleaned up afterwards.
+cargo_cache = Sys.getenv("CREDITOR_CARGO_CACHE")
+if (nzchar(cargo_cache)) {
+  message("Using the cargo cache in ", cargo_cache, ".")
+  .target_dir = file.path(cargo_cache, "target")
+  .cargo_home = file.path(cargo_cache, "home")
+  .clean_targets = ""
+  .clean_cargo = ":"
+} else {
+  .target_dir = "./rust/target"
+  .cargo_home = "$(CURDIR)/.cargo"
+  .clean_cargo = "rm -Rf $(CARGOTMP)"
+}
+
 # We specify this target when building for webR
 webr_target <- "wasm32-unknown-emscripten"
 
@@ -80,7 +97,10 @@ new_txt <- gsub("@PROFILE@", .profile, mv_txt) |>
   gsub("@CLEAN_TARGET@", .clean_targets, x = _) |>
   gsub("@LIBDIR@", .libdir, x = _) |>
   gsub("@TARGET@", .target, x = _) |>
-  gsub("@PANIC_EXPORTS@", .panic_exports, x = _)
+  gsub("@PANIC_EXPORTS@", .panic_exports, x = _) |>
+  gsub("@TARGET_DIR@", .target_dir, x = _, fixed = TRUE) |>
+  gsub("@CARGO_HOME@", .cargo_home, x = _, fixed = TRUE) |>
+  gsub("@CLEAN_CARGO@", .clean_cargo, x = _, fixed = TRUE)
 
 message("Writing `", mv_ofp, "`.")
 con <- file(mv_ofp, open = "wb")

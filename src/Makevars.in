@@ -1,4 +1,4 @@
-TARGET_DIR = ./rust/target
+TARGET_DIR = @TARGET_DIR@
 LIBDIR = $(TARGET_DIR)/@LIBDIR@
 STATLIB = $(LIBDIR)/libcreditor.a
 PKG_LIBS = -L$(LIBDIR) -lcreditor
@@ -9,7 +9,7 @@ all: $(SHLIB) rust_clean
 
 $(SHLIB): $(STATLIB)
 
-CARGOTMP = $(CURDIR)/.cargo
+CARGOTMP = @CARGO_HOME@
 
 
 # RUSTFLAGS appends --print=native-static-libs to ensure that 
@@ -26,15 +26,19 @@ $(STATLIB):
 	export PATH="$(PATH):$(HOME)/.cargo/bin" && \
 	@PANIC_EXPORTS@RUSTFLAGS="$(RUSTFLAGS) --print=native-static-libs" cargo build --lib @PROFILE@ --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) @TARGET@
 
-	export CARGO_HOME=$(CARGOTMP) && \
-	export PATH="$(PATH):$(HOME)/.cargo/bin" && \
-	cargo run --bin document --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) @TARGET@
+	# CI sets CREDITOR_SKIP_WRAPPERS: the wrappers are committed, and building the
+	# document binary compiles every dependency again in the dev profile.
+	if [ -z "$$CREDITOR_SKIP_WRAPPERS" ]; then \
+	  export CARGO_HOME=$(CARGOTMP) && \
+	  export PATH="$(PATH):$(HOME)/.cargo/bin" && \
+	  cargo run --bin document --manifest-path=./rust/Cargo.toml --target-dir $(TARGET_DIR) @TARGET@; \
+	fi
 
 	# Always clean up CARGOTMP
-	rm -Rf $(CARGOTMP);
+	@CLEAN_CARGO@;
 
 rust_clean: $(SHLIB)
-	rm -Rf $(CARGOTMP) @CLEAN_TARGET@
+	@CLEAN_CARGO@ @CLEAN_TARGET@
 
 clean:
 	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) $(TARGET_DIR)

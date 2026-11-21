@@ -30,10 +30,11 @@ test_that("a delta prints as markdown", {
 test_that("a delta prints in the format asked for", {
   doc = marked_text("Read the docs", list(1, 4, bold = TRUE))
   delta = text_delta(doc)
-  expect_snapshot({
-    print(delta, format = "html")
-    print(delta, format = "list")
-  })
+  expect_snapshot(print(delta, format = "html"))
+  expect_identical(
+    format(delta, format = "list"),
+    c("<loro_delta>", utils::capture.output(utils::str(unclass(delta))))
+  )
   rlang::local_options(cli.num_colors = 1)
   expect_identical(format(delta, format = "ansi"), c("<loro_delta>", "Read the docs"))
   rlang::local_options(creditor.delta_format = "html")

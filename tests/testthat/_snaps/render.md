@@ -20,17 +20,6 @@
     Output
       <loro_delta>
       <strong>Read</strong> the docs
-    Code
-      print(delta, format = "list")
-    Output
-      <loro_delta>
-      List of 2
-       $ :List of 2
-        ..$ insert    : chr "Read"
-        ..$ attributes:List of 1
-        .. ..$ bold: logi TRUE
-       $ :List of 1
-        ..$ insert: chr " the docs"
 
 # printing notes left-out marks instead of warning
 
