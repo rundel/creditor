@@ -162,9 +162,9 @@ doc_import(b, bytes)
 doc_import_status(b)
 #> $success
 #> # A tibble: 1 × 3
-#>   peer                 start   end
-#>   <chr>                <int> <int>
-#> 1 14137567554472432691     5    11
+#>   peer                start   end
+#>   <chr>               <int> <int>
+#> 1 2631560243001924484     5    11
 #> 
 #> $pending
 #> # A tibble: 0 × 3

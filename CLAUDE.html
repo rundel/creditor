@@ -134,6 +134,7 @@
 <li>Rebuild after Rust edits with <code><a href="https://devtools.r-lib.org/reference/document.html" class="external-link">devtools::document()</a></code>; set the <code>DEBUG=1</code> environment variable for a fast unoptimized build (the release profile uses LTO and is slow).</li>
 <li>
 <a href="tools/config.R">tools/config.R</a> and <a href="tools/msrv.R">tools/msrv.R</a> run at install time from <code>configure</code> to check the toolchain and template <code>src/Makevars{,.win}.in</code>. They are rextendr-generated; do not restyle or remove them.</li>
+<li>Two environment variables change the install, for CI. <code>CREDITOR_SKIP_WRAPPERS</code> skips running the <code>document</code> binary (the wrappers are committed, and the binary recompiles every dependency because its <code>RUSTFLAGS</code> differ from the library build). <code>CREDITOR_CARGO_CACHE</code> makes <code>tools/config.R</code> put the cargo target directory and <code>CARGO_HOME</code> inside that directory and skip the cleanup, so compiled crates survive between installs; both must be fixed paths, since cargo rebuilds every dependency when the registry sources move. It is not used on Windows, whose Makevars needs a relative target directory. The R-CMD-check workflow also turns off LTO (<code>CARGO_PROFILE_RELEASE_LTO</code> / <code>CARGO_PROFILE_RELEASE_CODEGEN_UNITS</code>) and runs R-devel and oldrel-1 only on pushes.</li>
 </ul></div>
 <div class="section level2">
 <h2 id="style">Style<a class="anchor" aria-label="anchor" href="#style"></a></h2>

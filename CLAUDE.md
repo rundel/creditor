@@ -473,6 +473,18 @@ package.
   install time from `configure` to check the toolchain and template
   `src/Makevars{,.win}.in`. They are rextendr-generated; do not restyle
   or remove them.
+- Two environment variables change the install, for CI.
+  `CREDITOR_SKIP_WRAPPERS` skips running the `document` binary (the
+  wrappers are committed, and the binary recompiles every dependency
+  because its `RUSTFLAGS` differ from the library build).
+  `CREDITOR_CARGO_CACHE` makes `tools/config.R` put the cargo target
+  directory and `CARGO_HOME` inside that directory and skip the cleanup,
+  so compiled crates survive between installs; both must be fixed paths,
+  since cargo rebuilds every dependency when the registry sources move.
+  It is not used on Windows, whose Makevars needs a relative target
+  directory. The R-CMD-check workflow also turns off LTO
+  (`CARGO_PROFILE_RELEASE_LTO` / `CARGO_PROFILE_RELEASE_CODEGEN_UNITS`)
+  and runs R-devel and oldrel-1 only on pushes.
 
 ## Style
 
