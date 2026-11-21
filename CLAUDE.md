@@ -314,11 +314,11 @@ package.
   turn the runs into open/close tokens with a stack, opening the mark
   that lasts longest outermost so tags nest, and Markdown moves spaces
   outside `**` / `*` / link delimiters, which would otherwise not parse.
-  All three take `marks`, user renderers by key (two strings or a
-  function of the value for Markdown and HTML, a styling function for
-  ANSI) checked by `check_renderers`; a key with a renderer is never
-  reported as dropped, and given Markdown delimiters get the same space
-  shifting as the built-in ones. Marks a format cannot show make
+  All three take `marks`, user renderers by key (two strings for before
+  and after, or a function: of the value for Markdown and HTML, of the
+  text for ANSI) checked by `check_renderers`; a key with a renderer is
+  never reported as dropped, and given Markdown delimiters get the same
+  space shifting as the built-in ones. Marks a format cannot show make
   [`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
   /
   [`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)

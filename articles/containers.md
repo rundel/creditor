@@ -163,13 +163,12 @@ str(text_delta(doc))
 ```
 
 [`text_markdown()`](https://rundel.github.io/creditor/reference/richtext.md)
-returns that Markdown as a string, and
+returns that Markdown as a string,
 [`text_html()`](https://rundel.github.io/creditor/reference/richtext.md)
-renders the marks as HTML instead. In the console,
+renders the marks as HTML instead, and
 [`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)
-shows the text with the marks as terminal styles (bold, italic, colored
-links, and so on); a rendered page like this one has no terminal styles,
-so it is not shown here.
+shows them as terminal styles (bold, italic, colored links, and so on)
+for the console.
 
 ``` r
 text_markdown(doc)
@@ -177,6 +176,13 @@ text_markdown(doc)
 
 text_html(doc)
 #> [1] "<strong>Read</strong> the <a href=\"https://loro.dev\">docs</a> today"
+
+text_ansi(doc)
+```
+
+``` fansi
+#> <cli_ansi_string>
+#> [1] Read the docs today
 ```
 
 The HTML can be written straight into a page, such as this one:
@@ -242,10 +248,14 @@ text_html(doc)
 #> [1] "<span data-author=\"cr\">Reviewed</span>"
 
 text_markdown(doc)
+```
+
+``` fansi
 #> Warning in text_markdown(doc): `text_markdown()` cannot show the mark author, so it is left out.
 #> ℹ Use `text_html()` to keep every mark, or give `marks` a way to show it.
-#> [1] "Reviewed"
 ```
+
+    #> [1] "Reviewed"
 
 Markdown has no way to write a mark like `author`.
 [`text_html()`](https://rundel.github.io/creditor/reference/richtext.md)
@@ -261,7 +271,7 @@ For Markdown and HTML an entry gives the two strings to write before and
 after that range, either directly or from a function of the mark’s value
 (`"cr"`). For
 [`text_ansi()`](https://rundel.github.io/creditor/reference/richtext.md)
-it is a function that styles the text, such as
+it can also be a function that styles the text, such as
 [`cli::col_magenta`](https://cli.r-lib.org/reference/ansi-styles.html).
 Entries can also override the built-in marks.
 
@@ -285,6 +295,13 @@ text_html(
 
 text_markdown(doc, marks = list(author = c(before = "_", after = "_")))
 #> [1] "_Reviewed_"
+
+text_ansi(doc, marks = list(author = cli::col_magenta))
+```
+
+``` fansi
+#> <cli_ansi_string>
+#> [1] Reviewed
 ```
 
 ## Map
@@ -581,11 +598,14 @@ data = add_section(outline, "Data", parent = methods)
 model = add_section(outline, "Model", parent = methods)
 
 tree_nodes(outline)
+```
+
+``` fansi
 #> # A tibble: 4 × 3
 #>   id    parent index
 #>   <chr> <chr>  <int>
-#> 1 0@1   <NA>       1
-#> 2 2@1   <NA>       2
+#> 1 0@1   NA         1
+#> 2 2@1   NA         2
 #> 3 4@1   2@1        1
 #> 4 6@1   2@1        2
 ```
