@@ -24,6 +24,7 @@ Imports:
     utils
 Suggests:
     bslib,
+    fansi,
     knitr,
     quarto,
     shiny,

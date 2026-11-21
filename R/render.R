@@ -357,16 +357,12 @@ check_renderers = function(marks, kind, arg = "marks", call = rlang::caller_env(
   }
   for (key in keys) {
     spec = marks[[key]]
-    ok = if (kind == "style") {
-      is.function(spec)
-    } else {
-      is.function(spec) || (is.character(spec) && length(spec) == 2 && !anyNA(spec))
-    }
+    ok = is.function(spec) || (is.character(spec) && length(spec) == 2 && !anyNA(spec))
     if (!ok) {
       want = if (kind == "style") {
-        "a function that styles the text"
+        "two strings (the text before and after) or a function that styles the text"
       } else {
-        "two strings (the opening and closing text) or a function of the mark value returning them"
+        "two strings (the text before and after) or a function of the mark value returning them"
       }
       cli::cli_abort("{.code {arg}${key}} must be {want}.", call = call)
     }
@@ -386,6 +382,9 @@ custom_delims = function(spec, value, key) {
 }
 
 custom_style = function(spec, text, value, key) {
+  if (is.character(spec)) {
+    return(paste0(spec[1], text, spec[2]))
+  }
   out = if ("value" %in% names(formals(spec))) spec(text, value = value) else spec(text)
   if (!is.character(out) || length(out) != 1 || is.na(out)) {
     cli::cli_abort("The function in {.code marks${key}} must return one string.", call = NULL)

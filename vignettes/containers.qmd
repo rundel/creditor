@@ -12,6 +12,25 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
+```{r}
+#| echo: false
+#| results: asis
+options(cli.num_colors = 256)
+invisible(fansi::set_knit_hooks(
+  knitr::knit_hooks,
+  which = c("output", "message", "warning"),
+  style = c(
+    ".cell > pre { background-color: rgba(233, 236, 239, .65); color: #5e5e5e; font-size: .875em;",
+    "  padding: 0 .5em .4em; margin: 0; border: none; border-radius: 0 0 .375rem .375rem; }",
+    ".cell > pre:not(:last-child) { border-radius: 0; padding-bottom: 0; }",
+    ".cell > pre:last-child { margin-bottom: 1rem; }",
+    ".cell > pre code { color: inherit; }",
+    ".cell div:has(+ pre) div.sourceCode {",
+    "  border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }"
+  )
+))
+```
+
 A Loro document is a collection of containers. Each container type holds a different shape of data and, more importantly, resolves concurrent edits in a different way. Choosing a container is mostly a matter of deciding what should happen when two people change the same thing at once.
 
 This vignette walks through every container type creditor supports: text, map, list, movable list, counter, and tree. Each section shows the basic operations and then what happens when two replicas edit concurrently and merge.
@@ -99,12 +118,14 @@ text_delta(doc)
 str(text_delta(doc))
 ```
 
-`text_markdown()` returns that Markdown as a string, and `text_html()` renders the marks as HTML instead. In the console, `text_ansi()` shows the text with the marks as terminal styles (bold, italic, colored links, and so on); a rendered page like this one has no terminal styles, so it is not shown here.
+`text_markdown()` returns that Markdown as a string, `text_html()` renders the marks as HTML instead, and `text_ansi()` shows them as terminal styles (bold, italic, colored links, and so on) for the console.
 
 ```{r}
 text_markdown(doc)
 
 text_html(doc)
+
+text_ansi(doc)
 ```
 
 The HTML can be written straight into a page, such as this one:
@@ -157,7 +178,7 @@ text_markdown(doc)
 
 Markdown has no way to write a mark like `author`. `text_html()` keeps it as a `data-` attribute on a `<span>`, an element with no styling of its own, so the value is there for CSS or JavaScript without changing how the text looks. `text_markdown()` leaves the mark out with a warning, or an error with `strict = TRUE`.
 
-The `marks` argument chooses how a mark is written. Where a mark is written is fixed by its range: here, characters 1 to 8, `"Reviewed"`. For Markdown and HTML an entry gives the two strings to write before and after that range, either directly or from a function of the mark's value (`"cr"`). For `text_ansi()` it is a function that styles the text, such as `cli::col_magenta`. Entries can also override the built-in marks.
+The `marks` argument chooses how a mark is written. Where a mark is written is fixed by its range: here, characters 1 to 8, `"Reviewed"`. For Markdown and HTML an entry gives the two strings to write before and after that range, either directly or from a function of the mark's value (`"cr"`). For `text_ansi()` it can also be a function that styles the text, such as `cli::col_magenta`. Entries can also override the built-in marks.
 
 ```{r}
 text_markdown(
@@ -176,6 +197,8 @@ text_html(
 )
 
 text_markdown(doc, marks = list(author = c(before = "_", after = "_")))
+
+text_ansi(doc, marks = list(author = cli::col_magenta))
 ```
 
 ## Map

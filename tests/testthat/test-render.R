@@ -231,6 +231,10 @@ test_that("ansi marks can be styled with functions, with or without the value", 
     as.character(text_ansi(doc, marks = list(author = function(text, value) paste0(text, "<", value, ">")))),
     "a<cr>b"
   )
+  expect_identical(
+    as.character(text_ansi(doc, marks = list(author = c(before = "[", after = "]")))),
+    "[a]b"
+  )
 })
 
 test_that("renderers are validated", {
@@ -240,6 +244,6 @@ test_that("renderers are validated", {
   expect_error(text_html(doc, marks = list("a")), "named by mark key")
   expect_error(text_html(doc, marks = list(bold = "x")), "two strings")
   expect_error(text_markdown(doc, marks = list(bold = function(value) 1)), "must return two strings")
-  expect_error(text_ansi(doc, marks = list(bold = c("a", "b"))), "function that styles")
+  expect_error(text_ansi(doc, marks = list(bold = "a")), "function that styles")
   expect_error(text_ansi(doc, marks = list(bold = function(text) 1)), "must return one string")
 })

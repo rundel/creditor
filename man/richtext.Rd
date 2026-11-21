@@ -73,7 +73,8 @@ them (\verb{author = \\(value) c(before = "<cite>", after = paste0(" (", value, 
 written.
 They are written as given, without escaping, so a function that puts
 the value into HTML should escape it. For \code{text_ansi()}, each entry
-is a function that takes the text and returns it styled, such as
+is either two strings written before and after the text, or a
+function that takes the text and returns it styled, such as
 \code{\link[cli:col_magenta]{cli::col_magenta()}}; a function with an argument named \code{value} is
 also given the mark's value. A mark with an entry is never left out.}
 
