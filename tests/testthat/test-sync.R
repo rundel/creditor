@@ -390,15 +390,17 @@ test_that("a deeply nested chain of containers is an error to read, not a crash"
   expect_type(doc_export(doc), "raw")
 })
 
-test_that("JSON export refuses containers it cannot carry", {
+test_that("JSON carries containers made by map_ensure_container", {
   doc = loro_doc(peer_id = 1)
   items = map_ensure_container(doc_map(doc, "m"), "items", "list")
   list_push(items, "x")
-  expect_error(doc_export_json(doc), "map_ensure_container")
+  map_set(doc_map(doc, "m"), raw = as.raw(c(0, 76, 77, 1, 1, 2, 3, 4)))
 
-  other = loro_doc()
-  doc_import(other, doc_export(doc))
+  other = loro_doc(peer_id = 2) |> doc_import_json(doc_export_json(doc))
   expect_identical(doc_value(other), doc_value(doc))
+  list_push(map_get(doc_map(other, "m"), "items"), "y")
+  doc_merge(doc, other)
+  expect_identical(container_value(items), list("x", "y"))
 
   regular = loro_doc(peer_id = 1)
   map_set(doc_map(regular, "m"), items = loro_list("x"))

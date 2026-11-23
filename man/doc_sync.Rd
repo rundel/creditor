@@ -108,9 +108,7 @@ importing it.
 JSON text. This is larger than the binary format but readable, and
 useful for inspection and debugging. JSON cannot carry values
 nested more than about 120 levels deep: such a document exports,
-but the result cannot be imported again. It also cannot carry
-containers created with \code{\link[=map_ensure_container]{map_ensure_container()}}, and
-\code{doc_export_json()} refuses to export changes that create one.
+but the result cannot be imported again.
 }
 }
 \section{Import status}{

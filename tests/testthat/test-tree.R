@@ -210,7 +210,7 @@ test_that("undoing a move restores the node in place", {
   expect_identical(tree_children(o$tree), c(o$a, o$b))
 })
 
-test_that("undoing a delete restores the subtree under new ids", {
+test_that("undoing a delete restores the subtree under its old ids", {
   o = outline()
   map_set(tree_meta(o$tree, o$a), title = "A")
   map_set(tree_meta(o$tree, o$a1), title = "A1")
@@ -221,15 +221,11 @@ test_that("undoing a delete restores the subtree under new ids", {
 
   undo(manager)
   roots = tree_children(o$tree)
-  expect_length(roots, 2)
-  expect_identical(roots[2], o$b)
-  expect_false(roots[1] %in% c(o$a, o$a1, o$a2))
-  expect_false(tree_contains(o$tree, o$a))
+  expect_identical(roots, c(o$a, o$b))
+  expect_identical(tree_children(o$tree, o$a), c(o$a1, o$a2))
 
-  expect_identical(map_get(tree_meta(o$tree, roots[1]), "title"), "A")
-  children = tree_children(o$tree, roots[1])
-  expect_length(children, 2)
-  expect_identical(map_get(tree_meta(o$tree, children[1]), "title"), "A1")
+  expect_identical(map_get(tree_meta(o$tree, o$a), "title"), "A")
+  expect_identical(map_get(tree_meta(o$tree, o$a1), "title"), "A1")
 })
 
 test_that("a tree can be nested and prints its nodes", {
@@ -407,7 +403,7 @@ test_that("a very deep tree can be built and listed but not expanded", {
   expect_identical(nrow(tree_nodes(tree)), 0L)
 })
 
-test_that("redoing a create brings the node back under a new id", {
+test_that("redoing a create brings the node back under its old id", {
   doc = loro_doc(peer_id = 1)
   tree = doc_tree(doc, "t")
   manager = doc_undo_manager(doc)
@@ -417,8 +413,7 @@ test_that("redoing a create brings the node back under a new id", {
   undo(manager)
   expect_identical(tree_children(tree), character())
   redo(manager)
-  expect_length(tree_children(tree), 1)
-  expect_false(tree_contains(tree, node))
+  expect_identical(tree_children(tree), node)
 })
 
 test_that("node ids from elsewhere and malformed ids are rejected", {

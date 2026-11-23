@@ -334,9 +334,7 @@ doc_jsonpath = function(doc, path) {
 #'   JSON text. This is larger than the binary format but readable, and
 #'   useful for inspection and debugging. JSON cannot carry values
 #'   nested more than about 120 levels deep: such a document exports,
-#'   but the result cannot be imported again. It also cannot carry
-#'   containers created with [`map_ensure_container()`], and
-#'   `doc_export_json()` refuses to export changes that create one.
+#'   but the result cannot be imported again.
 #'
 #' @section Import status:
 #' `doc_import()`, `doc_merge()`, and `doc_import_json()` return the document invisibly,
@@ -529,21 +527,7 @@ doc_export_json = function(doc, from = NULL, to = NULL) {
       check_version(value, arg)
     }
   }
-  json = loro_doc_export_json_impl(doc@ptr, from, to)
-  # Loro 1.18 writes a container created by map_ensure_container() into JSON
-  # as an 8-byte binary marker (00 4C 4D 01 ...) in place of a container
-  # reference. Importing that JSON stores the marker as a plain value and
-  # permanently blocks the key on the receiving replica.
-  if (grepl('"value":[0,76,77,1,', json, fixed = TRUE)) {
-    cli::cli_abort(
-      c(
-        "This document cannot be exported as JSON.",
-        x = "It has a container created with {.fn map_ensure_container}, which Loro's JSON format does not carry correctly.",
-        i = "Use {.fn doc_export} instead."
-      )
-    )
-  }
-  json
+  loro_doc_export_json_impl(doc@ptr, from, to)
 }
 
 #' @rdname doc_sync
