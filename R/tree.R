@@ -25,11 +25,10 @@
 #'   deleted.
 #'
 #' Node ids are strings of the form `"counter@peer"`. They are stable
-#' and identical on every replica. A deleted node is gone for good,
-#' though: when [`undo()`] or [`doc_revert_to()`] brings back a deleted
-#' subtree, the nodes return with their structure and metadata but
-#' under new ids, so ids held from before the deletion no longer refer
-#' to anything. Undoing a move, and [`doc_checkout()`], keep ids.
+#' and identical on every replica, and they survive deletion: when
+#' [`undo()`], [`redo()`], or [`doc_revert_to()`] brings back a deleted
+#' node or subtree, the nodes return under their old ids with their
+#' structure and metadata.
 #'
 #' @param tree A tree handle, from [`doc_tree()`] or a parent container.
 #'   A [`loro_doc`] is also accepted and stands for its default root
