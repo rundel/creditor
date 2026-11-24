@@ -42,9 +42,7 @@ sent over any transport.
   text. This is larger than the binary format but readable, and useful
   for inspection and debugging. JSON cannot carry values nested more
   than about 120 levels deep: such a document exports, but the result
-  cannot be imported again. It also cannot carry containers created with
-  [`map_ensure_container()`](https://rundel.github.io/creditor/reference/map.md),
-  and `doc_export_json()` refuses to export changes that create one.
+  cannot be imported again.
 
 ## Usage
 
@@ -162,9 +160,9 @@ doc_import(b, bytes)
 doc_import_status(b)
 #> $success
 #> # A tibble: 1 × 3
-#>   peer                start   end
-#>   <chr>               <int> <int>
-#> 1 9933661713059498580     5    11
+#>   peer                 start   end
+#>   <chr>                <int> <int>
+#> 1 11356211861160244839     5    11
 #> 
 #> $pending
 #> # A tibble: 0 × 3

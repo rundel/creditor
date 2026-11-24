@@ -23,11 +23,10 @@ deleted.
 
 
 Node ids are strings of the form &quot;counter@peer&quot;. They are stable
-and identical on every replica. A deleted node is gone for good,
-though: when undo() or doc_revert_to() brings back a deleted
-subtree, the nodes return with their structure and metadata but
-under new ids, so ids held from before the deletion no longer refer
-to anything. Undoing a move, and doc_checkout(), keep ids."><meta property="og:description" content="A tree is a hierarchy of nodes, such as an outline or a folder
+and identical on every replica, and they survive deletion: when
+undo(), redo(), or doc_revert_to() brings back a deleted
+node or subtree, the nodes return under their old ids with their
+structure and metadata."><meta property="og:description" content="A tree is a hierarchy of nodes, such as an outline or a folder
 structure. Each node has an id, a position among its siblings, and a
 metadata map for its contents. Moving a node carries its whole
 subtree, and concurrent moves merge without creating cycles or
@@ -51,11 +50,10 @@ deleted.
 
 
 Node ids are strings of the form &quot;counter@peer&quot;. They are stable
-and identical on every replica. A deleted node is gone for good,
-though: when undo() or doc_revert_to() brings back a deleted
-subtree, the nodes return with their structure and metadata but
-under new ids, so ids held from before the deletion no longer refer
-to anything. Undoing a move, and doc_checkout(), keep ids."><meta property="og:image" content="https://rundel.github.io/creditor/logo.svg"></head><body>
+and identical on every replica, and they survive deletion: when
+undo(), redo(), or doc_revert_to() brings back a deleted
+node or subtree, the nodes return under their old ids with their
+structure and metadata."><meta property="og:image" content="https://rundel.github.io/creditor/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -113,11 +111,10 @@ position among siblings).</p></li>
 <li><p><code>tree_contains()</code> reports whether a node exists and has not been
 deleted.</p></li>
 </ul><p>Node ids are strings of the form <code>"counter@peer"</code>. They are stable
-and identical on every replica. A deleted node is gone for good,
-though: when <code><a href="undo.html">undo()</a></code> or <code><a href="history.html">doc_revert_to()</a></code> brings back a deleted
-subtree, the nodes return with their structure and metadata but
-under new ids, so ids held from before the deletion no longer refer
-to anything. Undoing a move, and <code><a href="history.html">doc_checkout()</a></code>, keep ids.</p>
+and identical on every replica, and they survive deletion: when
+<code><a href="undo.html">undo()</a></code>, <code><a href="undo.html">redo()</a></code>, or <code><a href="history.html">doc_revert_to()</a></code> brings back a deleted
+node or subtree, the nodes return under their old ids with their
+structure and metadata.</p>
     </div>
 
     <div class="section level2">
@@ -188,13 +185,13 @@ frame, and <code>tree_contains()</code> a logical.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "Data"</span>
 <span class="r-in"><span><span class="fu">tree_nodes</span><span class="op">(</span><span class="va">tree</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 3 × 3</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   id                     parent                 index</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                  <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 0@13198655785931365166 <span style="color: #BB0000;">NA</span>                         1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> 2@13198655785931365166 <span style="color: #BB0000;">NA</span>                         2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> 4@13198655785931365166 2@13198655785931365166     1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   id                    parent                index</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 0@1306331897660408921 <span style="color: #BB0000;">NA</span>                        1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> 2@1306331897660408921 <span style="color: #BB0000;">NA</span>                        2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> 4@1306331897660408921 2@1306331897660408921     1</span>
 <span class="r-in"><span><span class="fu">tree_children</span><span class="op">(</span><span class="va">tree</span>, <span class="va">methods</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "4@13198655785931365166"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "4@1306331897660408921"</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

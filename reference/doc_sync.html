@@ -32,9 +32,7 @@ doc_export_json() and doc_import_json() exchange changes as
 JSON text. This is larger than the binary format but readable, and
 useful for inspection and debugging. JSON cannot carry values
 nested more than about 120 levels deep: such a document exports,
-but the result cannot be imported again. It also cannot carry
-containers created with map_ensure_container(), and
-doc_export_json() refuses to export changes that create one.
+but the result cannot be imported again.
 
 "><meta property="og:description" content="Replicas exchange state as raw vectors, which can be written to disk
 or sent over any transport.
@@ -69,9 +67,7 @@ doc_export_json() and doc_import_json() exchange changes as
 JSON text. This is larger than the binary format but readable, and
 useful for inspection and debugging. JSON cannot carry values
 nested more than about 120 levels deep: such a document exports,
-but the result cannot be imported again. It also cannot carry
-containers created with map_ensure_container(), and
-doc_export_json() refuses to export changes that create one.
+but the result cannot be imported again.
 
 "><meta property="og:image" content="https://rundel.github.io/creditor/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -142,9 +138,7 @@ importing it.</p></li>
 JSON text. This is larger than the binary format but readable, and
 useful for inspection and debugging. JSON cannot carry values
 nested more than about 120 levels deep: such a document exports,
-but the result cannot be imported again. It also cannot carry
-containers created with <code><a href="map.html">map_ensure_container()</a></code>, and
-<code>doc_export_json()</code> refuses to export changes that create one.</p></li>
+but the result cannot be imported again.</p></li>
 </ul></div>
 
     <div class="section level2">
@@ -262,9 +256,9 @@ is still in transit.</p>
 <span class="r-in"><span><span class="fu">doc_import_status</span><span class="op">(</span><span class="va">b</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $success</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 3</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   peer                start   end</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>               <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 9933661713059498580     5    11</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   peer                 start   end</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 11356211861160244839     5    11</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $pending</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 0 × 3</span></span>

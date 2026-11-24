@@ -31,14 +31,12 @@ and concurrent moves merge without creating cycles or duplicate nodes.
   deleted.
 
 Node ids are strings of the form `"counter@peer"`. They are stable and
-identical on every replica. A deleted node is gone for good, though:
-when [`undo()`](https://rundel.github.io/creditor/reference/undo.md) or
+identical on every replica, and they survive deletion: when
+[`undo()`](https://rundel.github.io/creditor/reference/undo.md),
+[`redo()`](https://rundel.github.io/creditor/reference/undo.md), or
 [`doc_revert_to()`](https://rundel.github.io/creditor/reference/history.md)
-brings back a deleted subtree, the nodes return with their structure and
-metadata but under new ids, so ids held from before the deletion no
-longer refer to anything. Undoing a move, and
-[`doc_checkout()`](https://rundel.github.io/creditor/reference/history.md),
-keep ids.
+brings back a deleted node or subtree, the nodes return under their old
+ids with their structure and metadata.
 
 ## Usage
 
@@ -110,11 +108,11 @@ tree_meta(tree, data)$title
 #> [1] "Data"
 tree_nodes(tree)
 #> # A tibble: 3 × 3
-#>   id                     parent                 index
-#>   <chr>                  <chr>                  <int>
-#> 1 0@13198655785931365166 NA                         1
-#> 2 2@13198655785931365166 NA                         2
-#> 3 4@13198655785931365166 2@13198655785931365166     1
+#>   id                    parent                index
+#>   <chr>                 <chr>                 <int>
+#> 1 0@1306331897660408921 NA                        1
+#> 2 2@1306331897660408921 NA                        2
+#> 3 4@1306331897660408921 2@1306331897660408921     1
 tree_children(tree, methods)
-#> [1] "4@13198655785931365166"
+#> [1] "4@1306331897660408921"
 ```

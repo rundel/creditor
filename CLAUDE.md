@@ -205,14 +205,6 @@ package.
     commits pending edits before the group starts and before it ends
     (the manager object keeps the document pointer for this); otherwise
     edits inside the group merge into whatever is committed next.
-  - JSON:
-    [`doc_export_json()`](https://rundel.github.io/creditor/reference/doc_sync.md)
-    refuses a document whose JSON contains the marker Loro 1.18 writes
-    for a
-    [`map_ensure_container()`](https://rundel.github.io/creditor/reference/map.md)
-    child (`"value":[0,76,77,1,...]`), because importing it corrupts the
-    receiving replica. This is an upstream bug; recheck it when bumping
-    `loro`.
 - Trees: node ids cross as `TreeID`’s display form (`"counter@peer"`),
   parsed back with `TreeID::try_from`; a root-level parent is `NULL`
   going in and `NA` coming out. Three Loro behaviors are worked around
@@ -220,8 +212,8 @@ package.
   as for a missing node, so `loro_tree_children_impl` checks existence
   itself. Loro allows a deleted node as the parent of a create or move
   (the node lands in the deleted part of the tree), which
-  `to_live_parent` rejects. Undoing or reverting a node deletion
-  recreates the subtree under new node ids.
+  `to_live_parent` rejects. Since Loro 1.19, undoing or reverting a node
+  deletion brings the subtree back under its old node ids.
 - Positions in Rust are 0-based (text positions are Unicode code point
   indices via `LoroText::insert` / `delete` / `len_unicode`). Peer ids
   are `u64` and cross as decimal strings. Versions cross as
